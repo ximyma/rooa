@@ -1,0 +1,284 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row">
+    <!-- 左侧边栏 -->
+    <div class="col-md-3">
+        <div class="card mb-3">
+            <div class="card-header">知识库信息</div>
+            <div class="card-body">
+                <h5>{{ kb.name }}</h5>
+                <p class="text-muted small mb-1">文件数：{{ files|length }}</p>
+                <p class="text-muted small mb-1">总字数：{{ files|sum(attribute='word_count') or 0 }}</p>
+                {% if kb.category %}
+                <p class="text-muted small">分类：{{ kb.category }}</p>
+                {% endif %}
+                {% if kb.description %}
+                <p class="small">{{ kb.description }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header">快速链接</div>
+            <div class="card-body">
+                <a href="{{ url_for('my_favorites') }}" class="btn btn-outline-warning btn-sm w-100 mb-2">⭐ 我的收藏</a>
+                <a href="{{ url_for('knowledge_recent') }}" class="btn btn-outline-info btn-sm w-100 mb-2">🕐 最近浏览</a>
+                <a href="{{ url_for('knowledge_search_page') }}" class="btn btn-outline-success btn-sm w-100">🔍 全文搜索</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右侧主内容 -->
+    <div class="col-md-9">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4>{{ kb.name }}</h4>
+        </div>
+
+        <!-- 上传表单 -->
+        <form method="POST" action="{{ url_for('personal_upload') }}" enctype="multipart/form-data" class="mb-3">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="kb_id" value="{{ kb.id }}">
+            <div class="row g-2 mb-2">
+                <div class="col-md-8">
+                    <input type="file" name="file" class="form-control" required accept=".pdf,.docx,.doc,.txt,.md">
+                </div>
+                <div class="col-md-2">
+                    <select name="category" class="form-select">
+                        <option value="">选择分类</option>
+                        <option value="制度规范">制度规范</option>
+                        <option value="技术文档">技术文档</option>
+                        <option value="培训资料">培训资料</option>
+                        <option value="会议记录">会议记录</option>
+                        <option value="常见问题">常见问题</option>
+                        <option value="工作模板">工作模板</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">上传文件</button>
+                </div>
+            </div>
+            <div class="form-text">支持 PDF、Word、TXT、Markdown 文件，上传后自动提取文本内容</div>
+        </form>
+
+        <!-- 全文搜索 -->
+        <div class="card mb-3">
+            <div class="card-header">🔍 全文搜索</div>
+            <div class="card-body">
+                <div class="input-group">
+                    <input type="text" id="searchKeyword" class="form-control" placeholder="输入关键词搜索知识库内容...">
+                    <select id="searchFileType" class="form-select" style="max-width: 120px;">
+                        <option value="all">全部类型</option>
+                        <option value="pdf">PDF</option>
+                        <option value="docx">Word</option>
+                        <option value="txt">TXT</option>
+                        <option value="md">Markdown</option>
+                    </select>
+                    <button class="btn btn-success" onclick="doSearch()">搜索</button>
+                </div>
+                <div id="searchResults" class="mt-2" style="display:none;">
+                    <div class="alert alert-info" id="searchStats"></div>
+                    <div id="searchResultList"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 分类标签筛选 -->
+        <div class="card mb-3">
+            <div class="card-header">🏷️ 文件分类筛选</div>
+            <div class="card-body py-2">
+                <div class="row g-2 align-items-center">
+                    <div class="col-auto">
+                        <select id="filterCategory" class="form-select form-select-sm" onchange="filterFiles()">
+                            <option value="">全部分类</option>
+                            <option value="制度规范">制度规范</option>
+                            <option value="技术文档">技术文档</option>
+                            <option value="培训资料">培训资料</option>
+                            <option value="会议记录">会议记录</option>
+                            <option value="常见问题">常见问题</option>
+                            <option value="工作模板">工作模板</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <input type="text" id="filterTag" class="form-control form-control-sm" placeholder="输入标签搜索" onkeyup="filterFiles()">
+                    </div>
+                    <div class="col-auto">
+                        <span class="badge bg-primary" id="filterCount">共 {{ files|length }} 个文件</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 文件列表 -->
+        <div class="card">
+            <div class="card-header">文件列表</div>
+            <table class="table table-bordered table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>文件名</th>
+                        <th>类型</th>
+                        <th>大小</th>
+                        <th>字数</th>
+                        <th>上传时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for file in files %}
+                    <tr id="file-row-{{ file.id }}"
+                        data-category="{{ file.category or '' }}"
+                        data-tags="{{ file.tags or '' }}"
+                        data-name="{{ file.original_name or '' }}">
+                        <td>
+                            <strong>{{ file.original_name }}</strong>
+                            {% if file.summary %}
+                            <br><small class="text-muted">{{ file.summary[:50] }}...</small>
+                            {% endif %}
+                            {% if file.tags %}
+                            <br>{% for tag in file.get_tags_list() %}
+                            <span class="badge bg-secondary">{{ tag }}</span>
+                            {% endfor %}
+                            {% endif %}
+                        </td>
+                        <td><span class="badge bg-info">{{ file.file_type|upper if file.file_type else '?' }}</span></td>
+                        <td><small>{{ (file.file_size or 0)|filesizeformat }}</small></td>
+                        <td><small>{{ file.word_count or 0 }}</small></td>
+                        <td><small>{{ file.upload_time.strftime('%Y-%m-%d') if file.upload_time else '-' }}</small></td>
+                        <td>
+                            {% if file.file_type in ['txt', 'md'] %}
+                            <a href="{{ url_for('knowledge_preview', file_id=file.id) }}" class="btn btn-sm btn-outline-primary" target="_blank">预览</a>
+                            {% elif file.file_type == 'docx' %}
+                            <a href="{{ url_for('knowledge_preview', file_id=file.id) }}" class="btn btn-sm btn-outline-primary" target="_blank">预览</a>
+                            {% endif %}
+                            <a href="{{ url_for('download_file', filepath=file.file_path.replace('\\','/')) }}" class="btn btn-sm btn-secondary">下载</a>
+                            <button class="btn btn-sm btn-outline-warning" onclick="toggleFav({{ file.id }})" id="fav-btn-{{ file.id }}">⭐</button>
+                            <a href="{{ url_for('personal_delete_file', file_id=file.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('确认删除？')">删除</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if not files %}
+                    <tr><td colspan="6" class="text-center text-muted">暂无文件，请上传文件</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+function doSearch() {
+    const keyword = document.getElementById('searchKeyword').value.trim();
+    const fileType = document.getElementById('searchFileType').value;
+    if (!keyword) { alert('请输入搜索关键词'); return; }
+
+    const resultsDiv = document.getElementById('searchResults');
+    resultsDiv.style.display = 'block';
+    document.getElementById('searchStats').textContent = '搜索中...';
+    document.getElementById('searchResultList').innerHTML = '';
+
+    fetch('/knowledge/api/search', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}'},
+        body: JSON.stringify({keyword: keyword, kb_type: 'personal', file_type: fileType})
+    })
+    .then(r => r.json())
+    .then(data => {
+        const stats = document.getElementById('searchStats');
+        stats.textContent = `找到 ${data.total || 0} 条相关结果`;
+        const list = document.getElementById('searchResultList');
+        if (!data.results || data.results.length === 0) {
+            list.innerHTML = '<div class="text-muted">未找到匹配结果</div>';
+            return;
+        }
+        data.results.forEach(r => {
+            list.innerHTML += `
+                <div class="card mb-2">
+                    <div class="card-body py-2">
+                        <div class="d-flex justify-content-between">
+                            <strong>${r.title}</strong>
+                            <small class="text-muted">${r.kb_name} · ${r.file_type}</small>
+                        </div>
+                        <p class="mb-1 small" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.snippet || ''}</p>
+                        <a href="/knowledge/preview/${r.file_id}" class="btn btn-sm btn-primary" target="_blank">预览</a>
+                        <a href="/knowledge/download/${r.file_id}" class="btn btn-sm btn-secondary" target="_blank">下载</a>
+                    </div>
+                </div>`;
+        });
+    })
+    .catch(e => {
+        document.getElementById('searchStats').textContent = '搜索失败: ' + e;
+    });
+}
+
+function toggleFav(fileId) {
+    fetch(`/knowledge/favorite/${fileId}`, {
+        method: 'POST',
+        headers: {'X-CSRFToken': '{{ csrf_token() }}'}
+    })
+    .then(r => r.json())
+    .then(data => {
+        const btn = document.getElementById(`fav-btn-${fileId}`);
+        if (data.status === 'added') {
+            btn.classList.add('btn-warning');
+            btn.classList.remove('btn-outline-warning');
+        } else {
+            btn.classList.remove('btn-warning');
+            btn.classList.add('btn-outline-warning');
+        }
+    });
+}
+
+// 回车键搜索
+document.getElementById('searchKeyword').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); doSearch(); }
+});
+
+// 分类标签筛选
+function filterFiles() {
+    const cat = document.getElementById('filterCategory').value.trim();
+    const tag = document.getElementById('filterTag').value.trim().toLowerCase();
+    const rows = document.querySelectorAll('tr[data-category]');
+    let visible = 0;
+    rows.forEach(row => {
+        const rowCat = row.getAttribute('data-category') || '';
+        const rowTags = (row.getAttribute('data-tags') || '').toLowerCase();
+        const rowName = (row.getAttribute('data-name') || '').toLowerCase();
+        const matchCat = !cat || rowCat === cat;
+        const matchTag = !tag || rowTags.includes(tag) || rowName.includes(tag);
+        if (matchCat && matchTag) {
+            row.style.display = '';
+            visible++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+    document.getElementById('filterCount').textContent = `共 ${visible} 个文件`;
+}
+
+// 页面加载完成后初始化收藏状态
+document.addEventListener('DOMContentLoaded', function() {
+    {% for file in files %}
+    checkFavStatus({{ file.id }});
+    {% endfor %}
+});
+
+function checkFavStatus(fileId) {
+    fetch(`/knowledge/favorite/${fileId}`, {
+        method: 'GET',
+        headers: {'X-CSRFToken': '{{ csrf_token() }}'}
+    })
+    .then(r => r.json())
+    .then(data => {
+        const btn = document.getElementById(`fav-btn-${fileId}`);
+        if (btn) {
+            if (data.status === 'added') {
+                btn.classList.add('btn-warning');
+                btn.classList.remove('btn-outline-warning');
+            }
+        }
+    })
+    .catch(() => {});
+}
+</script>
+
+
+{% endblock %}

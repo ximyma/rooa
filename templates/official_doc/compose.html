@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+{% block title %}{{ '编辑公文' if doc else '起草公文' }} - 电子公文{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+    <div class="d-flex align-items-center">
+      <a href="{{ url_for('doc_outbox') }}" class="btn btn-outline-secondary me-3">
+        <i class="fas fa-arrow-left me-1"></i>返回
+      </a>
+      <h4 class="mb-0">
+        <i class="fas fa-file-alt me-2 text-primary"></i>
+        {{ '编辑公文' if doc else '起草公文' }}
+      </h4>
+    </div>
+    <a href="{{ url_for('doc_dashboard') }}" class="btn btn-outline-primary">
+      <i class="fas fa-briefcase me-1"></i>公文工作台
+    </a>
+  </div>
+
+
+  <form method="post" enctype="multipart/form-data" id="composeForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="row g-4">
+      <!-- 左栏：公文内容 -->
+      <div class="col-lg-8">
+        <div class="card shadow-sm">
+          <div class="card-header bg-white fw-semibold">
+            <i class="fas fa-pen-nib me-2 text-primary"></i>公文内容
+          </div>
+          <div class="card-body">
+            <div class="mb-3">
+              <label class="form-label fw-semibold">公文标题 <span class="text-danger">*</span></label>
+              <input type="text" name="title" class="form-control form-control-lg"
+                     placeholder="请输入公文标题，如：关于XXX的通知"
+                     value="{{ doc.title if doc else '' }}" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">正文内容</label>
+              <textarea name="content" id="contentArea" class="form-control md-editor"
+                        data-height="420"
+                        placeholder="请输入公文正文，支持 Markdown 格式（**粗体**、*斜体*、# 标题、- 列表 等）...">{{ doc.content if doc else '' }}</textarea>
+            </div>
+
+            <!-- 附件上传 -->
+            <div class="mb-3">
+              <label class="form-label fw-semibold">附件</label>
+              {% if doc and doc.get_attachments() %}
+              <div class="mb-2">
+                <small class="text-muted">已有附件：</small>
+                {% for att in doc.get_attachments() %}
+                <a href="{{ url_for('doc_attachment', filename=att.path) }}" class="badge bg-light text-dark border me-1" target="_blank">
+                  <i class="fas fa-paperclip me-1"></i>{{ att.name }}
+                </a>
+                {% endfor %}
+              </div>
+              {% endif %}
+              <input type="file" name="attachments" class="form-control" multiple
+                     accept=".pdf,.doc,.docx,.xlsx,.xls,.txt,.zip,.rar,.7z,.jpg,.jpeg,.png">
+              <div class="form-text">支持 PDF、Word、Excel、压缩包、图片等格式，可多选</div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右栏：公文属性 -->
+      <div class="col-lg-4">
+        <div class="card shadow-sm mb-4">
+          <div class="card-header bg-white fw-semibold">
+            <i class="fas fa-tags me-2 text-secondary"></i>公文属性
+          </div>
+          <div class="card-body">
+            <div class="mb-3">
+              <label class="form-label">公文种类</label>
+              <select name="doc_type" class="form-select">
+                {% for t in ['通知','请示','报告','批复','函','决定','意见','纪要','公告','通报'] %}
+                <option value="{{ t }}" {{ 'selected' if doc and doc.doc_type == t else '' }}>{{ t }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">紧急程度</label>
+              <select name="urgency" class="form-select">
+                {% for u in ['普通','紧急','特急'] %}
+                <option value="{{ u }}" {{ 'selected' if doc and doc.urgency == u else '' }}>{{ u }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">密级</label>
+              <select name="secrecy" class="form-select">
+                {% for s in ['普通','内部','秘密','机密'] %}
+                <option value="{{ s }}" {{ 'selected' if doc and doc.secrecy == s else '' }}>{{ s }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">发文部门</label>
+              <input type="text" name="sender_dept" class="form-control"
+                     value="{{ doc.sender_dept if doc else (current_user.department or '') }}"
+                     placeholder="自动填写，可修改">
+            </div>
+            <div class="mb-0">
+              <label class="form-label">主办单位</label>
+              <input type="text" name="sign_dept" class="form-control"
+                     value="{{ doc.sign_dept if doc else '' }}"
+                     placeholder="如：办公室、综合部">
+            </div>
+          </div>
+        </div>
+
+
+        <!-- 收件人 -->
+        <div class="card shadow-sm mb-4">
+          <div class="card-header bg-white fw-semibold">
+            <i class="fas fa-users me-2 text-success"></i>收件人
+          </div>
+          <div class="card-body">
+            <!-- 部门快速筛选 -->
+            {% if depts %}
+            <div class="mb-2 d-flex flex-wrap gap-1">
+              <button type="button" class="btn btn-sm btn-outline-secondary" onclick="filterByDept('')">全部</button>
+              {% for d in depts %}
+              <button type="button" class="btn btn-sm btn-outline-primary" onclick="filterByDept('{{ d.name }}')">{{ d.name }}</button>
+              {% endfor %}
+            </div>
+            {% endif %}
+            <div class="mb-2">
+              <input type="text" id="searchUser" class="form-control form-control-sm"
+                     placeholder="搜索姓名/部门…" oninput="filterUsers()">
+            </div>
+            <div id="userList" style="max-height:200px;overflow-y:auto;border:1px solid #dee2e6;border-radius:6px;padding:6px">
+              {% for u in users %}
+              {% set selected = doc and u.id in doc.get_receiver_ids() %}
+              <div class="user-item d-flex align-items-center p-1 rounded hover-bg"
+                   data-name="{{ u.name }}" data-dept="{{ u.department or '' }}">
+                <input class="form-check-input me-2 flex-shrink-0" type="checkbox"
+                       name="receiver_ids" value="{{ u.id }}"
+                       id="user_{{ u.id }}" {{ 'checked' if selected else '' }}>
+                <label class="form-check-label flex-grow-1 cursor-pointer" for="user_{{ u.id }}">
+                  <span class="fw-semibold">{{ u.name }}</span>
+                  <small class="text-muted ms-1">{{ u.department or '未设置部门' }}</small>
+                </label>
+              </div>
+              {% endfor %}
+            </div>
+            <div class="mt-2">
+              <small class="text-muted">
+                已选: <span id="selectedCount">{{ doc.get_receiver_ids()|length if doc else 0 }}</span> 人
+              </small>
+            </div>
+            <div class="mt-2">
+              <label class="form-label form-text">或按部门发送（逗号分隔，将自动查找该部门所有成员）</label>
+              <input type="text" name="receiver_depts" class="form-control form-control-sm"
+                     value="{{ doc.receiver_depts if doc else '' }}"
+                     placeholder="如：办公室,财务部">
+            </div>
+          </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="card shadow-sm">
+          <div class="card-body d-grid gap-2">
+            <button type="submit" name="action" value="save" class="btn btn-outline-secondary">
+              <i class="fas fa-save me-1"></i>保存草稿
+            </button>
+            <button type="submit" name="action" value="submit" class="btn btn-primary"
+                    onclick="return checkBeforeSubmit()">
+              <i class="fas fa-paper-plane me-1"></i>提交审批
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </form>
+
+  <!-- 公文模板引用弹窗 -->
+  <div class="modal fade" id="templateModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">选择公文模板</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" id="templateList">
+          <div class="text-center py-3"><div class="spinner-border"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function filterUsers() {
+  const kw = document.getElementById('searchUser').value.toLowerCase();
+  document.querySelectorAll('.user-item').forEach(item => {
+    const name = item.dataset.name.toLowerCase();
+    const dept = item.dataset.dept.toLowerCase();
+    item.style.display = (name.includes(kw) || dept.includes(kw)) ? '' : 'none';
+  });
+}
+
+// 按部门快速筛选
+function filterByDept(deptName) {
+  document.getElementById('searchUser').value = deptName;
+  document.querySelectorAll('.user-item').forEach(item => {
+    if (!deptName) {
+      item.style.display = '';
+    } else {
+      item.style.display = item.dataset.dept === deptName ? '' : 'none';
+    }
+  });
+  // 高亮激活状态
+  document.querySelectorAll('.btn-outline-primary').forEach(btn => {
+    btn.classList.toggle('active', btn.textContent.trim() === deptName);
+  });
+}
+
+document.querySelectorAll('input[name="receiver_ids"]').forEach(cb => {
+  cb.addEventListener('change', () => {
+    const count = document.querySelectorAll('input[name="receiver_ids"]:checked').length;
+    document.getElementById('selectedCount').textContent = count;
+  });
+});
+
+function insertText(text) {
+  const ta = document.getElementById('contentArea');
+  const pos = ta.selectionStart;
+  ta.value = ta.value.slice(0, pos) + text + ta.value.slice(pos);
+  ta.focus();
+}
+
+function checkBeforeSubmit() {
+  const receiverChecked = document.querySelectorAll('input[name="receiver_ids"]:checked').length;
+  const depts = document.querySelector('input[name="receiver_depts"]').value.trim();
+  if (receiverChecked === 0 && !depts) {
+    alert('请至少选择一位收件人或填写收件部门');
+    return false;
+  }
+  return confirm('确认提交审批？提交后不可直接修改。');
+}
+
+function insertTemplate() {
+  const modal = new bootstrap.Modal(document.getElementById('templateModal'));
+  modal.show();
+  fetch('/admin/doc_templates?json=1')
+    .then(r => r.json()).catch(() => null)
+    .then(data => {
+      if (!data) {
+        // fallback: 用 fetch 获取模板列表
+        loadTemplatesFromAPI();
+        return;
+      }
+    });
+  loadTemplatesFromAPI();
+}
+
+function loadTemplatesFromAPI() {
+  const container = document.getElementById('templateList');
+  // 简单内置几个快速选择
+  container.innerHTML = `
+    <p class="text-muted small">点击模板名称将模板内容插入正文：</p>
+    <div id="tplCards" class="row g-2"></div>
+  `;
+  fetch('/admin/doc_templates')
+    .then(r => r.text())
+    .then(() => {
+      // 由于是页面不是API，直接提示用户去模板库复制
+      container.innerHTML = `<div class="alert alert-info">
+        请前往 <a href="/smart_office/template_library_v2" target="_blank">公文模板库</a>
+        选择模板内容后复制到正文。
+      </div>`;
+    });
+}
+</script>
+<style>
+.hover-bg:hover { background: #f8f9fa; }
+.cursor-pointer { cursor: pointer; }
+</style>
+{% endblock %}

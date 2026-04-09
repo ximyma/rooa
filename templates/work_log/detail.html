@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}工作日志详情{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div>
+      <a href="{{ url_for('worklog_index') }}" class="btn btn-outline-secondary mb-3"><i class="fas fa-arrow-left me-1"></i>返回</a>
+      <h3 class="mb-1">{{ log.title }}</h3>
+      <div class="text-muted">{{ log.user.name if log.user else '-' }} · {{ log.log_date.strftime('%Y-%m-%d') if log.log_date else '-' }} · {{ log.category }}</div>
+    </div>
+    <div class="d-flex gap-2 align-items-center flex-wrap">
+      <span class="badge bg-{{ 'secondary' if log.status == 'draft' else 'warning' if log.status == 'submitted' else 'danger' if log.status == 'returned' else 'success' }} fs-6">{{ {'draft':'草稿','submitted':'待阅','returned':'退回修改','reviewed':'已阅'}.get(log.status, log.status) }}</span>
+      {% if log.user_id == current_user.id %}
+      <a href="{{ url_for('worklog_new', id=log.id) }}" class="btn btn-outline-secondary"><i class="fas fa-pen me-1"></i>编辑日志</a>
+      {% endif %}
+      {% if current_user.role in ('admin', 'manager') and log.status != 'reviewed' %}
+      <form method="post" action="{{ url_for('worklog_review', log_id=log.id) }}"><input type="hidden" name="action" value="review"><button class="btn btn-primary"><i class="fas fa-check me-1"></i>标记已阅</button></form>
+      <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#returnModal"><i class="fas fa-reply me-1"></i>退回修改</button>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white fw-semibold">日志内容</div>
+        <div class="card-body">
+          <div class="mb-4">
+            <div class="text-muted small mb-1">工作内容</div>
+            <div class="bg-light rounded p-3" style="white-space:pre-wrap;line-height:1.8;">{{ log.content or '暂无内容' }}</div>
+          </div>
+          <div class="mb-4">
+            <div class="text-muted small mb-1">工作成果</div>
+            <div class="bg-light rounded p-3" style="white-space:pre-wrap;line-height:1.8;">{{ log.achievements or '暂无成果' }}</div>
+          </div>
+          <div class="mb-4">
+            <div class="text-muted small mb-1">存在问题</div>
+            <div class="bg-light rounded p-3" style="white-space:pre-wrap;line-height:1.8;">{{ log.issues or '暂无问题记录' }}</div>
+          </div>
+          <div>
+            <div class="text-muted small mb-1">明日计划</div>
+            <div class="bg-light rounded p-3" style="white-space:pre-wrap;line-height:1.8;">{{ log.tomorrow_plan or '暂无明日计划' }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card shadow-sm">
+        <div class="card-header bg-white fw-semibold">审批留痕</div>
+        <div class="card-body">
+          {% if review_logs %}
+          <div class="timeline">
+            {% for review in review_logs %}
+            {% set action_label = {'save_draft':'保存草稿','submit':'提交审核','resubmit':'重新提交','review':'已阅批注','return':'退回修改'}.get(review.action, review.action) %}
+            {% set action_color = 'danger' if review.action == 'return' else 'success' if review.action == 'review' else 'secondary' %}
+            <div class="border-start ps-3 mb-3 position-relative">
+              <span class="position-absolute top-0 start-0 translate-middle badge rounded-pill bg-{{ action_color }}">{{ loop.index }}</span>
+              <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                <div class="fw-semibold">{{ action_label }}</div>
+                <div class="small text-muted">{{ review.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+              </div>
+              <div class="small text-muted mb-1">操作人：{{ review.operator.name if review.operator else '-' }}{% if review.from_status or review.to_status %} · {{ review.from_status or '-' }} → {{ review.to_status or '-' }}{% endif %}</div>
+              <div style="white-space:pre-wrap;line-height:1.8;">{{ review.comment or '无附加意见' }}</div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="text-muted">暂无审批留痕</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white fw-semibold">日志信息</div>
+        <div class="card-body">
+          <div class="mb-2"><span class="text-muted small">填写人：</span>{{ log.user.name if log.user else '-' }}</div>
+          <div class="mb-2"><span class="text-muted small">日期：</span>{{ log.log_date.strftime('%Y-%m-%d') if log.log_date else '-' }}</div>
+          <div class="mb-2"><span class="text-muted small">工时：</span>{{ log.hours or 0 }}</div>
+          <div class="mb-2"><span class="text-muted small">状态：</span>{{ {'draft':'草稿','submitted':'待阅','returned':'退回修改','reviewed':'已阅'}.get(log.status, log.status) }}</div>
+          <div><span class="text-muted small">关联任务：</span>{{ log.related_task.title if log.related_task else '未关联' }}</div>
+        </div>
+      </div>
+
+      {% if log.status == 'returned' %}
+      <div class="card border-danger shadow-sm">
+        <div class="card-header bg-white fw-semibold text-danger">退回提醒</div>
+        <div class="card-body small text-muted" style="line-height:1.8;">
+          当前日志已被退回修改，请根据最新审批意见补充完善后重新提交。
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% if current_user.role in ('admin', 'manager') and log.status != 'reviewed' %}
+<div class="modal fade" id="returnModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" action="{{ url_for('worklog_review', log_id=log.id) }}">
+        <div class="modal-header">
+          <h5 class="modal-title">退回修改</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" name="action" value="return">
+          <label class="form-label">退回意见</label>
+          <textarea name="comment" rows="5" class="form-control" placeholder="请说明需要补充或修改的内容">请根据工作内容和成果补充细节后重新提交。</textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+          <button type="submit" class="btn btn-danger">确认退回</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+

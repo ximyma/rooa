@@ -1,0 +1,397 @@
+{% extends "base.html" %}
+
+{% block title %}数字化任务 - 档案管理系统{% endblock %}
+
+{% block content %}
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+<div class="container-fluid py-4">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">
+                <i class="bi bi-cpu me-2 text-primary"></i>数字化任务管理
+            </h2>
+            <p class="text-muted mb-0" style="font-size:.9rem">
+                管理档案批量数字化扫描任务，跟踪进度与结果
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createTaskModal">
+                <i class="bi bi-plus-circle me-1"></i>新建任务
+            </button>
+            <a href="{{ url_for('archive.digitize_manage') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>返回数字化管理
+            </a>
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- 统计概览 -->
+    <div class="row g-3 mb-4">
+        {% set total_count = tasks|length %}
+        {% set pending_count = tasks|selectattr('status','equalto','pending')|list|length %}
+        {% set running_count = tasks|selectattr('status','equalto','running')|list|length %}
+        {% set done_count = tasks|selectattr('status','equalto','completed')|list|length %}
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm text-center" style="border-radius:14px">
+                <div class="card-body py-3">
+                    <div style="font-size:2rem;font-weight:700;color:#4a5568">{{ total_count }}</div>
+                    <div class="text-muted" style="font-size:.82rem">全部任务</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm text-center" style="border-radius:14px">
+                <div class="card-body py-3">
+                    <div style="font-size:2rem;font-weight:700;color:#3182ce">{{ pending_count + running_count }}</div>
+                    <div class="text-muted" style="font-size:.82rem">进行中</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm text-center" style="border-radius:14px">
+                <div class="card-body py-3">
+                    <div style="font-size:2rem;font-weight:700;color:#38a169">{{ done_count }}</div>
+                    <div class="text-muted" style="font-size:.82rem">已完成</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm text-center" style="border-radius:14px">
+                <div class="card-body py-3">
+                    <div style="font-size:2rem;font-weight:700;color:#e53e3e">
+                        {{ tasks|selectattr('status','equalto','failed')|list|length }}
+                    </div>
+                    <div class="text-muted" style="font-size:.82rem">失败任务</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 任务列表 -->
+    {% if tasks %}
+    <div class="card border-0 shadow-sm" style="border-radius:16px">
+        <div class="card-header bg-white border-0 pt-4 pb-3 px-4">
+            <h5 class="mb-0"><i class="bi bi-list-task me-2 text-primary"></i>任务列表</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4" style="width:30%">任务名称</th>
+                            <th>全宗 / 目录</th>
+                            <th>年度范围</th>
+                            <th>进度</th>
+                            <th>状态</th>
+                            <th>创建时间</th>
+                            <th class="text-center">OCR</th>
+                            <th class="pe-4 text-end">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for task in tasks %}
+                        <tr>
+                            <td class="ps-4">
+                                <div class="fw-semibold text-dark">{{ task.task_name }}</div>
+                                <div class="text-muted" style="font-size:.78rem">
+                                    分辨率: {{ task.scan_resolution or '300' }} DPI ·
+                                    色彩: {{ '彩色' if task.color_mode == 'color' else '灰度' if task.color_mode == 'gray' else '黑白' }}
+                                </div>
+                            </td>
+                            <td>
+                                <div style="font-size:.88rem">
+                                    {% if task.fonds %}
+                                        <i class="bi bi-archive me-1 text-secondary"></i>{{ task.fonds.fonds_name }}
+                                    {% else %}
+                                        <span class="text-muted">全部全宗</span>
+                                    {% endif %}
+                                </div>
+                                <div style="font-size:.78rem;color:#718096">
+                                    {% if task.catalog %}{{ task.catalog.catalog_name }}{% else %}全部目录{% endif %}
+                                </div>
+                            </td>
+                            <td style="font-size:.88rem">
+                                {% if task.year_start or task.year_end %}
+                                    {{ task.year_start or '—' }} ~ {{ task.year_end or '—' }}
+                                {% else %}
+                                    <span class="text-muted">不限</span>
+                                {% endif %}
+                                {% if task.retention_period %}
+                                    <div style="font-size:.75rem;color:#718096">{{ task.retention_period }}</div>
+                                {% endif %}
+                            </td>
+                            <td style="min-width:120px">
+                                {% set total_f = task.total_files or 0 %}
+                                {% set done_f = task.completed_files or 0 %}
+                                {% set pct = ((done_f / total_f * 100) | int) if total_f > 0 else 0 %}
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="progress flex-grow-1" style="height:6px;border-radius:4px">
+                                        <div class="progress-bar bg-primary" style="width:{{ pct }}%"></div>
+                                    </div>
+                                    <span style="font-size:.75rem;color:#718096;white-space:nowrap">
+                                        {{ done_f }}/{{ total_f }}
+                                    </span>
+                                </div>
+                                {% if task.failed_files and task.failed_files > 0 %}
+                                    <div style="font-size:.72rem;color:#e53e3e">{{ task.failed_files }} 个失败</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if task.status == 'pending' %}
+                                    <span class="badge" style="background:#edf2f7;color:#4a5568;border-radius:20px">⏳ 等待中</span>
+                                {% elif task.status == 'running' %}
+                                    <span class="badge" style="background:#bee3f8;color:#2b6cb0;border-radius:20px">⚡ 进行中</span>
+                                {% elif task.status == 'completed' %}
+                                    <span class="badge" style="background:#c6f6d5;color:#276749;border-radius:20px">✅ 已完成</span>
+                                {% elif task.status == 'failed' %}
+                                    <span class="badge" style="background:#fed7d7;color:#c53030;border-radius:20px">❌ 失败</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ task.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td style="font-size:.82rem;color:#718096">
+                                {% if task.created_at %}
+                                    {{ task.created_at.strftime('%Y-%m-%d') }}<br>
+                                    <span style="font-size:.75rem">{{ task.created_at.strftime('%H:%M') }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if task.enable_ocr %}
+                                    <i class="bi bi-check-circle-fill text-success" title="已启用 OCR"></i>
+                                {% else %}
+                                    <i class="bi bi-x-circle text-muted" title="未启用 OCR"></i>
+                                {% endif %}
+                            </td>
+                            <td class="pe-4 text-end">
+                                <div class="btn-group btn-group-sm">
+                                    <button type="button" class="btn btn-outline-secondary"
+                                            onclick="viewTaskDetail({{ task.id }}, '{{ task.task_name | replace("'", "\\'") }}')"
+                                            title="查看详情">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                    {% if task.status in ['pending', 'failed'] %}
+                                    <button type="button" class="btn btn-outline-primary"
+                                            onclick="startTask({{ task.id }})" title="启动任务">
+                                        <i class="bi bi-play-fill"></i>
+                                    </button>
+                                    {% endif %}
+                                    {% if task.status == 'running' %}
+                                    <button type="button" class="btn btn-outline-warning"
+                                            onclick="stopTask({{ task.id }})" title="停止任务">
+                                        <i class="bi bi-stop-fill"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- 空状态 -->
+    <div class="card border-0 shadow-sm text-center py-5" style="border-radius:16px">
+        <div class="card-body">
+            <div style="font-size:4rem;margin-bottom:1rem">🖨️</div>
+            <h5 class="text-muted">暂无数字化任务</h5>
+            <p class="text-muted mb-4" style="font-size:.9rem">点击「新建任务」创建档案批量数字化扫描任务</p>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createTaskModal">
+                <i class="bi bi-plus-circle me-1"></i>新建第一个任务
+            </button>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 新建任务 Modal -->
+<div class="modal fade" id="createTaskModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content" style="border-radius:16px;border:none">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title"><i class="bi bi-cpu me-2 text-primary"></i>新建数字化任务</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('archive.digitization_task_create') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body pt-3">
+                    <div class="row g-3">
+                        <!-- 任务名称 -->
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">任务名称 <span class="text-danger">*</span></label>
+                            <input type="text" name="task_name" class="form-control"
+                                   placeholder="例：2024年度文书档案数字化" required>
+                        </div>
+
+                        <!-- 全宗与目录（可选） -->
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">全宗范围</label>
+                            <select name="fonds_id" class="form-select">
+                                <option value="">全部全宗</option>
+                                {# fonds_list 由 digitize_manage 传入，此处无需再传，留空即可 #}
+                            </select>
+                            <div class="form-text">留空表示不限全宗</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">目录范围</label>
+                            <input type="number" name="catalog_id" class="form-control" placeholder="目录 ID（可选）">
+                            <div class="form-text">留空表示不限目录</div>
+                        </div>
+
+                        <!-- 年度范围 -->
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">起始年度</label>
+                            <input type="number" name="year_start" class="form-control"
+                                   placeholder="如 2010" min="1900" max="2099">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">终止年度</label>
+                            <input type="number" name="year_end" class="form-control"
+                                   placeholder="如 2024" min="1900" max="2099">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">保管期限</label>
+                            <select name="retention_period" class="form-select">
+                                <option value="">不限</option>
+                                <option value="永久">永久</option>
+                                <option value="30年">30年</option>
+                                <option value="10年">10年</option>
+                            </select>
+                        </div>
+
+                        <!-- 扫描参数 -->
+                        <div class="col-12">
+                            <hr class="my-1">
+                            <p class="fw-semibold mb-2" style="font-size:.9rem">扫描参数</p>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">扫描分辨率</label>
+                            <select name="scan_resolution" class="form-select">
+                                <option value="150">150 DPI（低质量）</option>
+                                <option value="200">200 DPI</option>
+                                <option value="300" selected>300 DPI（推荐）</option>
+                                <option value="400">400 DPI</option>
+                                <option value="600">600 DPI（高质量）</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">色彩模式</label>
+                            <select name="color_mode" class="form-select">
+                                <option value="color" selected>彩色</option>
+                                <option value="gray">灰度</option>
+                                <option value="bw">黑白</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">OCR 语言</label>
+                            <select name="ocr_language" class="form-select">
+                                <option value="chi_sim+eng" selected>中文 + 英文</option>
+                                <option value="chi_sim">仅中文</option>
+                                <option value="eng">仅英文</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="enable_ocr"
+                                       id="enableOcr" checked>
+                                <label class="form-check-label" for="enableOcr">
+                                    启用 OCR 文字识别（识别后可全文检索）
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>创建任务
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 任务详情 Modal -->
+<div class="modal fade" id="taskDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius:16px;border:none">
+            <div class="modal-header border-0">
+                <h5 class="modal-title" id="taskDetailTitle">任务详情</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="taskDetailBody">
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function viewTaskDetail(taskId, taskName) {
+    document.getElementById('taskDetailTitle').textContent = taskName;
+    document.getElementById('taskDetailBody').innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></div>';
+    const modal = new bootstrap.Modal(document.getElementById('taskDetailModal'));
+    modal.show();
+    // 可在此扩展 fetch 调用获取详情
+    document.getElementById('taskDetailBody').innerHTML = `
+        <div class="text-center py-3">
+            <i class="bi bi-info-circle fs-1 text-primary"></i>
+            <p class="mt-2 text-muted">任务 ID: ${taskId}</p>
+            <p class="text-muted" style="font-size:.85rem">详细进度请在数字化管理面板中查看。</p>
+        </div>
+    `;
+}
+
+function startTask(taskId) {
+    if (!confirm('确定要启动此数字化任务吗？')) return;
+    const csrfToken = document.querySelector('input[name="csrf_token"]')?.value || '';
+    fetch(`/archive/digitization/task/${taskId}/start`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/json' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success !== false) {
+            location.reload();
+        } else {
+            alert(data.message || '启动失败');
+        }
+    })
+    .catch(() => {
+        alert('请求失败，请稍后重试');
+    });
+}
+
+function stopTask(taskId) {
+    if (!confirm('确定要停止此任务吗？')) return;
+    const csrfToken = document.querySelector('input[name="csrf_token"]')?.value || '';
+    fetch(`/archive/digitization/task/${taskId}/stop`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/json' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        location.reload();
+    })
+    .catch(() => {
+        location.reload();
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>编辑全宗 - {{ fonds.fonds_name }}</title>
+    <style>
+        body { background: #f7fafc; font-family: 'Microsoft YaHei', sans-serif; }
+        .container { max-width: 700px; margin: 3rem auto; background: white; border-radius: 16px; padding: 2.5rem; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        .header { margin-bottom: 2rem; }
+        .header h2 { color: #2d3748; margin: 0; }
+        .breadcrumb { font-size: 0.85rem; color: #718096; margin-bottom: 0.5rem; }
+        .breadcrumb a { color: #667eea; text-decoration: none; }
+        .form-group { margin-bottom: 1.25rem; }
+        .form-group label { display: block; font-weight: 600; color: #2d3748; margin-bottom: 0.4rem; }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%; padding: 0.65rem 0.9rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.9rem; box-sizing: border-box;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+        }
+        .form-group .hint { font-size: 0.8rem; color: #a0aec0; margin-top: 0.25rem; }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;
+            padding: 0.75rem 2rem; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer;
+        }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(102,126,234,0.4); }
+        .btn-secondary { background: #e2e8f0; color: #4a5568; border: none; padding: 0.75rem 1.5rem; border-radius: 10px; cursor: pointer; margin-left: 0.5rem; }
+        .btn-secondary:hover { background: #cbd5e0; }
+        .actions { margin-top: 2rem; display: flex; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <div class="breadcrumb">
+            <a href="{{ url_for('archive.fonds_list') }}">全宗管理</a> / 编辑全宗
+        </div>
+        <h2>📂 编辑全宗</h2>
+    </div>
+
+    <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="form-group">
+            <label>全宗号 <span style="color:red">*</span></label>
+            <input type="text" name="fonds_code" value="{{ fonds.fonds_code }}" required placeholder="如：DATIAN">
+        </div>
+
+        <div class="form-group">
+            <label>全宗名称 <span style="color:red">*</span></label>
+            <input type="text" name="fonds_name" value="{{ fonds.fonds_name }}" required placeholder="如：大田县人民政府办公室">
+        </div>
+
+        <div class="form-group">
+            <label>全宗类型</label>
+            <select name="fonds_type">
+                <option value="机关" {% if fonds.fonds_type == '机关' %}selected{% endif %}>机关</option>
+                <option value="企业" {% if fonds.fonds_type == '企业' %}selected{% endif %}>企业</option>
+                <option value="事业单位" {% if fonds.fonds_type == '事业单位' %}selected{% endif %}>事业单位</option>
+                <option value="个人" {% if fonds.fonds_type == '个人' %}selected{% endif %}>个人</option>
+                <option value="其他" {% if fonds.fonds_type == '其他' %}selected{% endif %}>其他</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>全宗说明</label>
+            <textarea name="description" rows="3" placeholder="档案形成单位简介">{{ fonds.description or '' }}</textarea>
+        </div>
+
+        <div class="actions">
+            <button type="submit" class="btn-primary">💾 保存修改</button>
+            <a href="{{ url_for('archive.fonds_list') }}"><button type="button" class="btn-secondary">取消</button></a>
+        </div>
+    </form>
+</div>
+</body>
+</html>

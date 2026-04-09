@@ -1,0 +1,757 @@
+{% extends "base.html" %}
+
+{% block title %}文档格式转换 - 企业智能OA系统{% endblock %}
+
+{% block content %}
+<style>
+/* 转换页面专用样式 */
+.convert-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+}
+
+.convert-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.convert-header .icon {
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1rem;
+    font-size: 2.5rem;
+    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+}
+
+.convert-header h1 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #2d3748;
+    margin-bottom: 0.5rem;
+}
+
+.convert-header p {
+    color: #718096;
+    font-size: 1rem;
+}
+
+.convert-card {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+}
+
+/* 拖拽上传区域 */
+.drop-zone {
+    border: 2px dashed #cbd5e0;
+    border-radius: 12px;
+    padding: 60px 30px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: #f7fafc;
+    position: relative;
+}
+
+.drop-zone:hover,
+.drop-zone.dragover {
+    border-color: #667eea;
+    background: rgba(102, 126, 234, 0.05);
+}
+
+.drop-zone .upload-icon {
+    font-size: 3.5rem;
+    color: #a0aec0;
+    margin-bottom: 1rem;
+    transition: color 0.3s;
+}
+
+.drop-zone:hover .upload-icon {
+    color: #667eea;
+}
+
+.drop-zone h3 {
+    font-size: 1.2rem;
+    color: #4a5568;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.drop-zone p {
+    color: #718096;
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.drop-zone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+}
+
+/* 文件信息 */
+.file-info-box {
+    margin-top: 1.5rem;
+    padding: 1rem 1.25rem;
+    background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+    border: 1px solid rgba(102, 126, 234, 0.2);
+    border-radius: 10px;
+    display: none;
+}
+
+.file-info-box.show {
+    display: block;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.file-info-box .file-icon {
+    font-size: 2rem;
+    color: #667eea;
+    margin-right: 1rem;
+}
+
+.file-info-box .file-details {
+    flex: 1;
+}
+
+.file-info-box .file-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #2d3748;
+    word-break: break-all;
+}
+
+.file-info-box .file-meta {
+    font-size: 0.85rem;
+    color: #718096;
+    margin-top: 0.25rem;
+}
+
+/* 格式选择区域 */
+.format-section {
+    margin-top: 2rem;
+    display: none;
+}
+
+.format-section.show {
+    display: block;
+    animation: fadeIn 0.3s ease;
+}
+
+.format-section h4 {
+    font-size: 1rem;
+    color: #4a5568;
+    margin-bottom: 1rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.format-row {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1.5rem;
+    background: #f7fafc;
+    border-radius: 12px;
+    margin-bottom: 1rem;
+}
+
+.source-format {
+    text-align: center;
+    min-width: 100px;
+}
+
+.source-format .badge {
+    display: inline-block;
+    padding: 0.75rem 1.5rem;
+    background: #667eea;
+    color: white;
+    border-radius: 8px;
+    font-size: 1.2rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.source-format .label {
+    font-size: 0.75rem;
+    color: #718096;
+    margin-top: 0.5rem;
+}
+
+.arrow-divider {
+    font-size: 1.5rem;
+    color: #cbd5e0;
+}
+
+.target-formats {
+    flex: 1;
+}
+
+.target-formats h5 {
+    font-size: 0.85rem;
+    color: #718096;
+    margin-bottom: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.format-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 0.75rem;
+}
+
+.format-chip {
+    padding: 0.75rem 0.5rem;
+    border-radius: 10px;
+    border: 2px solid #e2e8f0;
+    background: #fff;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.format-chip:hover {
+    border-color: #667eea;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+}
+
+.format-chip.selected {
+    border-color: #667eea;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.format-chip .ext {
+    font-size: 1rem;
+    font-weight: 700;
+    display: block;
+    text-transform: uppercase;
+}
+
+.format-chip .name {
+    font-size: 0.7rem;
+    opacity: 0.8;
+    margin-top: 0.25rem;
+    display: block;
+}
+
+.format-chip.selected .name {
+    opacity: 0.9;
+}
+
+/* 转换按钮 */
+.convert-btn {
+    width: 100%;
+    padding: 1rem;
+    border-radius: 12px;
+    border: none;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+}
+
+.convert-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+}
+
+.convert-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.convert-btn .spinner {
+    display: none;
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+.convert-btn.loading .spinner {
+    display: inline-block;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* 提示文字 */
+.hint-text {
+    text-align: center;
+    font-size: 0.85rem;
+    color: #a0aec0;
+    margin-top: 1rem;
+}
+
+/* 结果展示 */
+.result-box {
+    margin-top: 1.5rem;
+    padding: 1.25rem;
+    border-radius: 12px;
+    display: none;
+}
+
+.result-box.show {
+    display: block;
+    animation: fadeIn 0.3s ease;
+}
+
+.result-box.success {
+    background: linear-gradient(135deg, #48bb7815 0%, #38a16915 100%);
+    border: 1px solid rgba(72, 187, 120, 0.3);
+}
+
+.result-box.error {
+    background: linear-gradient(135deg, #f5656515 0%, #e53e3e15 100%);
+    border: 1px solid rgba(245, 101, 101, 0.3);
+}
+
+.result-box .result-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.result-box.success .result-header {
+    color: #38a169;
+}
+
+.result-box.error .result-header {
+    color: #e53e3e;
+}
+
+.result-box .result-header i {
+    font-size: 1.5rem;
+}
+
+.result-box .result-header h4 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.result-box .result-detail {
+    font-size: 0.9rem;
+    color: #4a5568;
+    margin-bottom: 1rem;
+}
+
+.result-box .result-file {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.result-box .result-file i {
+    font-size: 1.5rem;
+    color: #667eea;
+}
+
+.result-box .result-file .file-info {
+    flex: 1;
+}
+
+.result-box .result-file .file-name {
+    font-weight: 600;
+    color: #2d3748;
+}
+
+.result-box .result-file .file-size {
+    font-size: 0.8rem;
+    color: #718096;
+}
+
+.btn-download {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: #38a169;
+    color: white;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.btn-download:hover {
+    background: #2f855a;
+    color: white;
+    transform: translateY(-1px);
+}
+
+/* 支持的格式说明 */
+.supported-formats {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: #f7fafc;
+    border-radius: 12px;
+}
+
+.supported-formats h4 {
+    font-size: 0.95rem;
+    color: #4a5568;
+    margin-bottom: 1rem;
+    font-weight: 600;
+}
+
+.format-categories {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.format-category {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.format-category i {
+    font-size: 1.25rem;
+    color: #667eea;
+}
+
+.format-category .info h5 {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #2d3748;
+    margin: 0;
+}
+
+.format-category .info p {
+    font-size: 0.75rem;
+    color: #718096;
+    margin: 0.25rem 0 0;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+    .convert-container {
+        padding: 1rem;
+    }
+    
+    .convert-card {
+        padding: 1.5rem;
+    }
+    
+    .format-row {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .arrow-divider {
+        transform: rotate(90deg);
+    }
+    
+    .format-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+</style>
+
+<div class="convert-container">
+    <!-- 页面标题 -->
+    <div class="convert-header">
+        <div class="icon">🔄</div>
+        <h1>文档格式转换</h1>
+        <p>支持 Word、Excel、PowerPoint、PDF、OpenDocument 等多种格式互转</p>
+    </div>
+
+    <!-- 转换卡片 -->
+    <div class="convert-card">
+        <!-- 结果显示区域 -->
+        {% if success_file and download_url %}
+        <div class="result-box success show" id="resultBox">
+            <div class="result-header">
+                <i class="fas fa-check-circle"></i>
+                <h4>转换成功</h4>
+            </div>
+            <div class="result-detail">您的文件已成功转换，点击下方按钮下载</div>
+            <div class="result-file">
+                <i class="fas fa-file"></i>
+                <div class="file-info">
+                    <div class="file-name">{{ success_file }}</div>
+                </div>
+            </div>
+            <a href="{{ download_url }}" class="btn-download" download="{{ success_file }}">
+                <i class="fas fa-download"></i>
+                下载转换后的文件
+            </a>
+        </div>
+        {% elif error_msg %}
+        <div class="result-box error show" id="resultBox">
+            <div class="result-header">
+                <i class="fas fa-exclamation-circle"></i>
+                <h4>转换失败</h4>
+            </div>
+            <div class="result-detail">{{ error_msg }}</div>
+        </div>
+        {% endif %}
+
+        <!-- 上传表单 -->
+        <form id="convertForm" method="post" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="target_format" id="targetFormat" value="">
+
+            <!-- 拖拽上传区域 -->
+            <div class="drop-zone" id="dropZone">
+                <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                <h3>点击或拖拽文件到这里</h3>
+                <p>支持 doc、docx、xls、xlsx、ppt、pptx、pdf、odt、ods、odp 格式</p>
+                <input type="file" name="doc_file" id="docFile" accept=".doc,.docx,.xls,.xlsx,.ppt,.pptx,.pdf,.odt,.ods,.odp">
+            </div>
+
+            <!-- 文件信息 -->
+            <div class="file-info-box" id="fileInfoBox">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-file-alt file-icon"></i>
+                    <div class="file-details">
+                        <div class="file-name" id="fileName"></div>
+                        <div class="file-meta" id="fileSize"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 格式选择 -->
+            <div class="format-section" id="formatSection">
+                <h4><i class="fas fa-exchange-alt"></i> 选择目标格式</h4>
+                <div class="format-row">
+                    <div class="source-format">
+                        <span class="badge" id="srcBadge">—</span>
+                        <div class="label">源格式</div>
+                    </div>
+                    <div class="arrow-divider">
+                        <i class="fas fa-arrow-right"></i>
+                    </div>
+                    <div class="target-formats">
+                        <h5>可转换为</h5>
+                        <div class="format-grid" id="formatGrid"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 转换按钮 -->
+            <button type="submit" class="convert-btn" id="submitBtn" disabled>
+                <span class="spinner"></span>
+                <span class="btn-text">开始转换</span>
+            </button>
+            <div class="hint-text" id="hintText">请先选择文件和目标格式</div>
+        </form>
+    </div>
+
+    <!-- 支持的格式说明 -->
+    <div class="supported-formats">
+        <h4><i class="fas fa-info-circle"></i> 支持的格式</h4>
+        <div class="format-categories">
+            <div class="format-category">
+                <i class="fas fa-file-word"></i>
+                <div class="info">
+                    <h5>Word 文档</h5>
+                    <p>DOC、DOCX、ODT 互转</p>
+                </div>
+            </div>
+            <div class="format-category">
+                <i class="fas fa-file-excel"></i>
+                <div class="info">
+                    <h5>Excel 表格</h5>
+                    <p>XLS、XLSX、ODS 互转</p>
+                </div>
+            </div>
+            <div class="format-category">
+                <i class="fas fa-file-powerpoint"></i>
+                <div class="info">
+                    <h5>PowerPoint</h5>
+                    <p>PPT、PPTX、ODP 互转</p>
+                </div>
+            </div>
+            <div class="format-category">
+                <i class="fas fa-file-pdf"></i>
+                <div class="info">
+                    <h5>PDF 文档</h5>
+                    <p>各类文档转 PDF</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 转换映射表（与后端保持同步）
+const CONVERSION_MAP = {{ conversion_map | tojson }};
+const FORMAT_NAMES = {{ formats | tojson }};
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+
+// DOM 元素
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('docFile');
+const fileInfoBox = document.getElementById('fileInfoBox');
+const fileName = document.getElementById('fileName');
+const fileSize = document.getElementById('fileSize');
+const formatSection = document.getElementById('formatSection');
+const srcBadge = document.getElementById('srcBadge');
+const formatGrid = document.getElementById('formatGrid');
+const targetInput = document.getElementById('targetFormat');
+const submitBtn = document.getElementById('submitBtn');
+const hintText = document.getElementById('hintText');
+const convertForm = document.getElementById('convertForm');
+
+// 工具函数
+function getExt(name) {
+    return name.split('.').pop().toLowerCase();
+}
+
+function formatSize(bytes) {
+    if (bytes > 1048576) {
+        return (bytes / 1048576).toFixed(1) + ' MB';
+    }
+    return (bytes / 1024).toFixed(0) + ' KB';
+}
+
+// 文件选择处理
+fileInput.addEventListener('change', function() {
+    if (!fileInput.files.length) return;
+    
+    const file = fileInput.files[0];
+    
+    // 检查文件大小
+    if (file.size > MAX_FILE_SIZE) {
+        fileName.textContent = '⚠ 文件超过 50MB';
+        fileName.style.color = '#e53e3e';
+        fileSize.textContent = '';
+        fileInfoBox.classList.add('show');
+        formatSection.classList.remove('show');
+        submitBtn.disabled = true;
+        hintText.textContent = '请选择小于 50MB 的文件';
+        return;
+    }
+    
+    // 显示文件信息
+    fileName.style.color = '';
+    fileName.textContent = file.name;
+    fileSize.textContent = formatSize(file.size);
+    fileInfoBox.classList.add('show');
+    
+    // 获取文件扩展名并显示格式选择
+    const ext = getExt(file.name);
+    srcBadge.textContent = ext.toUpperCase();
+    renderTargetFormats(ext);
+    formatSection.classList.add('show');
+    submitBtn.disabled = true;
+    hintText.textContent = '请选择目标格式';
+});
+
+// 渲染目标格式选项
+function renderTargetFormats(ext) {
+    formatGrid.innerHTML = '';
+    const targets = CONVERSION_MAP[ext] || [];
+    
+    if (!targets.length) {
+        formatGrid.innerHTML = `
+            <div style="grid-column: 1/-1; text-align: center; padding: 2rem; color: #718096;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 0.5rem; display: block;"></i>
+                该格式暂不支持转换
+            </div>
+        `;
+        hintText.textContent = '该格式暂不支持转换';
+        return;
+    }
+    
+    targets.forEach(fmt => {
+        const chip = document.createElement('div');
+        chip.className = 'format-chip';
+        chip.innerHTML = `
+            <span class="ext">${fmt.toUpperCase()}</span>
+            <span class="name">${FORMAT_NAMES[fmt] || fmt}</span>
+        `;
+        chip.addEventListener('click', function() {
+            // 移除其他选中状态
+            document.querySelectorAll('.format-chip').forEach(c => c.classList.remove('selected'));
+            // 添加选中状态
+            chip.classList.add('selected');
+            // 设置目标格式
+            targetInput.value = fmt;
+            // 启用提交按钮
+            submitBtn.disabled = false;
+            hintText.textContent = '准备就绪，点击"开始转换"按钮';
+        });
+        formatGrid.appendChild(chip);
+    });
+}
+
+// 拖拽事件
+dropZone.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+});
+
+dropZone.addEventListener('dragleave', function() {
+    dropZone.classList.remove('dragover');
+});
+
+dropZone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    
+    if (e.dataTransfer.files.length) {
+        fileInput.files = e.dataTransfer.files;
+        fileInput.dispatchEvent(new Event('change'));
+    }
+});
+
+// 表单提交
+convertForm.addEventListener('submit', function(e) {
+    if (!fileInput.files.length || !targetInput.value) {
+        e.preventDefault();
+        return;
+    }
+    
+    // 显示加载状态
+    submitBtn.classList.add('loading');
+    submitBtn.disabled = true;
+    document.querySelector('.btn-text').textContent = '转换中...';
+    hintText.textContent = '正在转换文件，请稍候...';
+});
+</script>
+{% endblock %}

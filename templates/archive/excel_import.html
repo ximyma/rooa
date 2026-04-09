@@ -1,0 +1,858 @@
+{% extends "base.html" %}
+
+{% block title %}Excel元数据导入 - 档案管理系统{% endblock %}
+
+{% block content %}
+<style>
+/* ===== 页面整体 ===== */
+.excel-import-page {
+    max-width: 1300px;
+    margin: 0 auto;
+    padding: 0 1rem;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.page-title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #2d3748;
+    margin: 0;
+}
+.page-title i { margin-right: 0.5rem; color: #48bb78; }
+
+/* ===== 上传卡片 ===== */
+.upload-card {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    padding: 2rem;
+    margin-bottom: 2rem;
+}
+
+.upload-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+.upload-card-header h5 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #2d3748;
+    margin: 0;
+}
+.step-badge {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+}
+.step-badge.step1 { background: #667eea; color: white; }
+.step-badge.step2 { background: #48bb78; color: white; }
+.step-badge.step2.disabled { background: #cbd5e0; color: #718096; }
+
+/* ===== 下载区域 ===== */
+.template-banner {
+    background: linear-gradient(135deg, #ebf8ff 0%, #e6fffa 100%);
+    border: 1px dashed #63b3ed;
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+.template-banner-info { display: flex; align-items: center; gap: 0.75rem; }
+.template-banner-icon {
+    width: 48px;
+    height: 48px;
+    background: #48bb78;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.4rem;
+    flex-shrink: 0;
+}
+.template-banner-text h6 { font-weight: 600; color: #2d3748; margin: 0 0 0.2rem; }
+.template-banner-text p { color: #4a5568; font-size: 0.875rem; margin: 0; }
+.btn-download-template {
+    background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+    color: white;
+    border: none;
+    padding: 0.6rem 1.4rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+.btn-download-template:hover {
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(72,187,120,0.4);
+    text-decoration: none;
+}
+
+/* ===== 文件拖放区 ===== */
+.drop-zone {
+    border: 2px dashed #667eea;
+    border-radius: 12px;
+    padding: 2.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: #f8f9ff;
+    position: relative;
+}
+.drop-zone:hover,
+.drop-zone.drag-over {
+    border-color: #4c51bf;
+    background: #ebf0ff;
+}
+.drop-zone-icon {
+    font-size: 3rem;
+    color: #667eea;
+    margin-bottom: 0.75rem;
+}
+.drop-zone-text h6 {
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 0.3rem;
+}
+.drop-zone-text p { color: #718096; font-size: 0.875rem; margin: 0; }
+#fileInput { display: none; }
+.file-selected-info {
+    display: none;
+    align-items: center;
+    gap: 0.75rem;
+    background: #f0fff4;
+    border: 1px solid #9ae6b4;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    margin-top: 1rem;
+}
+.file-selected-info.show { display: flex; }
+.file-selected-icon { font-size: 1.5rem; color: #38a169; }
+.file-selected-name { font-weight: 600; color: #2d3748; }
+.file-selected-size { font-size: 0.85rem; color: #718096; }
+
+/* ===== 字段说明 ===== */
+.fields-help {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+.field-tag {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.7rem;
+    border-radius: 6px;
+    font-size: 0.82rem;
+}
+.field-tag.required {
+    background: #fff5f5;
+    border: 1px solid #fed7d7;
+    color: #c53030;
+}
+.field-tag.optional {
+    background: #f0fff4;
+    border: 1px solid #c6f6d5;
+    color: #276749;
+}
+
+/* ===== 提交按钮 ===== */
+.btn-parse {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 0.75rem 2rem;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.btn-parse:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102,126,234,0.4);
+}
+.btn-parse:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ===== 预览区 ===== */
+.preview-card {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    overflow: hidden;
+    margin-bottom: 2rem;
+}
+
+.preview-header {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid #edf2f7;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+.preview-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #2d3748;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.summary-badges {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.summary-badge {
+    padding: 0.3rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+.summary-badge.ok { background: #f0fff4; color: #276749; border: 1px solid #9ae6b4; }
+.summary-badge.warn { background: #fffaf0; color: #c05621; border: 1px solid #fbd38d; }
+.summary-badge.total { background: #ebf8ff; color: #2c5282; border: 1px solid #90cdf4; }
+
+/* ===== 预览表格 ===== */
+.preview-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+.preview-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+    min-width: 900px;
+}
+.preview-table thead {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+.preview-table th {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.preview-table td {
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid #edf2f7;
+    vertical-align: middle;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.preview-table tbody tr:hover { background: #f7fafc; }
+.preview-table tbody tr.error-row { background: #fff5f5; }
+.preview-table tbody tr.error-row:hover { background: #fed7d7; }
+.preview-table tbody tr:last-child td { border-bottom: none; }
+
+.row-num {
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: #718096;
+    background: #edf2f7;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+}
+.error-tag {
+    display: inline-block;
+    background: #fed7d7;
+    color: #c53030;
+    font-size: 0.75rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    margin-left: 0.25rem;
+}
+.cell-empty { color: #a0aec0; font-style: italic; }
+.cell-required-empty { color: #e53e3e; font-weight: 600; }
+
+/* ===== 错误区 ===== */
+.errors-card {
+    background: #fff5f5;
+    border: 1px solid #fed7d7;
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.5rem;
+}
+.errors-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    font-weight: 600;
+    color: #c53030;
+    font-size: 0.95rem;
+}
+.error-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #fed7d7;
+    font-size: 0.875rem;
+}
+.error-item:last-child { border-bottom: none; }
+.error-row-num {
+    font-family: monospace;
+    background: #e53e3e;
+    color: white;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+}
+.error-msgs { color: #742a2a; }
+
+/* ===== 确认导入区 ===== */
+.confirm-bar {
+    background: linear-gradient(135deg, #f0fff4 0%, #e6fffa 100%);
+    border: 1px solid #9ae6b4;
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+.confirm-bar-info h6 {
+    font-weight: 700;
+    color: #276749;
+    margin: 0 0 0.2rem;
+    font-size: 1rem;
+}
+.confirm-bar-info p { color: #4a5568; font-size: 0.875rem; margin: 0; }
+
+.btn-confirm-import {
+    background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+    color: white;
+    border: none;
+    padding: 0.75rem 2rem;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.btn-confirm-import:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(72,187,120,0.45);
+}
+.btn-cancel-import {
+    background: white;
+    color: #718096;
+    border: 1px solid #e2e8f0;
+    padding: 0.75rem 1.5rem;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.btn-cancel-import:hover {
+    background: #f7fafc;
+    color: #4a5568;
+    text-decoration: none;
+}
+
+/* ===== 空状态 ===== */
+.empty-guide {
+    text-align: center;
+    padding: 3rem 2rem;
+    color: #718096;
+}
+.empty-guide .guide-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    opacity: 0.4;
+}
+.empty-guide h5 { color: #4a5568; margin-bottom: 0.5rem; }
+.empty-guide p { font-size: 0.9rem; }
+
+/* ===== 步骤导航 ===== */
+.steps-nav {
+    display: flex;
+    gap: 0;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+    padding: 1rem 1.5rem;
+    margin-bottom: 2rem;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+.step-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #a0aec0;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+.step-item.active { color: #667eea; font-weight: 600; }
+.step-item.done { color: #38a169; }
+.step-arrow { color: #cbd5e0; font-size: 0.8rem; margin: 0 0.25rem; }
+.step-circle {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.78rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+.step-item .step-circle { background: #e2e8f0; color: #718096; }
+.step-item.active .step-circle { background: #667eea; color: white; }
+.step-item.done .step-circle { background: #38a169; color: white; }
+
+/* ===== 响应式 ===== */
+@media (max-width: 768px) {
+    .page-title { font-size: 1.4rem; }
+    .template-banner { flex-direction: column; align-items: flex-start; }
+    .confirm-bar { flex-direction: column; }
+    .confirm-bar .btn-group-actions { width: 100%; }
+    .btn-confirm-import, .btn-cancel-import { width: 100%; justify-content: center; }
+    .drop-zone { padding: 1.5rem 1rem; }
+}
+</style>
+
+<div class="excel-import-page">
+    <!-- 页头 -->
+    <div class="page-header">
+        <h1 class="page-title">
+            <i class="fas fa-file-excel"></i>
+            Excel元数据批量导入
+        </h1>
+        <a href="{{ url_for('archive.file_list') }}" class="btn btn-sm btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i>返回档案列表
+        </a>
+    </div>
+
+    <!-- 步骤导航 -->
+    <div class="steps-nav">
+        <div class="step-item {% if not preview_rows %}active{% else %}done{% endif %}">
+            <span class="step-circle">{% if preview_rows %}<i class="fas fa-check" style="font-size:0.65rem"></i>{% else %}1{% endif %}</span>
+            上传Excel文件
+        </div>
+        <i class="fas fa-chevron-right step-arrow"></i>
+        <div class="step-item {% if preview_rows is not none and not preview_rows %}active{% elif preview_rows %}active{% endif %}">
+            <span class="step-circle">2</span>
+            数据预览与校验
+        </div>
+        <i class="fas fa-chevron-right step-arrow"></i>
+        <div class="step-item">
+            <span class="step-circle">3</span>
+            确认导入
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for cat, msg in messages %}
+            <div class="alert alert-{{ 'danger' if cat == 'error' else cat }} alert-dismissible fade show mb-3" role="alert">
+                <i class="fas fa-{{ 'exclamation-circle' if cat in ('error','danger') else 'check-circle' if cat == 'success' else 'info-circle' }} me-2"></i>
+                {{ msg }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- ===== STEP 1: 上传区域 ===== -->
+    {% if preview_rows is none %}
+    <div class="upload-card">
+        <div class="upload-card-header">
+            <span class="step-badge step1">1</span>
+            <h5>下载模板 · 填写数据 · 上传文件</h5>
+        </div>
+
+        <!-- 模板下载横幅 -->
+        <div class="template-banner">
+            <div class="template-banner-info">
+                <div class="template-banner-icon">
+                    <i class="fas fa-file-download"></i>
+                </div>
+                <div class="template-banner-text">
+                    <h6>📋 先下载标准模板，再填入数据</h6>
+                    <p>模板含字段说明行和示例数据，支持字段别名识别（如"题名"="标题"，"形成单位"="责任者"）</p>
+                </div>
+            </div>
+            <a href="{{ url_for('archive.excel_template_download') }}" class="btn-download-template">
+                <i class="fas fa-download"></i> 下载导入模板(.xlsx)
+            </a>
+        </div>
+
+        <!-- 字段说明 -->
+        <div class="mb-3">
+            <small class="text-muted fw-semibold">📌 支持字段（红色为必填）：</small>
+            <div class="fields-help mt-2">
+                <span class="field-tag required"><i class="fas fa-asterisk" style="font-size:0.6rem"></i> 标题（题名）</span>
+                <span class="field-tag required"><i class="fas fa-asterisk" style="font-size:0.6rem"></i> 全宗ID（数字）</span>
+                <span class="field-tag required"><i class="fas fa-asterisk" style="font-size:0.6rem"></i> 目录ID（数字）</span>
+                <span class="field-tag optional"><i class="fas fa-check" style="font-size:0.6rem"></i> 件号</span>
+                <span class="field-tag optional"><i class="fas fa-check" style="font-size:0.6rem"></i> 责任者</span>
+                <span class="field-tag optional"><i class="fas fa-check" style="font-size:0.6rem"></i> 保管期限</span>
+                <span class="field-tag optional"><i class="fas fa-check" style="font-size:0.6rem"></i> 密级</span>
+                <span class="field-tag optional"><i class="fas fa-check" style="font-size:0.6rem"></i> 档案类型</span>
+                <span class="field-tag optional"><i class="fas fa-check" style="font-size:0.6rem"></i> 关键词</span>
+                <span class="field-tag optional"><i class="fas fa-check" style="font-size:0.6rem"></i> 文号</span>
+                <span class="field-tag optional"><i class="fas fa-check" style="font-size:0.6rem"></i> 备注</span>
+            </div>
+        </div>
+
+        <!-- 拖放上传 -->
+        <form method="post" enctype="multipart/form-data" id="uploadForm">
+            <input type="hidden" name="action" value="preview">
+
+            <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                <input type="file" id="fileInput" name="file" accept=".xlsx,.xls" onchange="onFileSelected(this)">
+                <div class="drop-zone-icon">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                </div>
+                <div class="drop-zone-text">
+                    <h6>点击或拖放Excel文件到此区域</h6>
+                    <p>支持 .xlsx / .xls 格式，文件大小限制 10MB</p>
+                </div>
+            </div>
+
+            <div class="file-selected-info" id="fileSelectedInfo">
+                <span class="file-selected-icon"><i class="fas fa-file-excel"></i></span>
+                <div>
+                    <div class="file-selected-name" id="fileSelectedName">-</div>
+                    <div class="file-selected-size" id="fileSelectedSize">-</div>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-danger ms-auto" onclick="clearFile()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="d-flex justify-content-end mt-3">
+                <button type="submit" class="btn-parse" id="parseBtn" disabled>
+                    <i class="fas fa-search"></i> 解析并预览数据
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- 使用说明 -->
+    <div class="row g-3">
+        <div class="col-md-4">
+            <div style="background:white;border-radius:12px;padding:1.25rem;box-shadow:0 2px 12px rgba(0,0,0,0.06);">
+                <div style="color:#667eea;font-size:1.5rem;margin-bottom:0.5rem;"><i class="fas fa-download"></i></div>
+                <h6 style="font-weight:600;color:#2d3748;margin-bottom:0.4rem;">① 下载标准模板</h6>
+                <p style="color:#718096;font-size:0.875rem;margin:0;">点击右侧"下载导入模板"，获取包含字段说明和示例的标准Excel表格。</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div style="background:white;border-radius:12px;padding:1.25rem;box-shadow:0 2px 12px rgba(0,0,0,0.06);">
+                <div style="color:#ed8936;font-size:1.5rem;margin-bottom:0.5rem;"><i class="fas fa-edit"></i></div>
+                <h6 style="font-weight:600;color:#2d3748;margin-bottom:0.4rem;">② 填写档案元数据</h6>
+                <p style="color:#718096;font-size:0.875rem;margin:0;">在模板中填入档案信息（全宗ID/目录ID可从全宗管理页查看数字编号）。</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div style="background:white;border-radius:12px;padding:1.25rem;box-shadow:0 2px 12px rgba(0,0,0,0.06);">
+                <div style="color:#48bb78;font-size:1.5rem;margin-bottom:0.5rem;"><i class="fas fa-check-double"></i></div>
+                <h6 style="font-weight:600;color:#2d3748;margin-bottom:0.4rem;">③ 预览核实后导入</h6>
+                <p style="color:#718096;font-size:0.875rem;margin:0;">上传后系统自动校验数据，预览无误后点击确认导入，错误行会高亮提示。</p>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <!-- ===== STEP 2 & 3: 预览 + 确认 ===== -->
+    {% set valid_count = preview_rows|length %}
+    {% set error_count = error_rows|length if error_rows else 0 %}
+    {% set total_count = valid_count + error_count %}
+
+    <!-- 错误提示区 -->
+    {% if error_rows %}
+    <div class="errors-card">
+        <div class="errors-card-header">
+            <i class="fas fa-exclamation-triangle"></i>
+            发现 {{ error_count }} 行数据存在问题（这些行将被跳过，不会导入）
+        </div>
+        {% for row in error_rows %}
+        <div class="error-item">
+            <span class="error-row-num">第 {{ row._row_index }} 行</span>
+            <div class="error-msgs">
+                {{ row._errors | join('；') }}
+                — <em style="color:#a0aec0;">
+                    标题: {{ row.标题 or '(空)' }}
+                    {% if row.全宗ID %}/ 全宗ID: {{ row.全宗ID }}{% endif %}
+                </em>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- 预览表格 -->
+    <div class="preview-card">
+        <div class="preview-header">
+            <div class="preview-title">
+                <i class="fas fa-table" style="color:#667eea"></i>
+                数据预览（可导入记录）
+            </div>
+            <div class="summary-badges">
+                <span class="summary-badge total">
+                    <i class="fas fa-layer-group me-1"></i>共 {{ total_count }} 行
+                </span>
+                <span class="summary-badge ok">
+                    <i class="fas fa-check-circle me-1"></i>{{ valid_count }} 行可导入
+                </span>
+                {% if error_count > 0 %}
+                <span class="summary-badge warn">
+                    <i class="fas fa-exclamation-circle me-1"></i>{{ error_count }} 行有错误
+                </span>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if preview_rows %}
+        <div class="preview-table-wrap">
+            <table class="preview-table">
+                <thead>
+                    <tr>
+                        <th style="width:60px">行号</th>
+                        <th style="min-width:200px">标题 *</th>
+                        <th>全宗ID *</th>
+                        <th>目录ID *</th>
+                        <th>件号</th>
+                        <th>责任者</th>
+                        <th>保管期限</th>
+                        <th>密级</th>
+                        <th>档案类型</th>
+                        <th>关键词</th>
+                        <th>文号</th>
+                        <th>备注</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in preview_rows %}
+                    <tr>
+                        <td><span class="row-num">{{ row._row_index }}</span></td>
+                        <td title="{{ row.标题 }}">
+                            <span {% if not row.标题 %}class="cell-required-empty"{% endif %}>
+                                {{ row.标题 or '⚠ 空' }}
+                            </span>
+                        </td>
+                        <td>
+                            <span {% if not row.全宗ID or row.全宗ID == 'nan' %}class="cell-required-empty"{% endif %}>
+                                {{ row.全宗ID or '⚠ 空' }}
+                            </span>
+                        </td>
+                        <td>
+                            <span {% if not row.目录ID or row.目录ID == 'nan' %}class="cell-required-empty"{% endif %}>
+                                {{ row.目录ID or '⚠ 空' }}
+                            </span>
+                        </td>
+                        <td>{{ row.件号 or '<span class="cell-empty">-</span>'|safe }}</td>
+                        <td title="{{ row.责任者 }}">
+                            {{ row.责任者 | truncate(12, True, '…') if row.责任者 else '<span class="cell-empty">-</span>'|safe }}
+                        </td>
+                        <td>
+                            {% if row.保管期限 %}
+                                <span class="badge bg-{% if row.保管期限 == '永久' %}danger{% elif row.保管期限 == '30年' %}warning text-dark{% else %}secondary{% endif %}" style="font-size:0.78rem">
+                                    {{ row.保管期限 }}
+                                </span>
+                            {% else %}
+                                <span class="cell-empty">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if row.密级 and row.密级 not in ('公开', '') %}
+                                <span class="badge bg-danger" style="font-size:0.78rem">{{ row.密级 }}</span>
+                            {% elif row.密级 %}
+                                <span class="badge bg-success" style="font-size:0.78rem">公开</span>
+                            {% else %}
+                                <span class="cell-empty">-</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ row.档案类型 or '<span class="cell-empty">-</span>'|safe }}</td>
+                        <td title="{{ row.关键词 }}">
+                            {{ row.关键词 | truncate(18, True, '…') if row.关键词 else '<span class="cell-empty">-</span>'|safe }}
+                        </td>
+                        <td>{{ row.文号 or '<span class="cell-empty">-</span>'|safe }}</td>
+                        <td title="{{ row.备注 }}">
+                            {{ row.备注 | truncate(14, True, '…') if row.备注 else '<span class="cell-empty">-</span>'|safe }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-guide">
+            <div class="guide-icon"><i class="fas fa-inbox"></i></div>
+            <h5>没有可导入的有效数据</h5>
+            <p>所有行均存在错误，请修正后重新上传。</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 确认导入栏 -->
+    {% if preview_rows %}
+    <div class="confirm-bar">
+        <div class="confirm-bar-info">
+            <h6>✅ 确认导入 {{ valid_count }} 条档案记录？</h6>
+            <p>
+                点击"确认导入"后，系统将批量创建这 {{ valid_count }} 条档案元数据记录。
+                {% if error_count > 0 %}
+                <strong style="color:#c05621">{{ error_count }} 条错误记录将被忽略。</strong>
+                {% endif %}
+                导入后可在档案列表中查看和编辑。
+            </p>
+        </div>
+        <div class="d-flex gap-2 align-items-center btn-group-actions flex-wrap">
+            <a href="{{ url_for('archive.excel_import') }}" class="btn-cancel-import">
+                <i class="fas fa-redo"></i> 重新上传
+            </a>
+            <form method="post" id="confirmForm" style="display:inline;">
+                <input type="hidden" name="action" value="confirm_import">
+                <input type="hidden" name="rows_data" value="{{ rows_json }}">
+                <button type="submit" class="btn-confirm-import" onclick="return confirmImport({{ valid_count }})">
+                    <i class="fas fa-database"></i> 确认导入 {{ valid_count }} 条
+                </button>
+            </form>
+        </div>
+    </div>
+    {% else %}
+    <div class="text-center mt-3">
+        <a href="{{ url_for('archive.excel_import') }}" class="btn btn-primary">
+            <i class="fas fa-redo me-2"></i>重新上传文件
+        </a>
+    </div>
+    {% endif %}
+
+    {% endif %}
+</div>
+
+<script>
+// ===== 拖放处理 =====
+const dropZone = document.getElementById('dropZone');
+if (dropZone) {
+    dropZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        this.classList.add('drag-over');
+    });
+    dropZone.addEventListener('dragleave', function() {
+        this.classList.remove('drag-over');
+    });
+    dropZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        this.classList.remove('drag-over');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            const fileInput = document.getElementById('fileInput');
+            fileInput.files = files;
+            onFileSelected(fileInput);
+        }
+    });
+}
+
+function onFileSelected(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    // 格式校验
+    if (!file.name.match(/\.(xlsx|xls)$/i)) {
+        alert('请选择 Excel 文件（.xlsx 或 .xls）');
+        input.value = '';
+        return;
+    }
+
+    // 大小校验（10MB）
+    if (file.size > 10 * 1024 * 1024) {
+        alert('文件大小不能超过 10MB');
+        input.value = '';
+        return;
+    }
+
+    // 显示文件信息
+    document.getElementById('fileSelectedName').textContent = file.name;
+    document.getElementById('fileSelectedSize').textContent = formatBytes(file.size);
+    document.getElementById('fileSelectedInfo').classList.add('show');
+    document.getElementById('parseBtn').disabled = false;
+}
+
+function clearFile() {
+    document.getElementById('fileInput').value = '';
+    document.getElementById('fileSelectedInfo').classList.remove('show');
+    document.getElementById('parseBtn').disabled = true;
+}
+
+function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+}
+
+// ===== 确认导入 =====
+function confirmImport(count) {
+    return confirm(`确认导入 ${count} 条档案元数据记录？\n\n导入后将在档案列表中创建对应条目，此操作不可撤销。`);
+}
+
+// ===== 解析按钮loading状态 =====
+const uploadForm = document.getElementById('uploadForm');
+if (uploadForm) {
+    uploadForm.addEventListener('submit', function() {
+        const btn = document.getElementById('parseBtn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 正在解析...';
+        }
+    });
+}
+</script>
+{% endblock %}

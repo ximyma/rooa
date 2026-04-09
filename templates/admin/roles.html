@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid px-4">
+  <!-- 页面标题 -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h4 class="mb-1"><i class="fas fa-shield-alt text-primary me-2"></i>角色权限管理</h4>
+      <nav aria-label="breadcrumb"><ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item"><a href="{{ url_for('admin_users') }}">用户管理</a></li>
+        <li class="breadcrumb-item active">角色权限</li>
+      </ol></nav>
+    </div>
+    <a href="{{ url_for('admin_role_add') }}" class="btn btn-primary">
+      <i class="fas fa-plus me-1"></i>新增角色
+    </a>
+  </div>
+
+  <div class="row g-4">
+    {% for role in roles %}
+    <div class="col-md-6 col-xl-4">
+      <div class="card h-100 shadow-sm border-0 {% if role.is_system %}border-top border-primary border-3{% endif %}">
+        <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+          <div>
+            <span class="fw-bold fs-5">{{ role.display_name }}</span>
+            <code class="ms-2 text-muted small">{{ role.name }}</code>
+            {% if role.is_system %}<span class="badge bg-primary ms-1">系统角色</span>{% endif %}
+          </div>
+          <div class="dropdown">
+            <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown">
+              <i class="fas fa-ellipsis-v"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li><a class="dropdown-item" href="{{ url_for('admin_role_edit', role_id=role.id) }}">
+                <i class="fas fa-edit me-2 text-primary"></i>编辑权限</a></li>
+              {% if not role.is_system %}
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item text-danger" href="{{ url_for('admin_role_delete', role_id=role.id) }}"
+                     onclick="return confirm('确认删除角色「{{ role.display_name }}」？')">
+                <i class="fas fa-trash me-2"></i>删除</a></li>
+              {% endif %}
+            </ul>
+          </div>
+        </div>
+        <div class="card-body">
+          <p class="text-muted small mb-3">{{ role.description or '暂无描述' }}</p>
+          <div class="d-flex flex-wrap gap-1">
+            {% set perms = role.get_permissions() %}
+            {% set perm_names = {
+              'user_manage':'用户管理','role_manage':'角色权限','template_manage':'公文模板',
+              'operation_log':'操作日志','ai_config':'AI配置','report_view':'查看专报',
+              'report_submit':'报送专报','report_manage':'审核专报','task_view':'查看任务',
+              'task_manage':'任务管理','knowledge_view':'查看知识库','knowledge_manage':'知识库管理',
+              'stats_view':'统计报表','briefing_manage':'简报管理'
+            } %}
+            {% for p in perms %}
+            <span class="badge bg-light text-dark border">{{ perm_names.get(p, p) }}</span>
+            {% endfor %}
+            {% if not perms %}
+            <span class="text-muted small">暂无权限</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="card-footer bg-transparent">
+          <div class="d-flex justify-content-between align-items-center">
+            <small class="text-muted">
+              <i class="fas fa-users me-1"></i>
+              {{ user_counts.get(role.name, 0) }} 名用户
+            </small>
+            <small class="text-muted">{{ perms | length }} 项权限</small>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if not roles %}
+  <div class="text-center py-5 text-muted">
+    <i class="fas fa-shield-alt fa-3x mb-3"></i>
+    <p>暂无角色，点击"新增角色"开始创建</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% endblock %}

@@ -1,0 +1,445 @@
+{% extends "base.html" %}
+
+{% block title %}消息通知 - 档案管理系统{% endblock %}
+
+{% block content %}
+<style>
+.notif-page { max-width: 900px; margin: 0 auto; }
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+.page-title { font-size: 1.8rem; font-weight: 700; color: #2d3748; margin: 0; }
+.page-title i { margin-right: 0.5rem; color: #667eea; }
+
+/* 批量操作 */
+.batch-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+.btn-mark-all {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    border: none;
+    padding: 0.45rem 1.1rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.btn-mark-all:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(102,126,234,.4); }
+
+/* 通知卡片 */
+.notif-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.notif-item {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    transition: all 0.2s;
+    border-left: 4px solid #e2e8f0;
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
+    position: relative;
+}
+.notif-item:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+    text-decoration: none;
+    color: inherit;
+}
+.notif-item.unread {
+    border-left-color: #667eea;
+    background: #f8f9ff;
+}
+.notif-item.unread::after {
+    content: '';
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    width: 8px;
+    height: 8px;
+    background: #667eea;
+    border-radius: 50%;
+}
+
+/* 通知类型颜色 */
+.notif-item.type-success { border-left-color: #48bb78; }
+.notif-item.type-success.unread { background: #f0fff4; }
+.notif-item.type-warning { border-left-color: #ed8936; }
+.notif-item.type-warning.unread { background: #fffaf0; }
+.notif-item.type-danger { border-left-color: #e53e3e; }
+.notif-item.type-danger.unread { background: #fff5f5; }
+.notif-item.type-info { border-left-color: #3182ce; }
+.notif-item.type-info.unread { background: #ebf8ff; }
+
+.notif-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+.notif-icon.type-success { background: #f0fff4; color: #38a169; }
+.notif-icon.type-warning { background: #fffaf0; color: #dd6b20; }
+.notif-icon.type-danger  { background: #fff5f5; color: #e53e3e; }
+.notif-icon.type-info    { background: #ebf8ff; color: #3182ce; }
+
+.notif-body { flex: 1; min-width: 0; }
+.notif-title {
+    font-weight: 600;
+    color: #2d3748;
+    font-size: 0.95rem;
+    margin-bottom: 0.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+.notif-title .badge-new {
+    background: #667eea;
+    color: white;
+    font-size: 0.7rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+}
+.notif-content {
+    color: #4a5568;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+}
+.notif-time {
+    font-size: 0.8rem;
+    color: #a0aec0;
+    margin-top: 0.3rem;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.notif-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.4rem;
+    flex-shrink: 0;
+}
+.btn-mark-read-single {
+    background: none;
+    border: 1px solid #e2e8f0;
+    color: #718096;
+    padding: 0.2rem 0.55rem;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    white-space: nowrap;
+}
+.btn-mark-read-single:hover { background: #f7fafc; border-color: #667eea; color: #667eea; }
+.notif-item.read .btn-mark-read-single { display: none; }
+
+/* 分组标题 */
+.notif-date-group {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #718096;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.5rem 0 0.25rem;
+    border-bottom: 1px solid #edf2f7;
+    margin-bottom: 0.5rem;
+    margin-top: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+/* 空状态 */
+.empty-notif {
+    text-align: center;
+    padding: 5rem 2rem;
+    color: #718096;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+}
+.empty-notif i { font-size: 4rem; margin-bottom: 1rem; opacity: 0.35; display: block; }
+.empty-notif h5 { color: #4a5568; margin-bottom: 0.5rem; }
+
+/* 未读统计 */
+.unread-summary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 12px;
+    padding: 1rem 1.5rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+.unread-summary-icon { font-size: 1.8rem; opacity: 0.9; }
+.unread-summary-text h6 { font-weight: 700; margin: 0 0 0.2rem; }
+.unread-summary-text p { margin: 0; font-size: 0.875rem; opacity: 0.85; }
+.unread-summary-num {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-left: auto;
+    opacity: 0.9;
+}
+
+/* 分页 */
+.pagination-wrap { display: flex; justify-content: center; margin-top: 1.5rem; }
+
+/* 响应式 */
+@media (max-width: 576px) {
+    .page-title { font-size: 1.4rem; }
+    .notif-item { padding: 0.85rem 1rem; }
+    .notif-content { white-space: normal; }
+    .unread-summary-num { display: none; }
+}
+</style>
+
+<div class="notif-page">
+    <div class="page-header">
+        <h1 class="page-title">
+            <i class="fas fa-bell"></i> 消息通知
+        </h1>
+        <div class="batch-actions">
+            {% if notifications %}
+            <button class="btn-mark-all" onclick="markAllRead()" id="markAllBtn">
+                <i class="fas fa-check-double"></i> 全部标为已读
+            </button>
+            {% endif %}
+            <a href="{{ url_for('archive.borrow_manage') }}" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i>返回审批
+            </a>
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for cat, msg in messages %}
+            <div class="alert alert-{{ 'danger' if cat == 'error' else cat }} alert-dismissible fade show mb-3">
+                {{ msg }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {% if unread_count > 0 %}
+    <div class="unread-summary">
+        <div class="unread-summary-icon"><i class="fas fa-envelope"></i></div>
+        <div class="unread-summary-text">
+            <h6>您有 {{ unread_count }} 条未读通知</h6>
+            <p>点击通知或"全部已读"可清除未读状态</p>
+        </div>
+        <div class="unread-summary-num">{{ unread_count }}</div>
+    </div>
+    {% endif %}
+
+    {% if notifications %}
+    <div class="notif-list" id="notifList">
+        {% for notif in notifications %}
+        <div class="notif-item {{ 'unread' if not notif.is_read else 'read' }} type-{{ notif.notif_type or 'info' }}"
+             id="notif-{{ notif.id }}"
+             onclick="markReadAndGo({{ notif.id }}, '{{ notif.link or '' }}')">
+            <!-- 图标 -->
+            <div class="notif-icon type-{{ notif.notif_type or 'info' }}">
+                {% if notif.notif_type == 'success' %}
+                    <i class="fas fa-check-circle"></i>
+                {% elif notif.notif_type == 'warning' %}
+                    <i class="fas fa-exclamation-triangle"></i>
+                {% elif notif.notif_type == 'danger' %}
+                    <i class="fas fa-times-circle"></i>
+                {% else %}
+                    <i class="fas fa-info-circle"></i>
+                {% endif %}
+            </div>
+            <!-- 内容 -->
+            <div class="notif-body">
+                <div class="notif-title">
+                    {{ notif.title }}
+                    {% if not notif.is_read %}
+                        <span class="badge-new">NEW</span>
+                    {% endif %}
+                </div>
+                <div class="notif-content">{{ notif.content or '' }}</div>
+                <div class="notif-time">
+                    <i class="fas fa-clock" style="font-size:0.72rem"></i>
+                    {{ notif.created_at.strftime('%Y-%m-%d %H:%M') if notif.created_at else '-' }}
+                </div>
+            </div>
+            <!-- 操作 -->
+            <div class="notif-actions" onclick="event.stopPropagation()">
+                {% if not notif.is_read %}
+                <button class="btn-mark-read-single" onclick="markSingleRead({{ notif.id }})">
+                    <i class="fas fa-check"></i> 标为已读
+                </button>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- 分页 -->
+    {% if pagination and pagination.pages > 1 %}
+    <div class="pagination-wrap">
+        <nav>
+            <ul class="pagination pagination-sm">
+                {% if pagination.has_prev %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('archive.notifications', page=pagination.prev_num) }}">
+                        <i class="fas fa-chevron-left"></i>
+                    </a>
+                </li>
+                {% endif %}
+                {% for p in pagination.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
+                    {% if p %}
+                    <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                        <a class="page-link" href="{{ url_for('archive.notifications', page=p) }}">{{ p }}</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled"><span class="page-link">…</span></li>
+                    {% endif %}
+                {% endfor %}
+                {% if pagination.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('archive.notifications', page=pagination.next_num) }}">
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-notif">
+        <i class="fas fa-bell-slash"></i>
+        <h5>暂无通知消息</h5>
+        <p>借阅申请被审批或归还时，这里会收到推送通知。</p>
+        <a href="{{ url_for('archive.index') }}" class="btn btn-primary btn-sm mt-2">
+            <i class="fas fa-home me-1"></i>返回档案首页
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// 标记单条为已读
+function markSingleRead(id) {
+    fetch('/archive/api/notifications/read', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+        body: JSON.stringify({id: id})
+    }).then(r => r.json()).then(data => {
+        if (data.success) {
+            const el = document.getElementById('notif-' + id);
+            if (el) {
+                el.classList.remove('unread');
+                el.classList.add('read');
+                // 移除 NEW badge
+                const badge = el.querySelector('.badge-new');
+                if (badge) badge.remove();
+                // 移除 已读按钮
+                const btn = el.querySelector('.btn-mark-read-single');
+                if (btn) btn.remove();
+                // 移除小圆点（::after伪元素通过 class 控制）
+            }
+            updateUnreadBadge();
+        }
+    });
+}
+
+// 标记全部已读
+function markAllRead() {
+    if (!confirm('确认将所有通知标为已读？')) return;
+    fetch('/archive/api/notifications/read_all', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+        body: JSON.stringify({all: true})
+    }).then(r => r.json()).then(data => {
+        if (data.success) {
+            document.querySelectorAll('.notif-item.unread').forEach(el => {
+                el.classList.remove('unread');
+                el.classList.add('read');
+                const badge = el.querySelector('.badge-new');
+                if (badge) badge.remove();
+                const btn = el.querySelector('.btn-mark-read-single');
+                if (btn) btn.remove();
+            });
+            // 移除未读汇总栏
+            const summary = document.querySelector('.unread-summary');
+            if (summary) summary.style.display = 'none';
+            const markAllBtn = document.getElementById('markAllBtn');
+            if (markAllBtn) markAllBtn.style.display = 'none';
+            updateUnreadBadge(0);
+        }
+    });
+}
+
+// 点击通知跳转
+function markReadAndGo(id, link) {
+    const el = document.getElementById('notif-' + id);
+    if (el && el.classList.contains('unread')) {
+        fetch('/archive/api/notifications/read', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+            body: JSON.stringify({id: id})
+        }).then(() => {
+            if (link) window.location.href = link;
+        });
+    } else {
+        if (link) window.location.href = link;
+    }
+}
+
+// 更新导航栏未读数
+function updateUnreadBadge(count) {
+    fetch('/archive/api/notifications/unread_count')
+        .then(r => r.json())
+        .then(data => {
+            const badge = document.getElementById('notif-navbar-badge');
+            if (badge) {
+                const cnt = (count !== undefined) ? count : (data.count || 0);
+                badge.textContent = cnt;
+                badge.style.display = cnt > 0 ? 'inline-flex' : 'none';
+            }
+        }).catch(() => {});
+}
+</script>
+{% endblock %}

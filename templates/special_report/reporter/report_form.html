@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <h2>{% if report %}编辑上报信息{% else %}新增上报信息{% endif %}</h2>
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="mb-3">
+                <label class="form-label">标题</label>
+                <input type="text" name="title" class="form-control" value="{{ report.title if report else '' }}" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">信息类别</label>
+                <select name="category" class="form-select" required>
+                    <option value="">请选择</option>
+                    <option value="工作动态" {% if report and report.category=='工作动态' %}selected{% endif %}>工作动态</option>
+                    <option value="问题建议" {% if report and report.category=='问题建议' %}selected{% endif %}>问题建议</option>
+                    <option value="经验交流" {% if report and report.category=='经验交流' %}selected{% endif %}>经验交流</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">报送至（接收单位）</label>
+                <select name="target_department" class="form-select" required>
+                    <option value="">请选择</option>
+                    {% for dept in departments %}
+                    <option value="{{ dept }}" {% if report and report.target_department==dept %}selected{% endif %}>{{ dept }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">撰稿人</label>
+                <input type="text" class="form-control" value="{{ current_user.name }}" readonly>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">联系方式</label>
+                <input type="text" class="form-control" value="{{ current_user.phone }}" readonly>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">附件</label>
+                <input type="text" name="attachments" class="form-control" placeholder="附件链接或说明" value="{{ report.attachments if report else '' }}">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">内容</label>
+                <textarea name="content" class="form-control md-editor" rows="10" data-height="380" required>{{ report.content if report else '' }}</textarea>
+            </div>
+            <div class="mb-3">
+                <button type="submit" name="submit_action" value="save" class="btn btn-secondary">保存草稿</button>
+                <button type="submit" name="submit_action" value="submit" class="btn btn-primary">报送</button>
+                <a href="{{ url_for('report_list') }}" class="btn btn-danger">取消</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

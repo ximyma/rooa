@@ -1,0 +1,364 @@
+{% extends "base.html" %}
+
+{% block title %}简报系统设置{% endblock %}
+{% block page_title %}系统设置{% endblock %}
+
+{% block content %}
+<div class="settings-grid">
+    <!-- 邮件配置 -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="fas fa-envelope me-2"></i> 邮件通知配置</h5>
+        </div>
+        <div class="card-body">
+            <form id="emailConfigForm">
+                <div class="form-group mb-3">
+                    <label class="form-label">SMTP服务器</label>
+                    <input type="text" name="smtp_server" class="form-control" placeholder="例如：smtp.qq.com">
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">端口</label>
+                        <input type="number" name="smtp_port" class="form-control" placeholder="465">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">加密方式</label>
+                        <select name="encryption" class="form-select">
+                            <option value="ssl">SSL</option>
+                            <option value="tls">TLS</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group mb-3">
+                    <label class="form-label">发件人邮箱</label>
+                    <input type="email" name="sender_email" class="form-control" placeholder="your@email.com">
+                </div>
+                <div class="form-group mb-3">
+                    <label class="form-label">授权码/密码</label>
+                    <input type="password" name="sender_password" class="form-control" placeholder="SMTP授权码">
+                </div>
+                <button type="button" class="btn btn-primary" onclick="saveEmailConfig()">
+                    <i class="fas fa-save me-2"></i> 保存配置
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 定时任务 -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-clock me-2"></i> 定时任务管理</h5>
+            <button class="btn btn-light" onclick="showAddScheduleModal()">
+                <i class="fas fa-plus me-1"></i> 新建任务
+            </button>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>任务名称</th>
+                            <th>调度时间</th>
+                            <th>状态</th>
+                            <th>最后执行</th>
+                            <th width="120">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for task in tasks %}
+                        <tr>
+                            <td>{{ task.name }}</td>
+                            <td><code>{{ task.cron_expression }}</code></td>
+                            <td>
+                                {% if task.is_active %}
+                                <span class="badge bg-success">启用</span>
+                                {% else %}
+                                <span class="badge bg-danger">禁用</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ task.last_run_time.strftime('%Y-%m-%d %H:%M') if task.last_run_time else '-' }}</td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-primary" title="立即执行" onclick="runTaskNow({{ task.id }})">
+                                        <i class="fas fa-play"></i>
+                                    </button>
+                                    <button class="btn btn-outline-danger" title="删除" onclick="deleteTask({{ task.id }})">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center py-5">
+                                <i class="fas fa-clock fa-3x text-muted mb-3"></i>
+                                <p class="text-muted">暂无定时任务</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 新建定时任务弹窗 -->
+<div id="addScheduleModal" class="modal fade" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="fas fa-calendar-plus me-2"></i> 新建定时任务</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="scheduleForm">
+                    <div class="form-group mb-3">
+                        <label class="form-label">任务名称</label>
+                        <input type="text" name="name" class="form-control" required placeholder="例如：每日早报">
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">调度类型</label>
+                            <select name="schedule_type" class="form-select" onchange="updateCronPreview()">
+                                <option value="daily">每天</option>
+                                <option value="weekly">每周</option>
+                                <option value="monthly">每月</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">执行时间</label>
+                            <input type="time" name="exec_time" class="form-control" value="08:00" required onchange="updateCronPreview()">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group mb-3" id="dayOfWeekGroup" style="display:none;">
+                        <label class="form-label">选择星期</label>
+                        <select name="day_of_week" class="form-select">
+                            <option value="0">周一</option>
+                            <option value="1">周二</option>
+                            <option value="2">周三</option>
+                            <option value="3">周四</option>
+                            <option value="4">周五</option>
+                            <option value="5">周六</option>
+                            <option value="6">周日</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label class="form-label">选择数据源</label>
+                        <div id="scheduleSources" class="d-flex flex-wrap gap-2 p-2 border rounded">
+                            <!-- 动态生成的数据源复选框 -->
+                        </div>
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label class="form-label">选择关键词</label>
+                        <div id="scheduleKeywords" class="d-flex flex-wrap gap-2 p-2 border rounded">
+                            <!-- 动态生成的关键词标签 -->
+                        </div>
+                    </div>
+                    
+                    <div class="form-group mb-3">
+                        <label class="form-label">接收邮箱 (多个用逗号分隔)</label>
+                        <input type="text" name="emails" class="form-control" placeholder="admin@example.com, user@example.com">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveScheduleTask()">
+                    <i class="fas fa-check me-2"></i> 创建任务
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.settings-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+@media (max-width: 1024px) {
+    .settings-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.form-check-input {
+    margin-right: 8px;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 加载资源
+async function initScheduleModal() {
+    try {
+        const sourceRes = await fetch('/briefing/api/sources');
+        const sourceData = await sourceRes.json();
+        const sourceContainer = document.getElementById('scheduleSources');
+        sourceContainer.innerHTML = sourceData.sources.map(s => `
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="source_ids" value="${s.id}" id="source_${s.id}">
+                <label class="form-check-label" for="source_${s.id}">
+                    ${s.name}
+                </label>
+            </div>
+        `).join('');
+
+        const kwRes = await fetch('/briefing/api/keywords');
+        const kwData = await kwRes.json();
+        const kwContainer = document.getElementById('scheduleKeywords');
+        kwContainer.innerHTML = kwData.keywords.map(k => `
+            <span class="keyword-tag badge" onclick="toggleKeyword(this)" 
+                  data-text="${k.text}" style="background-color: ${k.color || '#3498db'}; cursor: pointer;">
+                ${k.text}
+            </span>
+        `).join('');
+        
+        // 初始化modal
+        const addScheduleModal = new bootstrap.Modal(document.getElementById('addScheduleModal'));
+        addScheduleModal.show();
+        
+    } catch (error) {
+        console.error('初始化弹窗失败:', error);
+        alert('加载数据失败，请检查网络连接');
+    }
+}
+
+function showAddScheduleModal() {
+    initScheduleModal();
+}
+
+function toggleKeyword(element) {
+    element.classList.toggle('border-primary');
+    element.classList.toggle('bg-primary');
+}
+
+function updateCronPreview() {
+    const type = document.querySelector('select[name="schedule_type"]').value;
+    const dayGroup = document.getElementById('dayOfWeekGroup');
+    if (type === 'weekly') {
+        dayGroup.style.display = 'block';
+    } else {
+        dayGroup.style.display = 'none';
+    }
+}
+
+async function saveScheduleTask() {
+    const form = document.getElementById('scheduleForm');
+    const formData = new FormData(form);
+    
+    const type = formData.get('schedule_type');
+    const time = formData.get('exec_time');
+    let cronExpr = "";
+    
+    if (type === 'daily') {
+        cronExpr = `每天 ${time}`;
+    } else if (type === 'weekly') {
+        const day = formData.get('day_of_week');
+        cronExpr = `每周${['一', '二', '三', '四', '五', '六', '日'][parseInt(day)]} ${time}`;
+    } else {
+        cronExpr = `每月1号 ${time}`;
+    }
+    
+    const sources = [];
+    form.querySelectorAll('input[name="source_ids"]:checked').forEach(cb => {
+        sources.push(parseInt(cb.value));
+    });
+    
+    const keywords = [];
+    form.querySelectorAll('.keyword-tag.border-primary').forEach(tag => {
+        keywords.push(tag.dataset.text);
+    });
+    
+    const emails = formData.get('emails').split(',').map(e => e.trim()).filter(e => e);
+
+    try {
+        const response = await fetch('/briefing/api/schedule', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({
+                name: formData.get('name'),
+                cron: cronExpr,
+                sources: sources,
+                keywords: keywords,
+                emails: emails
+            })
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            showAlert('定时任务创建成功', 'success');
+            $('#addScheduleModal').modal('hide');
+            setTimeout(() => location.reload(), 500);
+        } else {
+            showAlert('创建失败: ' + result.error, 'error');
+        }
+    } catch (error) {
+        showAlert('请求失败: ' + error.message, 'error');
+    }
+}
+
+function saveEmailConfig() {
+    // 这里可以扩展一个API来保存邮件配置到数据库或配置文件
+    showAlert('邮件配置已保存（模拟）', 'success');
+}
+
+async function deleteTask(taskId) {
+    if (!confirm('确定要删除这个定时任务吗？')) return;
+    
+    try {
+        const response = await fetch(`/briefing/api/task/${taskId}`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token() }}'
+            }
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            showAlert('定时任务已删除', 'success');
+            setTimeout(() => location.reload(), 500);
+        } else {
+            showAlert('删除失败: ' + result.error, 'error');
+        }
+    } catch (error) {
+        showAlert('请求失败: ' + error.message, 'error');
+    }
+}
+
+function runTaskNow(taskId) {
+    showAlert('正在触发任务执行...', 'info');
+    // 这里可以调用后台执行的API
+    // 实际实现需要后端支持
+}
+
+function showAlert(message, type = 'info') {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
+    alertDiv.style.zIndex = '1060';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    document.body.appendChild(alertDiv);
+    setTimeout(() => alertDiv.remove(), 3000);
+}
+
+// 初始化页面显示
+$(document).ready(function() {
+    // 页面初始化脚本
+    console.log('简报设置页面已加载');
+});
+</script>
+{% endblock %}

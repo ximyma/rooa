@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}{{ dept.name }} - 部门成员{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h4 class="mb-1"><i class="fas fa-users text-info me-2"></i>{{ dept.name }} — 成员列表</h4>
+      <nav aria-label="breadcrumb"><ol class="breadcrumb small mb-0">
+        <li class="breadcrumb-item"><a href="{{ url_for('admin_org_tree') }}">组织架构</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('admin_dept_list') }}">部门管理</a></li>
+        <li class="breadcrumb-item active">成员列表</li>
+      </ol></nav>
+    </div>
+    <a href="{{ url_for('admin_user_add') }}" class="btn btn-primary">
+      <i class="fas fa-user-plus me-1"></i>新增人员
+    </a>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <h6 class="text-muted mb-3">部门信息</h6>
+          <table class="table table-sm mb-0">
+            <tr><th class="text-muted fw-normal w-40">名称</th><td>{{ dept.name }}</td></tr>
+            <tr><th class="text-muted fw-normal">编码</th><td>{{ dept.code or '-' }}</td></tr>
+            <tr><th class="text-muted fw-normal">类型</th><td>{{ {'functional':'职能','business':'业务','support':'支撑'}.get(dept.dept_type,'-') }}</td></tr>
+            <tr><th class="text-muted fw-normal">负责人</th><td>{{ dept.manager.name if dept.manager else '未设置' }}</td></tr>
+            <tr><th class="text-muted fw-normal">所属机构</th><td>{{ dept.organization.name if dept.organization else '-' }}</td></tr>
+            <tr><th class="text-muted fw-normal">人员数</th><td><strong>{{ members|length }}</strong></td></tr>
+          </table>
+          <hr>
+          <h6 class="text-muted mb-2">岗位配置</h6>
+          {% if positions %}
+          <ul class="list-unstyled mb-0">
+            {% for pos in positions %}
+            <li class="py-1 border-bottom">
+              <i class="fas fa-id-badge text-warning me-1"></i>
+              {{ pos.name }}
+              <span class="badge bg-light text-dark ms-1">核定{{ pos.headcount }}人</span>
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <p class="text-muted small mb-0">暂无岗位配置</p>
+          {% endif %}
+          <div class="mt-3">
+            <a href="{{ url_for('admin_dept_edit', dept_id=dept.id) }}" class="btn btn-outline-primary btn-sm w-100">
+              <i class="fas fa-edit me-1"></i>编辑部门信息
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-8">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+          <h6 class="mb-0">成员列表（{{ members|length }}人）</h6>
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-hover mb-0">
+            <thead class="table-light">
+              <tr><th>姓名</th><th>工号</th><th>岗位</th><th>系统角色</th><th>联系方式</th><th>状态</th><th>操作</th></tr>
+            </thead>
+            <tbody>
+              {% for u in members %}
+              <tr class="{{ 'table-secondary text-muted' if not u.is_active }}">
+                <td>
+                  <span class="fw-semibold">{{ u.name }}</span>
+                  <br><small class="text-muted">@{{ u.username }}</small>
+                </td>
+                <td>{{ u.employee_no or '-' }}</td>
+                <td>{{ u.position.name if u.position else '-' }}</td>
+                <td>
+                  <span class="badge bg-{{ 'danger' if u.role=='admin' else 'warning text-dark' if u.role=='manager' else 'info text-dark' if u.role=='reporter' else 'secondary' }}">
+                    {{ {'admin':'管理员','manager':'经理','reporter':'报送员','employee':'员工'}.get(u.role, u.role) }}
+                  </span>
+                </td>
+                <td class="small">
+                  {% if u.phone %}<div><i class="fas fa-phone me-1 text-muted"></i>{{ u.phone }}</div>{% endif %}
+                  {% if u.email %}<div><i class="fas fa-envelope me-1 text-muted"></i>{{ u.email }}</div>{% endif %}
+                </td>
+                <td><span class="badge bg-{{ 'success' if u.is_active else 'secondary' }}">{{ '在职' if u.is_active else '离职' }}</span></td>
+                <td>
+                  <a href="{{ url_for('admin_user_edit', user_id=u.id) }}" class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-edit"></i>
+                  </a>
+                </td>
+              </tr>
+              {% else %}
+              <tr><td colspan="7" class="text-center text-muted py-4">该部门暂无成员</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

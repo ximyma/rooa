@@ -1,0 +1,37 @@
+Flask==2.3.3
+Flask-SQLAlchemy==3.1.1
+Flask-Login==0.6.2
+Flask-WTF==1.2.1
+Flask-Caching==2.3.1
+Flask-APScheduler==1.13.1
+Werkzeug==2.3.7
+python-docx==0.8.11
+PyPDF2==3.0.1
+pandas>=2.0.0
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+
+# ──────────────────────────────────────────────
+# 国标档案数字化合规模块 依赖
+# DA/T 31-2005 / DA/T 47-2009
+# ──────────────────────────────────────────────
+
+# 图像处理（TIFF存储 / 色彩模式 / 图像增强）
+Pillow>=10.0.0
+
+# 自动纠偏 + 去黑边（OpenCV）
+opencv-python-headless>=4.8.0
+
+# OCR文字识别（需另行安装 Tesseract 引擎）
+# Windows: https://github.com/UB-Mannheim/tesseract/wiki
+# Linux:   apt install tesseract-ocr tesseract-ocr-chi-sim
+pytesseract>=0.3.10
+
+# 图像→PDF转换（无OCR时备用）
+img2pdf>=0.4.4
+
+# PDF/A 处理 + OCR文字层嵌入
+PyMuPDF>=1.23.0
+
+# PDF读写（已有PyPDF2，pymupdf可替代，均保留）
+pypdf>=3.0.0

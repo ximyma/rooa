@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}{{ '编辑会议' if meeting else '发起会议' }}{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex align-items-center mb-4">
+    <a href="{{ url_for('meeting_detail', meeting_id=meeting.id) if meeting else url_for('meeting_index') }}" class="btn btn-outline-secondary me-3"><i class="fas fa-arrow-left me-1"></i>返回</a>
+    <div>
+      <h3 class="mb-1"><i class="fas fa-calendar-plus me-2 text-primary"></i>{{ '编辑会议' if meeting else '发起会议' }}</h3>
+      <div class="text-muted">{{ '继续调整会议时间、议程和参会范围，保存后立即生效。' if meeting else '按照真实会务流程录入会议安排、议程和参会范围' }}</div>
+    </div>
+  </div>
+
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="row g-4">
+      <div class="col-lg-8">
+        <div class="card shadow-sm mb-4">
+          <div class="card-header bg-white fw-semibold">基本信息</div>
+          <div class="card-body row g-3">
+            <div class="col-md-8">
+              <label class="form-label">会议主题 <span class="text-danger">*</span></label>
+              <input type="text" name="subject" class="form-control" required value="{{ meeting.subject if meeting else (('关于' ~ related_doc.title ~ '的专题会议') if related_doc else '') }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">会议类型</label>
+              <select name="meeting_type" class="form-select">
+                {% set meeting_type_value = meeting.meeting_type if meeting else '办公会' %}
+                {% for t in ['办公会','专题会','调度会','党组会','周例会','项目推进会'] %}
+                <option value="{{ t }}" {{ 'selected' if meeting_type_value == t else '' }}>{{ t }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">会议层级</label>
+              <select name="level" class="form-select">
+                {% set level_value = meeting.level if meeting else '部门级' %}
+                {% for t in ['部门级','单位级','公司级','联合会议'] %}
+                <option value="{{ t }}" {{ 'selected' if level_value == t else '' }}>{{ t }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">优先级</label>
+              <select name="priority" class="form-select">
+                {% set priority_value = meeting.priority if meeting else '普通' %}
+                {% for t in ['普通','重要','紧急'] %}
+                <option value="{{ t }}" {{ 'selected' if priority_value == t else '' }}>{{ t }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">开始时间 <span class="text-danger">*</span></label>
+              <input type="datetime-local" name="start_time" class="form-control" required value="{{ meeting.start_time.strftime('%Y-%m-%dT%H:%M') if meeting and meeting.start_time else '' }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">结束时间 <span class="text-danger">*</span></label>
+              <input type="datetime-local" name="end_time" class="form-control" required value="{{ meeting.end_time.strftime('%Y-%m-%dT%H:%M') if meeting and meeting.end_time else '' }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">会议室</label>
+              <select name="room_id" class="form-select">
+                <option value="">待定</option>
+                {% for room in rooms %}
+                <option value="{{ room.id }}" {{ 'selected' if meeting and meeting.room_id == room.id else '' }}>{{ room.name }}（{{ room.location or '未设置位置' }}，容纳 {{ room.capacity or 0 }} 人{% if room.status == 'maintenance' %}，维护中{% endif %}）</option>
+                {% endfor %}
+              </select>
+              <div class="form-text">提交发布时会自动校验会议室状态、时间冲突和容纳人数；草稿可先保存。</div>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">主持人</label>
+              <select name="host_id" class="form-select">
+                {% set host_value = meeting.host_id if meeting else current_user.id %}
+                {% for user in users %}
+                <option value="{{ user.id }}" {{ 'selected' if user.id == host_value else '' }}>{{ user.name }}{% if user.department %}（{{ user.department }}）{% endif %}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">会议议程</label>
+              <textarea name="agenda" rows="7" class="form-control" placeholder="示例：
+1. 传达最新工作要求
+2. 各部门汇报进展
+3. 明确责任分工和完成时限">{{ meeting.agenda if meeting else ('围绕《' ~ related_doc.title ~ '》进行传达部署，并明确责任分工和完成时限。' if related_doc else '') }}</textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label">会议纪要（可选）</label>
+              <textarea name="minutes" rows="5" class="form-control" placeholder="可在会后补充纪要或决议事项">{{ meeting.minutes if meeting else '' }}</textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-4">
+        <div class="card shadow-sm mb-4">
+          <div class="card-header bg-white fw-semibold">参会范围</div>
+          <div class="card-body">
+            <div class="mb-3">
+              <label class="form-label">参会部门</label>
+              <input type="text" name="attendee_depts" class="form-control" placeholder="如：办公室、财务部、综合科" value="{{ meeting.attendee_depts if meeting else '' }}">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">指定参会人员</label>
+              {% set selected_attendees = meeting.get_attendee_ids() if meeting else [] %}
+              <div style="max-height:280px;overflow-y:auto;border:1px solid #dee2e6;border-radius:8px;padding:8px;">
+                {% for user in users %}
+                <div class="form-check mb-2">
+                  <input class="form-check-input" type="checkbox" name="attendee_ids" value="{{ user.id }}" id="attendee_{{ user.id }}" {{ 'checked' if user.id in selected_attendees else '' }}>
+                  <label class="form-check-label" for="attendee_{{ user.id }}">{{ user.name }} <span class="text-muted small">{{ user.department or '未设置部门' }}</span></label>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" name="require_signin" id="requireSignin" {{ 'checked' if meeting is none or meeting.require_signin else '' }}>
+              <label class="form-check-label" for="requireSignin">启用签到标记</label>
+            </div>
+            {% set current_doc = meeting.related_doc if meeting else related_doc %}
+            {% if current_doc %}
+            <input type="hidden" name="related_doc_id" value="{{ current_doc.id }}">
+            <div class="alert alert-light border mt-3 mb-0">
+              <div class="small text-muted">关联公文</div>
+              <a href="{{ url_for('doc_detail', doc_id=current_doc.id) }}" target="_blank" class="text-decoration-none">{{ current_doc.title }}</a>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="card shadow-sm">
+          <div class="card-body d-grid gap-2">
+            {% if meeting and meeting.status != 'draft' %}
+            <button type="submit" name="action" value="save" class="btn btn-primary"><i class="fas fa-save me-1"></i>保存修改</button>
+            {% else %}
+            <button type="submit" name="action" value="save" class="btn btn-outline-secondary"><i class="fas fa-save me-1"></i>保存草稿</button>
+            <button type="submit" name="action" value="submit" class="btn btn-primary"><i class="fas fa-paper-plane me-1"></i>{{ '提交发布' if not meeting or meeting.status == 'draft' else '确认更新' }}</button>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

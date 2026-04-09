@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新建网址库 - 栏目监测</title>
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/css/fontawesome.all.min.css" rel="stylesheet">
+    <style>
+        :root { --bg-primary: #0a0e1a; --bg-secondary: #111827; --bg-card: #1a2235; --accent-cyan: #00d4ff; --accent-green: #00ff9d; --accent-red: #ff4757; --text-primary: #e8edf5; --text-secondary: #8892a4; --border-color: #2a3550; }
+        * { box-sizing: border-box; }
+        body { background: var(--bg-primary); color: var(--text-primary); font-family: 'Microsoft YaHei', sans-serif; min-height: 100vh; }
+        .card-dark { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; }
+        .form-control-dark { background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 8px; }
+        .form-control-dark:focus { border-color: var(--accent-cyan); box-shadow: 0 0 0 2px rgba(0,212,255,0.15); }
+        .form-label { color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 6px; }
+        .btn-cyber { border: 1px solid var(--accent-cyan); color: var(--accent-cyan); border-radius: 8px; padding: 8px 24px; font-weight: 600; transition: all 0.3s; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-cyber:hover { background: var(--accent-cyan); color: #000; box-shadow: 0 0 20px rgba(0,212,255,0.4); }
+        .btn-cyber-green { border-color: var(--accent-green); color: var(--accent-green); }
+        .btn-cyber-green:hover { background: var(--accent-green); color: #000; }
+        .glow-title { color: var(--accent-cyan); text-shadow: 0 0 20px rgba(0,212,255,0.5); }
+    </style>
+</head>
+<body>
+<div class="container py-5" style="max-width: 700px;">
+    <div class="d-flex align-items-center mb-4">
+        <a href="{{ url_for('monitor_index') }}" class="btn btn-sm me-3" style="border:1px solid var(--border-color); color: var(--text-secondary);">
+            <i class="fas fa-arrow-left"></i>
+        </a>
+        <h4 class="mb-0 glow-title">📁 新建网址库</h4>
+    </div>
+
+    <form method="post" class="card-dark p-4">
+        <div class="mb-3">
+            <label class="form-label"><i class="fas fa-folder me-1" style="color:var(--accent-cyan);"></i>库名称 *</label>
+            <input type="text" name="name" class="form-control form-control-dark" required placeholder="例如：石城县政府栏目库">
+        </div>
+        <div class="mb-3">
+            <label class="form-label"><i class="fas fa-tag me-1" style="color:var(--accent-cyan);"></i>分类</label>
+            <input type="text" name="category" class="form-control form-control-dark" placeholder="例如：政府网站">
+        </div>
+        <div class="mb-4">
+            <label class="form-label"><i class="fas fa-info-circle me-1" style="color:var(--accent-cyan);"></i>描述</label>
+            <textarea name="description" class="form-control form-control-dark" rows="3" placeholder="网址库的用途说明..."></textarea>
+        </div>
+        <div class="d-flex gap-2 justify-content-end">
+            <a href="{{ url_for('monitor_index') }}" class="btn" style="border:1px solid var(--border-color); color: var(--text-secondary);">取消</a>
+            <button type="submit" class="btn-cyber btn-cyber-green"><i class="fas fa-save"></i> 创建并添加网址</button>
+        </div>
+    </form>
+</div>
+<script src="/static/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

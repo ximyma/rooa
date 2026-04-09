@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% block title %}我的借阅 - 档案系统{% endblock %}
+
+{% block content %}
+<!-- CSRF Token -->
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+<style>
+.borrow-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    background: white;
+}
+.borrow-card.active {
+    border-left: 4px solid #3b82f6;
+}
+.borrow-card.returned {
+    border-left: 4px solid #10b981;
+    opacity: 0.8;
+}
+.borrow-card.overdue {
+    border-left: 4px solid #ef4444;
+}
+.status-badge {
+    font-size: 0.85rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+}
+</style>
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2><i class="fas fa-hand-holding me-2"></i>我的借阅</h2>
+        </div>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-primary">{{ stats.total or 0 }}</h3>
+                    <small class="text-muted">借阅总数</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-warning">{{ stats.active or 0 }}</h3>
+                    <small class="text-muted">借阅中</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-success">{{ stats.returned or 0 }}</h3>
+                    <small class="text-muted">已归还</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-danger">{{ stats.overdue or 0 }}</h3>
+                    <small class="text-muted">已逾期</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 借阅列表 -->
+    {% if borrows %}
+    <div class="card">
+        <div class="card-header">
+            <ul class="nav nav-tabs card-header-tabs">
+                <li class="nav-item">
+                    <a class="nav-link {% if status == 'all' or not status %}active{% endif %}"
+                       href="{{ url_for('archive.my_borrows', status='all') }}">全部</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if status == 'active' %}active{% endif %}"
+                       href="{{ url_for('archive.my_borrows', status='active') }}">借阅中</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if status == 'returned' %}active{% endif %}"
+                       href="{{ url_for('archive.my_borrows', status='returned') }}">已归还</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if status == 'overdue' %}active{% endif %} text-danger"
+                       href="{{ url_for('archive.my_borrows', status='overdue') }}">已逾期</a>
+                </li>
+            </ul>
+        </div>
+        <div class="card-body">
+            {% for borrow in borrows %}
+            <div class="borrow-card {% if borrow.status == 'returned' %}returned{% elif borrow.is_overdue %}overdue{% else %}active{% endif %}">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h5 class="mb-1">
+                            <a href="{{ url_for('archive.file_detail', file_id=borrow.archive_file_id) }}">
+                                {{ borrow.archive_file.title if borrow.archive_file else '档案文件' }}
+                            </a>
+                        </h5>
+                        <p class="text-muted small mb-2">
+                            档号：{{ borrow.archive_file.get_archive_code() if borrow.archive_file else '-' }} |
+                            全宗：{{ borrow.archive_file.fonds.fonds_name if borrow.archive_file and borrow.archive_file.fonds else '-' }}
+                        </p>
+                        <div class="small">
+                            <span class="me-3">
+                                <i class="fas fa-calendar-alt me-1"></i>
+                                借阅日期：{{ borrow.borrow_date.strftime('%Y-%m-%d') if borrow.borrow_date else '-' }}
+                            </span>
+                            <span class="me-3">
+                                <i class="fas fa-calendar-check me-1"></i>
+                                应还日期：{{ borrow.return_date.strftime('%Y-%m-%d') if borrow.return_date else '-' }}
+                            </span>
+                            {% if borrow.actual_return_date %}
+                            <span>
+                                <i class="fas fa-undo me-1"></i>
+                                实际归还：{{ borrow.actual_return_date.strftime('%Y-%m-%d') }}
+                            </span>
+                            {% endif %}
+                        </div>
+                        {% if borrow.purpose %}
+                        <p class="small text-muted mt-2 mb-0">
+                            借阅目的：{{ borrow.purpose }}
+                        </p>
+                        {% endif %}
+                        {% if borrow.reject_reason %}
+                        <p class="small text-danger mt-2 mb-0">
+                            拒绝原因：{{ borrow.reject_reason }}
+                        </p>
+                        {% endif %}
+                    </div>
+                    <div>
+                        {% if borrow.status == 'returned' %}
+                        <span class="status-badge bg-success text-white">已归还</span>
+                        {% elif borrow.status == 'pending' %}
+                        <span class="status-badge bg-warning text-dark">待审批</span>
+                        {% elif borrow.status == 'rejected' %}
+                        <span class="status-badge bg-secondary text-white">已拒绝</span>
+                        {% elif borrow.is_overdue %}
+                        <span class="status-badge bg-danger text-white">已逾期</span>
+                        {% else %}
+                        <span class="status-badge bg-primary text-white">借阅中</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if borrow.status == 'borrowed' %}
+                <div class="mt-3 pt-2 border-top">
+                    <form action="{{ url_for('archive.borrow_return', borrow_id=borrow.id) }}" method="post" class="d-inline">
+                        <button type="submit" class="btn btn-sm btn-outline-success" onclick="return confirm('确认归还此档案？')">
+                            <i class="fas fa-undo me-1"></i>归还
+                        </button>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    {% if pagination.pages > 1 %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if pagination.has_prev %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('archive.my_borrows', page=pagination.prev_num, status=status) }}">上一页</a>
+            </li>
+            {% endif %}
+            {% for p in pagination.iter_pages() %}
+                {% if p %}
+                <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                    <a class="page-link" href="{{ url_for('archive.my_borrows', page=p, status=status) }}">{{ p }}</a>
+                </li>
+                {% endif %}
+            {% endfor %}
+            {% if pagination.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('archive.my_borrows', page=pagination.next_num, status=status) }}">下一页</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+    {% else %}
+    <div class="text-center py-5">
+        <i class="fas fa-folder-open fa-4x text-muted mb-3"></i>
+        <h4>暂无借阅记录</h4>
+        <p class="text-muted">您可以从档案列表中选择需要的档案进行借阅</p>
+        <a href="{{ url_for('archive.file_list') }}" class="btn btn-primary mt-2">
+            <i class="fas fa-list me-1"></i>浏览档案
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+
+{% endblock %}

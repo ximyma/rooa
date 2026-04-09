@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}{{ '编辑部门' if action=='edit' else '新增部门' }}{% endblock %}
+{% block content %}
+<div class="container py-3" style="max-width:720px">
+  <div class="mb-3">
+    <h4><i class="fas fa-layer-group text-success me-2"></i>{{ '编辑部门' if action=='edit' else '新增部门' }}</h4>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb small mb-0">
+      <li class="breadcrumb-item"><a href="{{ url_for('admin_org_tree') }}">组织架构</a></li>
+      <li class="breadcrumb-item"><a href="{{ url_for('admin_dept_list') }}">部门管理</a></li>
+      <li class="breadcrumb-item active">{{ '编辑' if action=='edit' else '新增' }}</li>
+    </ol></nav>
+  </div>
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-4">
+      <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="row g-3">
+          <div class="col-md-8">
+            <label class="form-label fw-semibold">部门名称 <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" name="name" value="{{ dept.name if dept else '' }}" required>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">部门编码</label>
+            <input type="text" class="form-control" name="code" value="{{ dept.code if dept else '' }}" placeholder="如 HR、IT">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">所属机构</label>
+            <select class="form-select" name="org_id">
+              <option value="">— 未指定机构 —</option>
+              {% for org in orgs %}
+              <option value="{{ org.id }}" {{ 'selected' if dept and dept.org_id==org.id }}>{{ org.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">上级部门</label>
+            <select class="form-select" name="parent_id">
+              <option value="">— 顶级部门 —</option>
+              {% for d in depts_all %}
+              <option value="{{ d.id }}" {{ 'selected' if dept and dept.parent_id==d.id }}>{{ d.get_full_path() }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">部门类型</label>
+            <select class="form-select" name="dept_type">
+              {% for val, label in [('functional','职能部门'),('business','业务部门'),('support','支撑部门')] %}
+              <option value="{{ val }}" {{ 'selected' if dept and dept.dept_type==val }}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">部门负责人</label>
+            <select class="form-select" name="manager_id">
+              <option value="">— 未指定 —</option>
+              {% for u in users_all %}
+              <option value="{{ u.id }}" {{ 'selected' if dept and dept.manager_id==u.id }}>{{ u.name }}（{{ u.department or '未定部门' }}）</option>
+              {% endfor %}
+            </select>
+            <small class="text-muted">负责人将自动获得部门管理权限</small>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">排序权重</label>
+            <input type="number" class="form-control" name="sort_order" value="{{ dept.sort_order if dept else 0 }}" min="0">
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-semibold">部门描述</label>
+            <textarea class="form-control" name="description" rows="2">{{ dept.description if dept else '' }}</textarea>
+          </div>
+          {% if action == 'edit' %}
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">状态</label>
+            <select class="form-select" name="is_active">
+              <option value="1" {{ 'selected' if dept.is_active }}>启用</option>
+              <option value="0" {{ 'selected' if not dept.is_active }}>停用</option>
+            </select>
+          </div>
+          {% endif %}
+        </div>
+        <div class="d-flex gap-2 mt-4">
+          <button type="submit" class="btn btn-success"><i class="fas fa-save me-1"></i>保存</button>
+          <a href="{{ url_for('admin_dept_list') }}" class="btn btn-outline-secondary">取消</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

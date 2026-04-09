@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row">
+    <div class="col-md-3">
+        <div class="list-group">
+            <a href="#" class="list-group-item list-group-item-action active">快捷入口</a>
+            <a href="{{ url_for('document_writing') }}" class="list-group-item list-group-item-action">公文写作</a>
+            <a href="{{ url_for('document_polish') }}" class="list-group-item list-group-item-action">稿件润色</a>
+            <a href="{{ url_for('document_proofread') }}" class="list-group-item list-group-item-action">稿件校对</a>
+            <a href="{{ url_for('suggestion') }}" class="list-group-item list-group-item-action">拟办意见</a>
+            <a href="{{ url_for('template_library') }}" class="list-group-item list-group-item-action">公文模板</a>
+        </div>
+        <div class="list-group mt-3">
+            <a href="#" class="list-group-item list-group-item-action active bg-success border-success">📁 档案管理</a>
+            <a href="{{ url_for('archive.index') }}" class="list-group-item list-group-item-action">档案首页</a>
+            <a href="{{ url_for('archive.fonds_list') }}" class="list-group-item list-group-item-action">全宗管理</a>
+            <a href="{{ url_for('archive.file_list') }}" class="list-group-item list-group-item-action">档案列表</a>
+            <a href="{{ url_for('archive.search') }}" class="list-group-item list-group-item-action">智能检索</a>
+            <a href="{{ url_for('archive.batch_upload') }}" class="list-group-item list-group-item-action">批量上传</a>
+            <a href="{{ url_for('archive.statistics') }}" class="list-group-item list-group-item-action">统计报表</a>
+            <a href="{{ url_for('archive.quality_dashboard') }}" class="list-group-item list-group-item-action">数字化质检</a>
+            <a href="{{ url_for('archive.my_borrows') }}" class="list-group-item list-group-item-action">我的借阅</a>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">公文模板搜索</div>
+            <div class="card-body">
+                <input type="text" class="form-control" placeholder="输入模板名称搜索...">
+            </div>
+        </div>
+        <div class="card mt-3">
+            <div class="card-header">最近编辑</div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li>2025-03-24 工作报告草稿</li>
+                    <li>2025-03-23 会议纪要</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-header">常用助手</div>
+            <div class="card-body">
+                <a href="{{ url_for('ai_chat') }}" class="btn btn-primary w-100 mb-2">AI对话</a>
+                <a href="{{ url_for('monitor_index') }}" class="btn btn-info w-100 mb-2">栏目监测</a>
+                <a href="{{ url_for('crawler_search') }}" class="btn btn-secondary w-100 mb-2">内容检索</a>
+                <a href="{{ url_for('report_list') }}" class="btn btn-warning w-100 mb-2">信息上报</a>
+                <a href="{{ url_for('knowledge_personal') }}" class="btn btn-success w-100">知识库</a>
+            </div>
+        </div>
+        <div class="card mt-3">
+            <div class="card-header">专项任务</div>
+            <div class="card-body">
+                <a href="{{ url_for('task_todo') }}" class="btn btn-outline-primary btn-sm w-100 mb-2">约稿任务(待办)</a>
+                <a href="{{ url_for('task_done') }}" class="btn btn-outline-secondary btn-sm w-100">约稿任务(已办)</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

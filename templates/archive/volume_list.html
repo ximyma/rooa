@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% block title %}案卷管理 - 档案系统{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-2">
+                    <li class="breadcrumb-item"><a href="{{ url_for('archive.index') }}">档案管理</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('archive.fonds_list') }}">全宗管理</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('archive.catalog_list', fonds_id=fonds.id) }}">{{ fonds.fonds_name }}</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">{{ catalog.catalog_name }}</li>
+                </ol>
+            </nav>
+            <h2 class="mb-1"><i class="fas fa-book-open text-warning me-2"></i>{{ catalog.catalog_name }}</h2>
+            <div class="text-muted small">
+                目录号：<span class="badge bg-success">{{ catalog.catalog_code }}</span>
+                <span class="ms-2">案卷 {{ volumes|length }} 卷</span>
+                <span class="ms-2">卷内文件 {{ total_files or 0 }} 件</span>
+            </div>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('archive.catalog_list', fonds_id=fonds.id) }}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-arrow-left me-1"></i>返回目录
+            </a>
+            <a href="{{ url_for('archive.file_upload') }}?fonds_id={{ fonds.id }}&catalog_id={{ catalog.id }}" class="btn btn-outline-info btn-sm">
+                <i class="fas fa-upload me-1"></i>上传档案文件
+            </a>
+            <button class="btn btn-warning btn-sm text-white" data-bs-toggle="modal" data-bs-target="#createVolumeModal">
+                <i class="fas fa-plus me-1"></i>新建案卷
+            </button>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3 col-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="text-muted small">所属全宗</div>
+                    <div class="fw-semibold mt-2">{{ fonds.fonds_name }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="text-muted small">目录类型</div>
+                    <div class="fw-semibold mt-2">{{ catalog.catalog_type or '未分类' }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="text-muted small">案卷数</div>
+                    <div class="display-6 text-warning">{{ volumes|length }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="text-muted small">卷内文件数</div>
+                    <div class="display-6 text-primary">{{ total_files or 0 }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="fas fa-list me-1"></i>案卷列表</span>
+            <span class="badge bg-warning text-dark">{{ volumes|length }} 卷</span>
+        </div>
+        <div class="card-body p-0">
+            {% if volumes %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-3">案卷号</th>
+                            <th>案卷题名</th>
+                            <th>年度</th>
+                            <th>保管期限</th>
+                            <th>密级</th>
+                            <th>文件数</th>
+                            <th>数字化</th>
+                            <th>创建时间</th>
+                            <th class="text-center">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for volume in volumes %}
+                        <tr>
+                            <td class="ps-3"><span class="badge bg-warning text-dark">{{ volume.volume_code }}</span></td>
+                            <td>
+                                <div class="fw-semibold">{{ volume.volume_title }}</div>
+                                {% if volume.description %}
+                                <div class="text-muted small">{{ volume.description }}</div>
+                                {% endif %}
+                            </td>
+                            <td>{{ volume.volume_year or '-' }}</td>
+                            <td>{{ volume.retention_period or '30年' }}</td>
+                            <td>{{ volume.security_level or '公开' }}</td>
+                            <td>{{ volume.file_count or 0 }}</td>
+                            <td>
+                                {% if volume.is_digitized %}
+                                <span class="badge bg-success">已数字化</span>
+                                {% else %}
+                                <span class="badge bg-secondary">未数字化</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-muted small">{{ volume.created_at.strftime('%Y-%m-%d') if volume.created_at else '-' }}</td>
+                            <td class="text-center">
+                                <div class="d-flex gap-1 justify-content-center">
+                                    <a href="{{ url_for('archive.file_upload') }}?fonds_id={{ fonds.id }}&catalog_id={{ catalog.id }}&volume_id={{ volume.id }}" class="btn btn-sm btn-outline-info" title="上传文件">
+                                        <i class="fas fa-upload"></i>
+                                    </a>
+                                    <a href="{{ url_for('archive.file_list') }}?fonds_id={{ fonds.id }}&catalog_id={{ catalog.id }}&keyword={{ volume.volume_code }}" class="btn btn-sm btn-outline-primary" title="查看相关文件">
+                                        <i class="fas fa-file-lines"></i>
+                                    </a>
+                                    <a href="{{ url_for('archive.volume_edit', volume_id=volume.id) }}"
+                                       class="btn btn-sm btn-outline-secondary" title="编辑案卷">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <form action="{{ url_for('archive.volume_delete', volume_id=volume.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('确定要删除案卷「{{ volume.volume_title[:20] }}」吗？');">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="删除案卷">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-book fa-3x mb-3 opacity-25"></i>
+                <p class="mb-2">该目录下还没有案卷</p>
+                <button class="btn btn-warning btn-sm text-white" data-bs-toggle="modal" data-bs-target="#createVolumeModal">
+                    <i class="fas fa-plus me-1"></i>立即创建案卷
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="createVolumeModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-white">
+                <h5 class="modal-title"><i class="fas fa-book-open me-1"></i>新建案卷</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('archive.volume_create') }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="fonds_id" value="{{ fonds.id }}">
+                <input type="hidden" name="catalog_id" value="{{ catalog.id }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">所属目录</label>
+                        <input type="text" class="form-control" value="{{ catalog.catalog_code }} - {{ catalog.catalog_name }}" disabled>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-semibold">案卷号 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="volume_code" required placeholder="如：001 或 2026-001">
+                        </div>
+                        <div class="col-md-8 mb-3">
+                            <label class="form-label fw-semibold">案卷题名 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="volume_title" required placeholder="如：2026年度文书档案第一卷">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-semibold">年度</label>
+                            <input type="number" class="form-control" name="volume_year" placeholder="如：2026">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-semibold">保管期限</label>
+                            <select class="form-select" name="retention_period">
+                                <option value="永久">永久</option>
+                                <option value="30年" selected>30年</option>
+                                <option value="10年">10年</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-semibold">密级</label>
+                            <select class="form-select" name="security_level">
+                                <option value="公开" selected>公开</option>
+                                <option value="内部">内部</option>
+                                <option value="秘密">秘密</option>
+                                <option value="机密">机密</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">责任者</label>
+                            <input type="text" class="form-control" name="responsibility" placeholder="可选">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">存放位置</label>
+                            <input type="text" class="form-control" name="storage_location" placeholder="如：A区-01架-02层">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">说明</label>
+                        <textarea class="form-control" name="description" rows="3" placeholder="可选"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-warning text-white">创建案卷</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

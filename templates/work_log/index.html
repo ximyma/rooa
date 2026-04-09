@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}工作日志{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div>
+      <h3 class="mb-1"><i class="fas fa-book me-2 text-primary"></i>工作日志</h3>
+      <div class="text-muted">沉淀每日工作内容、成果产出和明日计划，并保留审批意见与退回痕迹</div>
+    </div>
+    <a href="{{ url_for('worklog_new') }}" class="btn btn-primary"><i class="fas fa-plus me-1"></i>新建日志</a>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-xl-2 col-md-4 col-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">今日日志</div><div class="fs-4 fw-bold">{{ stats.today }}</div></div></div></div>
+    <div class="col-xl-2 col-md-4 col-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">待阅</div><div class="fs-4 fw-bold text-warning">{{ stats.submitted }}</div></div></div></div>
+    <div class="col-xl-2 col-md-4 col-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">退回修改</div><div class="fs-4 fw-bold text-danger">{{ stats.returned }}</div></div></div></div>
+    <div class="col-xl-2 col-md-4 col-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">已阅</div><div class="fs-4 fw-bold text-success">{{ stats.reviewed }}</div></div></div></div>
+    <div class="col-xl-2 col-md-4 col-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">关联任务</div><div class="fs-4 fw-bold text-primary">{{ stats.task_related }}</div></div></div></div>
+    <div class="col-xl-2 col-md-4 col-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">累计工时</div><div class="fs-4 fw-bold text-info">{{ stats.hours }}</div></div></div></div>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <div class="d-flex flex-wrap gap-2 mb-3">
+        <a href="{{ url_for('worklog_index', quick='today', keyword=keyword, status=status_filter, log_date=log_date.strftime('%Y-%m-%d') if log_date else '') }}" class="btn btn-sm {{ 'btn-primary' if quick_filter == 'today' else 'btn-outline-primary' }}">今日日志</a>
+        <a href="{{ url_for('worklog_index', quick='returned', keyword=keyword, status=status_filter, log_date=log_date.strftime('%Y-%m-%d') if log_date else '') }}" class="btn btn-sm {{ 'btn-danger' if quick_filter == 'returned' else 'btn-outline-danger' }}">退回修改</a>
+        <a href="{{ url_for('worklog_index', quick='task_related', keyword=keyword, status=status_filter, log_date=log_date.strftime('%Y-%m-%d') if log_date else '') }}" class="btn btn-sm {{ 'btn-info' if quick_filter == 'task_related' else 'btn-outline-info' }}">关联任务</a>
+        {% if current_user.role in ('admin', 'manager') %}
+        <a href="{{ url_for('worklog_index', quick='need_review', keyword=keyword, status=status_filter, log_date=log_date.strftime('%Y-%m-%d') if log_date else '') }}" class="btn btn-sm {{ 'btn-warning' if quick_filter == 'need_review' else 'btn-outline-warning' }}">待阅日志</a>
+        {% endif %}
+        {% if quick_filter %}
+        <a href="{{ url_for('worklog_index', keyword=keyword, status=status_filter, log_date=log_date.strftime('%Y-%m-%d') if log_date else '') }}" class="btn btn-sm btn-outline-secondary">清除快捷筛选</a>
+        {% endif %}
+      </div>
+      <form class="row g-3">
+
+        <div class="col-lg-4"><input type="text" name="keyword" value="{{ keyword }}" class="form-control" placeholder="搜索标题、工作内容或成果"></div>
+        <div class="col-lg-3"><input type="date" name="log_date" value="{{ log_date.strftime('%Y-%m-%d') if log_date else '' }}" class="form-control"></div>
+        <div class="col-lg-3">
+          <select name="status" class="form-select">
+            <option value="">全部状态</option>
+            <option value="draft" {{ 'selected' if status_filter == 'draft' else '' }}>草稿</option>
+            <option value="submitted" {{ 'selected' if status_filter == 'submitted' else '' }}>待阅</option>
+            <option value="returned" {{ 'selected' if status_filter == 'returned' else '' }}>退回修改</option>
+            <option value="reviewed" {{ 'selected' if status_filter == 'reviewed' else '' }}>已阅</option>
+          </select>
+        </div>
+        <div class="col-lg-1 d-grid"><button class="btn btn-primary">筛选</button></div>
+        <div class="col-lg-1 d-grid"><a href="{{ url_for('worklog_index') }}" class="btn btn-outline-secondary">重置</a></div>
+      </form>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="card shadow-sm">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <span class="fw-semibold">日志台账</span>
+          <span class="small text-muted">最新审批动作会同步显示在列表中</span>
+        </div>
+        <div class="card-body p-0">
+          {% if logs %}
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead class="table-light"><tr><th>日志标题</th><th style="width:110px">日期</th><th style="width:90px">工时</th><th style="width:130px">关联任务</th><th style="width:100px">状态</th><th style="width:220px">最新审批意见</th><th style="width:110px">操作</th></tr></thead>
+              <tbody>
+                {% for log in logs %}
+                {% set latest_review = latest_reviews.get(log.id) %}
+                <tr>
+                  <td>
+                    <div class="fw-semibold">{{ log.title }}</div>
+                    <div class="small text-muted">{{ log.user.name if log.user else '-' }} · {{ log.category }}</div>
+                  </td>
+                  <td>{{ log.log_date.strftime('%Y-%m-%d') if log.log_date else '-' }}</td>
+                  <td>{{ log.hours or 0 }}</td>
+                  <td class="small text-muted">{{ log.related_task.title if log.related_task else '未关联' }}</td>
+                  <td>
+                    <span class="badge bg-{{ 'secondary' if log.status == 'draft' else 'warning' if log.status == 'submitted' else 'danger' if log.status == 'returned' else 'success' }}">{{ {'draft':'草稿','submitted':'待阅','returned':'退回修改','reviewed':'已阅'}.get(log.status, log.status) }}</span>
+                  </td>
+                  <td>
+                    {% if latest_review %}
+                    <div class="small fw-semibold">{{ {'save_draft':'保存草稿','submit':'提交审核','resubmit':'重新提交','review':'已阅批注','return':'退回修改'}.get(latest_review.action, latest_review.action) }}</div>
+                    <div class="small text-muted">{{ latest_review.operator.name if latest_review.operator else '-' }} · {{ latest_review.created_at.strftime('%m-%d %H:%M') }}</div>
+                    <div class="small mt-1 text-break">{{ latest_review.comment or '无附加意见' }}</div>
+                    {% else %}
+                    <div class="small text-muted">暂无审批记录</div>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <a href="{{ url_for('worklog_detail', log_id=log.id) }}" class="btn btn-sm btn-outline-primary">查看</a>
+                    {% if log.user_id == current_user.id %}
+                    <a href="{{ url_for('worklog_new', id=log.id) }}" class="btn btn-sm btn-outline-secondary mt-1">编辑</a>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="text-center text-muted py-5">暂无工作日志</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white fw-semibold">填写提醒</div>
+        <div class="card-body small text-muted" style="line-height:1.8;">
+          <div>1. 被退回的日志可直接修改后重新提交。</div>
+          <div>2. 审批意见会同步保存在日志详情页的留痕时间轴中。</div>
+          <div>3. 关联督办任务后，便于领导查看每日推进情况。</div>
+        </div>
+      </div>
+      <div class="card shadow-sm">
+        <div class="card-header bg-white fw-semibold">可关联的督办任务</div>
+        <div class="card-body">
+          {% if tasks %}
+          {% for task in tasks[:8] %}
+          <div class="border rounded p-3 mb-3">
+            <div class="fw-semibold">{{ task.title }}</div>
+            <div class="small text-muted">{{ task.due_date.strftime('%Y-%m-%d %H:%M') if task.due_date else '-' }}</div>
+            <div class="progress mt-2" style="height:8px"><div class="progress-bar" style="width:{{ task.progress_percent or 0 }}%"></div></div>
+          </div>
+          {% endfor %}
+          {% else %}
+          <div class="text-muted">暂无可关联督办任务</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

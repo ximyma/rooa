@@ -1,0 +1,686 @@
+{% extends "base.html" %}
+
+{% block title %}档案管理系统 - 企业智能OA系统{% endblock %}
+
+{% block content %}
+<style>
+/* 档案首页全局样式 */
+.archive-home {
+    max-width: 1600px;
+    margin: 0 auto;
+}
+
+/* 欢迎横幅 */
+.welcome-banner {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 20px;
+    padding: 2.5rem;
+    color: white;
+    margin-bottom: 2rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.welcome-banner::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -10%;
+    width: 400px;
+    height: 400px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 50%;
+}
+
+.welcome-banner::after {
+    content: '';
+    position: absolute;
+    bottom: -30%;
+    right: 10%;
+    width: 200px;
+    height: 200px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 50%;
+}
+
+.welcome-content {
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.welcome-banner p {
+    font-size: 1.1rem;
+    opacity: 0.9;
+    margin: 0;
+}
+
+/* 统计卡片网格 */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1.25rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: white;
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: all 0.3s;
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
+}
+
+.stat-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+    text-decoration: none;
+    color: inherit;
+}
+
+.stat-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.stat-icon.blue { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+.stat-icon.green { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; }
+.stat-icon.orange { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; }
+.stat-icon.purple { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; }
+.stat-icon.red { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color: white; }
+
+.stat-info h3 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #2d3748;
+    margin: 0;
+    line-height: 1.2;
+}
+
+.stat-info p {
+    color: #718096;
+    margin: 0;
+    font-size: 0.85rem;
+}
+
+/* 功能模块网格 */
+.modules-section {
+    margin-bottom: 2rem;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.25rem;
+}
+
+.section-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #2d3748;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.section-title i {
+    color: #667eea;
+}
+
+.modules-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.25rem;
+}
+
+.module-card {
+    background: white;
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    transition: all 0.3s;
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    border: 1px solid transparent;
+}
+
+.module-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+    border-color: #667eea;
+    text-decoration: none;
+    color: inherit;
+}
+
+.module-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.module-icon.primary { background: #ebf8ff; color: #3182ce; }
+.module-icon.success { background: #f0fff4; color: #38a169; }
+.module-icon.warning { background: #fffaf0; color: #dd6b20; }
+.module-icon.info { background: #e6fffa; color: #319795; }
+.module-icon.purple { background: #faf5ff; color: #805ad5; }
+
+.module-content h5 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #2d3748;
+    margin: 0 0 0.35rem 0;
+}
+
+.module-content p {
+    color: #718096;
+    font-size: 0.875rem;
+    margin: 0;
+    line-height: 1.5;
+}
+
+.module-tag {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    margin-top: 0.5rem;
+}
+
+.module-tag.new { background: #ebf8ff; color: #3182ce; }
+.module-tag.hot { background: #fffaf0; color: #dd6b20; }
+
+/* 快捷操作区 */
+.quick-actions {
+    background: white;
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    margin-bottom: 2rem;
+}
+
+.quick-actions h4 {
+    margin-bottom: 1rem;
+    color: #2d3748;
+}
+
+.action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.action-btn {
+    padding: 0.65rem 1.25rem;
+    border-radius: 10px;
+    border: none;
+    font-weight: 500;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-decoration: none;
+}
+
+.action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    text-decoration: none;
+}
+
+.action-btn.primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.action-btn.success {
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    color: white;
+}
+
+.action-btn.warning {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+}
+
+.action-btn.info {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    color: white;
+}
+
+/* 最近档案 */
+.recent-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.recent-card {
+    background: white;
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+}
+
+.recent-card h4 {
+    margin-bottom: 1rem;
+    color: #2d3748;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.archive-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.archive-item {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    background: #f7fafc;
+    border-radius: 10px;
+    transition: all 0.2s;
+    text-decoration: none;
+    color: inherit;
+}
+
+.archive-item:hover {
+    background: #edf2f7;
+    text-decoration: none;
+    color: inherit;
+}
+
+.archive-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+    font-size: 1rem;
+}
+
+.archive-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.archive-title {
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 0.2rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.archive-meta {
+    font-size: 0.8rem;
+    color: #718096;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.archive-code {
+    background: #edf2f7;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    color: #4a5568;
+    font-family: monospace;
+    flex-shrink: 0;
+}
+
+/* 搜索框 */
+.search-section {
+    background: white;
+    border-radius: 16px;
+    padding: 2rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+.search-section h2 {
+    margin-bottom: 1.25rem;
+    color: #2d3748;
+}
+
+.search-input-wrapper {
+    max-width: 700px;
+    margin: 0 auto;
+    position: relative;
+}
+
+.search-input {
+    width: 100%;
+    padding: 1rem 1.5rem;
+    padding-right: 130px;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    font-size: 1.05rem;
+    transition: all 0.2s;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.search-btn {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 0.75rem 1.5rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.search-btn:hover {
+    transform: translateY(-50%) scale(1.02);
+}
+
+/* 国标提示 */
+.standard-banner {
+    background: linear-gradient(135deg, #ebf8ff 0%, #e6fffa 100%);
+    border-left: 4px solid #3182ce;
+    padding: 1rem 1.5rem;
+    border-radius: 0 12px 12px 0;
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.standard-banner i {
+    font-size: 1.5rem;
+    color: #3182ce;
+}
+
+.standard-banner h5 {
+    color: #2c5282;
+    margin: 0 0 0.25rem 0;
+    font-size: 1rem;
+}
+
+.standard-banner p {
+    color: #4a5568;
+    margin: 0;
+    font-size: 0.85rem;
+}
+
+/* 响应式 */
+@media (max-width: 1200px) {
+    .stats-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .recent-section {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+
+<div class="archive-home">
+    <!-- 国标提示 -->
+    <div class="standard-banner">
+        <i class="fas fa-certificate"></i>
+        <div>
+            <h5>符合国家档案标准</h5>
+            <p>遵循 GB/T 18894-2016《电子文件归档与电子档案管理规范》、DA/T 31-2017《纸质档案数字化规范》等标准</p>
+        </div>
+    </div>
+
+    <!-- 欢迎横幅 -->
+    <div class="welcome-banner">
+        <div class="welcome-content">
+            <h1>📁 档案管理中心</h1>
+            <p>统一管理企业档案，实现数字化、合规化、高效化的档案管理</p>
+        </div>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div class="stats-grid">
+        <a href="{{ url_for('archive.fonds_list') }}" class="stat-card">
+            <div class="stat-icon blue">🏛️</div>
+            <div class="stat-info">
+                <h3>{{ stats.fonds_count if stats else 0 }}</h3>
+                <p>全宗</p>
+            </div>
+        </a>
+        <a href="{{ url_for('archive.fonds_list') }}" class="stat-card">
+            <div class="stat-icon green">📂</div>
+            <div class="stat-info">
+                <h3>{{ stats.catalog_count if stats else 0 }}</h3>
+                <p>目录</p>
+            </div>
+        </a>
+        <a href="{{ url_for('archive.volume_list', catalog_id=0) }}" class="stat-card">
+            <div class="stat-icon orange">📚</div>
+            <div class="stat-info">
+                <h3>{{ stats.volume_count if stats else 0 }}</h3>
+                <p>案卷</p>
+            </div>
+        </a>
+        <a href="{{ url_for('archive.file_list') }}" class="stat-card">
+            <div class="stat-icon purple">📄</div>
+            <div class="stat-info">
+                <h3>{{ stats.file_count if stats else 0 }}</h3>
+                <p>档案文件</p>
+            </div>
+        </a>
+        <a href="{{ url_for('archive.quality_dashboard') }}" class="stat-card">
+            <div class="stat-icon red">✅</div>
+            <div class="stat-info">
+                <h3>{{ stats.digitized_count if stats else 0 }}</h3>
+                <p>已数字化</p>
+            </div>
+        </a>
+    </div>
+
+    <!-- 搜索框 -->
+    <div class="search-section">
+        <h2>🔍 档案智能检索</h2>
+        <form action="{{ url_for('archive.search') }}" method="get">
+            <div class="search-input-wrapper">
+                <input type="text" name="q" class="search-input" placeholder="输入关键词、档号、责任者或内容摘要进行检索..." value="{{ request.args.get('q', '') }}">
+                <button type="submit" class="search-btn">🔍 搜索</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- 快捷操作 -->
+    <div class="quick-actions">
+        <h4>⚡ 快捷操作</h4>
+        <div class="action-buttons">
+            <a href="{{ url_for('archive.batch_upload') }}" class="action-btn primary">
+                📤 批量上传
+            </a>
+            <a href="{{ url_for('archive.file_upload') }}" class="action-btn success">
+                📄 单文件上传
+            </a>
+            <a href="{{ url_for('archive.fonds_list') }}" class="action-btn info">
+                ➕ 新建全宗
+            </a>
+            <a href="{{ url_for('archive.excel_import') }}" class="action-btn warning">
+                📊 Excel导入
+            </a>
+            <a href="{{ url_for('archive.statistics') }}" class="action-btn info">
+                📈 统计报表
+            </a>
+            <a href="{{ url_for('archive.task_list') }}" class="action-btn warning">
+                🖨️ 数字化任务
+            </a>
+        </div>
+    </div>
+
+    <!-- 功能模块 -->
+    <div class="modules-section">
+        <div class="section-header">
+            <h3 class="section-title">
+                <i class="fas fa-cubes"></i> 功能模块
+            </h3>
+        </div>
+        <div class="modules-grid">
+            <a href="{{ url_for('archive.fonds_list') }}" class="module-card">
+                <div class="module-icon primary">🏛️</div>
+                <div class="module-content">
+                    <h5>全宗管理</h5>
+                    <p>管理档案全宗，建立档案管理基本单位</p>
+                    <span class="module-tag new">基础模块</span>
+                </div>
+            </a>
+
+            <a href="{{ url_for('archive.file_list') }}" class="module-card">
+                <div class="module-icon success">📄</div>
+                <div class="module-content">
+                    <h5>档案管理</h5>
+                    <p>档案录入、整理、数字化处理</p>
+                    <span class="module-tag hot">核心功能</span>
+                </div>
+            </a>
+
+            <a href="{{ url_for('archive.search') }}" class="module-card">
+                <div class="module-icon warning">🔍</div>
+                <div class="module-content">
+                    <h5>智能检索</h5>
+                    <p>关键词、全文、向量相似度检索</p>
+                    <span class="module-tag hot">智能</span>
+                </div>
+            </a>
+
+            <a href="{{ url_for('archive.my_borrows') }}" class="module-card">
+                <div class="module-icon info">📋</div>
+                <div class="module-content">
+                    <h5>借阅管理</h5>
+                    <p>档案借阅申请、审批、归还</p>
+                </div>
+            </a>
+
+            <a href="{{ url_for('archive.digitize_manage') }}" class="module-card">
+                <div class="module-icon blue">🚀</div>
+                <div class="module-content">
+                    <h5>数字化管理</h5>
+                    <p>全流程监控：上传→处理→质检→入库</p>
+                </div>
+            </a>
+
+            <a href="{{ url_for('archive.quality_dashboard') }}" class="module-card">
+                <div class="module-icon purple">✅</div>
+                <div class="module-content">
+                    <h5>数字化质检</h5>
+                    <p>DA/T 47国标自动质检，DPI/OCR合规</p>
+                </div>
+            </a>
+
+            <a href="{{ url_for('archive.statistics') }}" class="module-card">
+                <div class="module-icon primary">📊</div>
+                <div class="module-content">
+                    <h5>统计报表</h5>
+                    <p>多维度档案统计分析与可视化</p>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <!-- 最近档案和全宗 -->
+    <div class="recent-section">
+        <div class="recent-card">
+            <h4>🕐 最近归档</h4>
+            <div class="archive-list">
+                {% if recent_files %}
+                    {% for file in recent_files %}
+                    <a href="{{ url_for('archive.file_detail', file_id=file.id) }}" class="archive-item">
+                        <div class="archive-icon">📄</div>
+                        <div class="archive-info">
+                            <div class="archive-title">{{ file.title }}</div>
+                            <div class="archive-meta">{{ file.responsibility }} | {{ file.file_date.strftime('%Y-%m-%d') if file.file_date else '日期不详' }}</div>
+                        </div>
+                        <span class="archive-code">{{ file.get_archive_code() }}</span>
+                    </a>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <p>暂无档案记录</p>
+                        <a href="{{ url_for('archive.batch_upload') }}" class="btn btn-primary btn-sm mt-2">上传第一份档案</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="recent-card">
+            <h4>🏛️ 全宗概览</h4>
+            <div class="archive-list">
+                {% if fonds_list %}
+                    {% for fonds in fonds_list %}
+                    <a href="{{ url_for('archive.catalog_list', fonds_id=fonds.id) }}" class="archive-item">
+                        <div class="archive-icon">🏛️</div>
+                        <div class="archive-info">
+                            <div class="archive-title">{{ fonds.fonds_name }}</div>
+                            <div class="archive-meta">{{ fonds.fonds_type }} | {{ fonds.fonds_code }}</div>
+                        </div>
+                        <span class="archive-code">{{ fonds.fonds_code }}</span>
+                    </a>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <p>暂无全宗</p>
+                        <a href="{{ url_for('archive.fonds_list') }}" class="btn btn-primary btn-sm mt-2">创建第一个全宗</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

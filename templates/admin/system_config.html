@@ -1,0 +1,401 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <h2>🛠️ 系统配置管理</h2>
+            <p class="text-muted">管理系统各项配置参数，管理员可修改配置值并立即生效。</p>
+
+            <!-- 配置分类标签 -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="d-flex flex-wrap">
+                                <a href="#" class="btn btn-primary mb-2 me-2" onclick="filterCategory('all')">
+                                    <i class="fas fa-cogs"></i> 全部配置
+                                </a>
+                                {% for category in categories %}
+                                <a href="#" class="btn btn-outline-primary mb-2 me-2" onclick="filterCategory('{{ category }}')">
+                                    <i class="fas fa-folder"></i> {{ category|capitalize }}
+                                </a>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 配置项列表 -->
+            <div id="configContainer">
+                {% for category, configs in categories.items() %}
+                <div class="card mb-3 config-category" data-category="{{ category }}">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">
+                            <i class="fas fa-folder text-primary"></i> {{ category|capitalize }} 配置
+                            <span class="badge bg-secondary">{{ configs|length }}</span>
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        {% for config in configs %}
+                        <div class="config-item mb-4 border-bottom pb-3" data-key="{{ config.key }}">
+                            <div class="row align-items-start">
+                                <div class="col-md-8">
+                                    <h6 class="mb-1">
+                                        <span class="badge bg-info me-2">{{ config.type }}</span>
+                                        {{ config.key }}
+                                    </h6>
+                                    <p class="text-muted small mb-2">
+                                        <i class="fas fa-info-circle"></i> {{ config.description }}
+                                    </p>
+                                    <p class="small mb-0">
+                                        <i class="fas fa-cube"></i> 模块: {{ config.module }}
+                                        <span class="ms-3">
+                                            <i class="fas fa-clock"></i> 更新时间: {{ config.updated_at[:19] if config.updated_at else '未更新' }}
+                                        </span>
+                                    </p>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="input-group input-group-sm mb-2">
+                                        {% if config.type == 'boolean' %}
+                                        <div class="form-check form-switch mb-0">
+                                            <input class="form-check-input config-input" type="checkbox" 
+                                                   id="config-{{ config.key }}"
+                                                   {% if config.value %}checked{% endif %}
+                                                   data-key="{{ config.key }}"
+                                                   data-type="boolean">
+                                            <label class="form-check-label" for="config-{{ config.key }}">
+                                                {{ '开启' if config.value else '关闭' }}
+                                            </label>
+                                        </div>
+                                        {% elif config.type == 'integer' or config.type == 'float' %}
+                                        <input type="number" 
+                                               class="form-control form-control-sm config-input" 
+                                               value="{{ config.value }}"
+                                               data-key="{{ config.key }}"
+                                               data-type="{{ config.type }}">
+                                        {% elif config.type == 'string' %}
+                                        <input type="text" 
+                                               class="form-control form-control-sm config-input" 
+                                               value="{{ config.value }}"
+                                               data-key="{{ config.key }}"
+                                               data-type="string">
+                                        {% else %}
+                                        <textarea class="form-control form-control-sm config-input" 
+                                                  rows="2"
+                                                  data-key="{{ config.key }}"
+                                                  data-type="{{ config.type }}">{{ config.value }}</textarea>
+                                        {% endif %}
+                                        <button class="btn btn-primary btn-sm" type="button" onclick="saveConfig('{{ config.key }}')">
+                                            保存
+                                        </button>
+                                    </div>
+                                    <div id="status-{{ config.key }}" class="small"></div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+
+                {% if not categories %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> 暂无系统配置，正在初始化...
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- 批量操作 -->
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h5 class="card-title">批量操作</h5>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-warning" onclick="refreshCache()">
+                            <i class="fas fa-sync-alt"></i> 刷新配置缓存
+                        </button>
+                        <button class="btn btn-danger" onclick="resetToDefaults()">
+                            <i class="fas fa-undo"></i> 重置为默认值
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.config-category {
+    transition: all 0.3s ease;
+}
+.config-item:hover {
+    background-color: #f8f9fa;
+}
+.fade-out {
+    opacity: 0.3;
+}
+.config-input {
+    font-family: monospace;
+    font-size: 0.9rem;
+}
+</style>
+
+<script>
+// 按分类筛选配置
+function filterCategory(category) {
+    const cards = document.querySelectorAll('.config-category');
+    cards.forEach(card => {
+        const cardCategory = card.getAttribute('data-category');
+        if (category === 'all' || cardCategory === category) {
+            card.style.display = '';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+    
+    // 更新按钮状态
+    document.querySelectorAll('.btn-outline-primary, .btn-primary').forEach(btn => {
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-outline-primary');
+    });
+    
+    const targetBtn = category === 'all' 
+        ? document.querySelector('a[onclick="filterCategory(\'all\')"]')
+        : document.querySelector(`a[onclick="filterCategory('${category}')"]`);
+    
+    if (targetBtn) {
+        targetBtn.classList.remove('btn-outline-primary');
+        targetBtn.classList.add('btn-primary');
+    }
+}
+
+// 获取配置输入值
+function getConfigValue(key) {
+    const element = document.querySelector(`[data-key="${key}"]`);
+    if (!element) return null;
+    
+    const type = element.getAttribute('data-type');
+    
+    if (type === 'boolean') {
+        return element.checked;
+    } else if (type === 'integer') {
+        return parseInt(element.value) || 0;
+    } else if (type === 'float') {
+        return parseFloat(element.value) || 0;
+    } else {
+        return element.value;
+    }
+}
+
+// 保存配置
+function saveConfig(key) {
+    const value = getConfigValue(key);
+    const element = document.querySelector(`[data-key="${key}"]`);
+    const type = element ? element.getAttribute('data-type') : 'string';
+    const statusEl = document.getElementById(`status-${key}`);
+    
+    if (statusEl) {
+        statusEl.innerHTML = '<span class="text-warning"><i class="fas fa-spinner fa-spin"></i> 保存中...</span>';
+    }
+    
+    // 解析key来获取section和field
+    // key格式如: knowledge_base.embedding_model_path
+    const parts = key.split('.');
+    let section, field;
+    
+    if (parts.length === 2) {
+        section = parts[0];
+        field = parts[1];
+    } else {
+        // 如果key不包含点，尝试查找所属分类
+        const categoryElements = document.querySelectorAll('.config-category');
+        for (const catEl of categoryElements) {
+            const catConfigs = catEl.querySelectorAll('.config-item');
+            for (const configEl of catConfigs) {
+                if (configEl.getAttribute('data-key') === key) {
+                    section = catEl.getAttribute('data-category');
+                    field = key;
+                    break;
+                }
+            }
+            if (section) break;
+        }
+    }
+    
+    if (!section || !field) {
+        if (statusEl) {
+            statusEl.innerHTML = '<span class="text-danger"><i class="fas fa-times"></i> 无法解析配置键</span>';
+        }
+        return;
+    }
+    
+    fetch('/admin/system_config/save', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({
+            section: section,
+            values: { [field]: value }
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            if (statusEl) {
+                statusEl.innerHTML = '<span class="text-success"><i class="fas fa-check"></i> 已保存</span>';
+            }
+            setTimeout(() => {
+                if (statusEl) statusEl.innerHTML = '';
+            }, 2000);
+            
+            // 如果是上传大小配置，更新页面提示
+            if (key === 'max_upload_size_mb') {
+                updateUploadSizeHint(value);
+            }
+        } else {
+            if (statusEl) {
+                statusEl.innerHTML = `<span class="text-danger"><i class="fas fa-times"></i> ${data.error || '保存失败'}</span>`;
+            }
+        }
+    })
+    .catch(error => {
+        console.error('保存配置失败:', error);
+        if (statusEl) {
+            statusEl.innerHTML = '<span class="text-danger"><i class="fas fa-times"></i> 网络错误</span>';
+        }
+    });
+}
+
+// 更新上传大小提示
+function updateUploadSizeHint(sizeMB) {
+    const hints = document.querySelectorAll('.upload-size-hint');
+    if (sizeMB >= 1024) {
+        const sizeGB = (sizeMB / 1024).toFixed(1);
+        hints.forEach(hint => {
+            hint.textContent = `当前允许最大上传: ${sizeGB} GB`;
+        });
+    } else {
+        hints.forEach(hint => {
+            hint.textContent = `当前允许最大上传: ${sizeMB} MB`;
+        });
+    }
+}
+
+// 刷新配置缓存
+function refreshCache() {
+    if (!confirm('确定要刷新配置缓存吗？所有配置将重新从数据库加载。')) {
+        return;
+    }
+    
+    const btn = event.target;
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 刷新中...';
+    btn.disabled = true;
+    
+    fetch('/admin/system-config/refresh', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token() }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            alert('配置缓存已刷新！');
+            location.reload();
+        } else {
+            alert('刷新失败: ' + (data.error || '未知错误'));
+        }
+    })
+    .catch(error => {
+        console.error('刷新缓存失败:', error);
+        alert('网络错误，请稍后重试');
+    })
+    .finally(() => {
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+    });
+}
+
+// 重置为默认值
+function resetToDefaults() {
+    if (!confirm('确定要重置所有配置为默认值吗？当前修改将被覆盖。')) {
+        return;
+    }
+    
+    const defaults = {
+        'max_upload_size_mb': 1024,  // 1GB
+        'max_extracted_text_length': -1,  // 无限制
+        'max_preview_length': 100000,
+        'max_ai_sample_length': 5000,
+        'max_file_preview_length': 50000,
+        'kb_display_mode': 'grid',
+        'kb_items_per_page': 20,
+        'office_convert_timeout': 180,
+        'allowed_file_extensions': 'pdf,doc,docx,xls,xlsx,ppt,pptx,txt,md,jpg,jpeg,png,gif'
+    };
+    
+    let completed = 0;
+    const total = Object.keys(defaults).length;
+    
+    for (const [key, value] of Object.entries(defaults)) {
+        let type = 'string';
+        if (typeof value === 'number') {
+            type = Number.isInteger(value) ? 'integer' : 'float';
+        } else if (typeof value === 'boolean') {
+            type = 'boolean';
+        }
+        
+        fetch('/admin/system-config/set', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({ key: key, value: value, type: type })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                console.log('已重置配置:', key);
+            }
+        })
+        .catch(error => console.error('重置配置失败:', key, error))
+        .finally(() => {
+            completed++;
+            if (completed === total) {
+                alert('已重置所有配置为默认值！');
+                location.reload();
+            }
+        });
+    }
+}
+
+// 页面加载完成后的初始化
+document.addEventListener('DOMContentLoaded', function() {
+    // 显示当前上传大小提示
+    const uploadSizeMB = document.querySelector('[data-key="max_upload_size_mb"]')?.value || 1024;
+    updateUploadSizeHint(uploadSizeMB);
+    
+    // 添加输入监听器，按Enter键保存
+    document.querySelectorAll('.config-input').forEach(input => {
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                const key = this.getAttribute('data-key');
+                saveConfig(key);
+            }
+        });
+        
+        // 对于switch，添加change事件
+        if (input.type === 'checkbox') {
+            input.addEventListener('change', function() {
+                const key = this.getAttribute('data-key');
+                saveConfig(key);
+            });
+        }
+    });
+});
+</script>
+{% endblock %}

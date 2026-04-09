@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2>{{ task.title }}</h2>
+            <a href="{{ url_for('task_manage') }}" class="btn btn-outline-secondary">← 返回列表</a>
+        </div>
+        <div class="card mb-4">
+            <div class="card-header fw-bold">任务基本信息</div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>信息类别：</strong>{{ task.category }}</p>
+                        <p><strong>开始时间：</strong>{{ task.start_time.strftime('%Y-%m-%d %H:%M') if task.start_time else '未设置' }}</p>
+                        <p><strong>截止时间：</strong>{{ task.end_time.strftime('%Y-%m-%d %H:%M') if task.end_time else '无截止时间' }}</p>
+                        <p><strong>紧急程度：</strong>
+                            {% if task.urgency == 'urgent' %}<span class="badge bg-danger">加急</span>{% else %}<span class="badge bg-secondary">普通</span>{% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>任务状态：</strong>
+                            {% if task.status == 'active' %}<span class="badge bg-primary">进行中</span>
+                            {% else %}<span class="badge bg-secondary">已关闭</span>{% endif %}
+                        </p>
+                        <p><strong>联系人：</strong>{{ task.creator.name if task.creator else '' }}</p>
+                        <p><strong>联系电话：</strong>{{ task.creator.phone if task.creator else '' }}</p>
+                        <p><strong>相关附件：</strong>{{ task.attachments or '无' }}</p>
+                    </div>
+                </div>
+                <hr>
+                <p><strong>任务要求：</strong></p>
+                <p>{{ task.description }}</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header fw-bold d-flex justify-content-between align-items-center">
+                <span>报送情况（共 {{ reports|length }} 条）</span>
+                <a href="{{ url_for('ai_compile', task_id=task.id) }}" class="btn btn-sm btn-info">
+                    <i class="fas fa-robot"></i> AI汇编
+                </a>
+            </div>
+            <div class="card-body">
+                {% if not reports %}
+                <div class="alert alert-info mb-0">暂无报送记录</div>
+                {% else %}
+                <table class="table table-bordered mb-0">
+                    <thead>
+                        <tr><th>报送人</th><th>报送内容</th><th>提交时间</th><th>审核状态</th><th>操作</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for item in reports %}
+                        <tr>
+                            <td>{{ item.report.reporter_name }}</td>
+                            <td><a href="{{ url_for('info_detail', report_id=item.report.id) }}">{{ item.report.title }}</a></td>
+                            <td>{{ item.submission.submitted_at.strftime('%Y-%m-%d %H:%M') if item.submission.submitted_at else '' }}</td>
+                            <td>
+                                {% if item.submission.status == 'approved' or item.report.status == 'adopted' %}
+                                <span class="badge bg-success">已采用</span>
+                                {% elif item.submission.status == 'rejected' or item.report.status == 'rejected' %}
+                                <span class="badge bg-danger">已退回</span>
+                                {% else %}
+                                <span class="badge bg-warning text-dark">待审核</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if item.submission.status not in ['approved', 'rejected'] and item.report.status not in ['adopted', 'rejected'] %}
+                                <a href="{{ url_for('approve_submission', submission_id=item.submission.id) }}"
+                                   class="btn btn-sm btn-success" onclick="return confirm('确认采用该信息？')">采用</a>
+                                <a href="{{ url_for('reject_submission', submission_id=item.submission.id) }}"
+                                   class="btn btn-sm btn-warning">退回</a>
+                                {% elif item.submission.status == 'approved' or item.report.status == 'adopted' %}
+                                <a href="{{ url_for('cancel_adopt', report_id=item.report.id) }}"
+                                   class="btn btn-sm btn-outline-secondary btn-sm" onclick="return confirm('确认取消采用？')">取消采用</a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

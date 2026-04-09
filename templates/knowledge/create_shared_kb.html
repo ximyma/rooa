@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <h2>创建共享知识库</h2>
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="mb-3">
+                <label class="form-label">知识库名称</label>
+                <input type="text" name="name" class="form-control" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">分类</label>
+                <select name="category" class="form-select">
+                    <option value="">选择分类（可选）</option>
+                    <option value="制度规范">制度规范</option>
+                    <option value="技术文档">技术文档</option>
+                    <option value="培训资料">培训资料</option>
+                    <option value="会议记录">会议记录</option>
+                    <option value="常见问题">常见问题</option>
+                    <option value="工作模板">工作模板</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">描述</label>
+                <textarea name="description" class="form-control" rows="2" placeholder="简要描述知识库用途"></textarea>
+            </div>
+            <div class="mb-3 form-check">
+                <input type="checkbox" name="is_public" class="form-check-input">
+                <label class="form-check-label">是否公开（非管理员可访问）</label>
+            </div>
+            <button type="submit" class="btn btn-primary">创建</button>
+            <a href="{{ url_for('shared_knowledge_base') }}" class="btn btn-secondary">取消</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

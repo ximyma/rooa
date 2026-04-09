@@ -1,0 +1,823 @@
+{% extends "base.html" %}
+
+{% block title %}批量上传档案 - 档案管理系统{% endblock %}
+
+{% block content %}
+<style>
+.upload-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* 步骤指示器 */
+.steps {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 2rem;
+}
+
+.step {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1.5rem;
+    background: #e2e8f0;
+    color: #718096;
+    border-radius: 30px;
+    margin: 0 0.5rem;
+    font-weight: 500;
+}
+
+.step.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.step.completed {
+    background: #48bb78;
+    color: white;
+}
+
+/* 上传区域 */
+.upload-zone {
+    border: 3px dashed #cbd5e0;
+    border-radius: 16px;
+    padding: 60px 40px;
+    text-align: center;
+    background: #f7fafc;
+    transition: all 0.3s;
+    cursor: pointer;
+    margin-bottom: 2rem;
+}
+
+.upload-zone:hover,
+.upload-zone.dragover {
+    border-color: #667eea;
+    background: rgba(102, 126, 234, 0.05);
+}
+
+.upload-zone .icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+}
+
+.upload-zone h3 {
+    color: #4a5568;
+    margin-bottom: 0.5rem;
+}
+
+.upload-zone p {
+    color: #718096;
+    margin: 0;
+}
+
+/* 文件列表 */
+.file-list {
+    background: white;
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    margin-bottom: 2rem;
+}
+
+.file-item {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    border-bottom: 1px solid #e2e8f0;
+    transition: all 0.2s;
+}
+
+.file-item:last-child {
+    border-bottom: none;
+}
+
+.file-item:hover {
+    background: #f7fafc;
+}
+
+.file-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background: #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+    font-size: 1.2rem;
+}
+
+.file-info {
+    flex: 1;
+}
+
+.file-name {
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 0.25rem;
+}
+
+.file-size {
+    font-size: 0.85rem;
+    color: #718096;
+}
+
+.file-status {
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.file-status.pending { background: #fef3c7; color: #d97706; }
+.file-status.uploading { background: #dbeafe; color: #2563eb; }
+.file-status.success { background: #d1fae5; color: #059669; }
+.file-status.error { background: #fee2e2; color: #dc2626; }
+
+.file-remove {
+    background: none;
+    border: none;
+    color: #a0aec0;
+    cursor: pointer;
+    padding: 0.5rem;
+    transition: color 0.2s;
+}
+
+.file-remove:hover {
+    color: #e53e3e;
+}
+
+/* 进度条 */
+.progress-section {
+    background: white;
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    margin-bottom: 2rem;
+}
+
+.progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.progress-bar {
+    height: 12px;
+    background: #e2e8f0;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    border-radius: 6px;
+    transition: width 0.3s;
+}
+
+@keyframes progress-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.progress-fill.running {
+    animation: progress-pulse 1.5s ease-in-out infinite;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #667eea 100%);
+    background-size: 200% 100%;
+    animation: progress-gradient 2s linear infinite, progress-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes progress-gradient {
+    0% { background-position: 100% 0; }
+    100% { background-position: -100% 0; }
+}
+
+.progress-stats {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 1rem;
+    color: #718096;
+    font-size: 0.9rem;
+}
+
+.progress-current {
+    margin-top: 0.5rem;
+    color: #4a5568;
+}
+
+/* 元数据表单 */
+.metadata-form {
+    background: white;
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    margin-bottom: 2rem;
+}
+
+.metadata-form h4 {
+    margin-bottom: 1.5rem;
+    color: #2d3748;
+}
+
+/* 操作按钮 */
+.action-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 0;
+}
+
+.btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn-secondary {
+    background: #e2e8f0;
+    color: #4a5568;
+}
+
+/* 结果展示 */
+.results-section {
+    background: white;
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+}
+
+.result-item {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.result-item:last-child {
+    border-bottom: none;
+}
+
+.result-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+}
+
+.result-icon.success {
+    background: #d1fae5;
+    color: #059669;
+}
+
+.result-icon.error {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.result-info {
+    flex: 1;
+}
+
+.result-title {
+    font-weight: 500;
+    color: #2d3748;
+}
+
+.result-code {
+    font-size: 0.85rem;
+    color: #718096;
+}
+
+/* 警告提示 */
+.alert {
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.alert-warning {
+    background: #fef3c7;
+    border: 1px solid #f59e0b;
+    color: #92400e;
+}
+</style>
+
+<div class="upload-container">
+    <h1 style="text-align: center; margin-bottom: 2rem;">📤 批量上传档案</h1>
+    
+    <!-- CSRF Token -->
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    
+    <!-- 步骤指示器 -->
+    <div class="steps">
+        <div class="step active" id="step1">1. 选择文件</div>
+        <div class="step" id="step2">2. 设置参数</div>
+        <div class="step" id="step3">3. 开始上传</div>
+    </div>
+
+    <!-- 上传区域 -->
+    <div class="upload-zone" id="uploadZone">
+        <div class="icon">📁</div>
+        <h3>拖拽文件到此处</h3>
+        <p>或点击选择文件（支持 PDF、Word、Excel、图片）</p>
+        <p style="margin-top: 0.5rem; font-size: 0.85rem; color: #a0aec0;">
+            支持批量选择，一次最多 100 个文件
+        </p>
+    </div>
+    <input type="file" id="fileInput" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.tif,.tiff" style="display: none;">
+
+    <!-- 文件列表 -->
+    <div class="file-list" id="fileList" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h4>已选择 <span id="fileCount">0</span> 个文件</h4>
+            <button class="btn btn-secondary" onclick="clearAll()" style="padding: 0.5rem 1rem;">清空列表</button>
+        </div>
+        <div id="fileItems"></div>
+    </div>
+
+    <!-- 元数据表单 -->
+    <div class="metadata-form" id="metadataForm" style="display: none;">
+        <h4>📋 档案参数设置</h4>
+        
+        <div class="alert alert-warning">
+            <strong>💡 提示：</strong>系统将自动提取文档内容、关键词和摘要。您也可以在这里手动设置部分参数。
+        </div>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
+            <div>
+                <label style="display: block; margin-bottom: 0.5rem; color: #4a5568;">全宗</label>
+                <select name="fonds_id" id="fondsSelect" required style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px;">
+                    <option value="">请选择全宗</option>
+                    {% for fonds in fonds_list %}
+                    <option value="{{ fonds.id }}">{{ fonds.fonds_code }} - {{ fonds.fonds_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div>
+                <label style="display: block; margin-bottom: 0.5rem; color: #4a5568;">目录</label>
+                <select name="catalog_id" id="catalogSelect" required style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px;">
+                    <option value="">请先选择全宗</option>
+                </select>
+            </div>
+            
+            <div>
+                <label style="display: block; margin-bottom: 0.5rem; color: #4a5568;">保管期限（可选）</label>
+                <select name="retention_period" style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px;">
+                    <option value="">自动识别</option>
+                    <option value="永久">永久</option>
+                    <option value="30年">30年</option>
+                    <option value="10年">10年</option>
+                </select>
+            </div>
+            
+            <div>
+                <label style="display: block; margin-bottom: 0.5rem; color: #4a5568;">密级（可选）</label>
+                <select name="security_level" style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px;">
+                    <option value="">自动识别</option>
+                    <option value="公开">公开</option>
+                    <option value="内部">内部</option>
+                    <option value="秘密">秘密</option>
+                    <option value="机密">机密</option>
+                    <option value="绝密">绝密</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- 操作按钮 -->
+    <div class="action-bar" id="actionBar" style="display: none;">
+        <button class="btn btn-primary" id="uploadBtn" onclick="startUpload()">
+            🚀 开始批量上传
+        </button>
+    </div>
+
+    <!-- 进度显示 -->
+    <div class="progress-section" id="progressSection" style="display: none;">
+        <div class="progress-header">
+            <h4>📊 处理进度</h4>
+            <span id="progressPercent">0%</span>
+        </div>
+        <div class="progress-bar">
+            <div class="progress-fill running" id="progressFill" style="width: 0%"></div>
+        </div>
+        <div class="progress-stats">
+            <span id="processedCount">0 / 0</span>
+            <span>
+                <span style="color: #48bb78;">✓ <span id="successCount">0</span> 成功</span>
+                &nbsp;&nbsp;
+                <span style="color: #f56565;">✗ <span id="failedCount">0</span> 失败</span>
+            </span>
+        </div>
+        <div class="progress-current" id="currentStep">正在提交任务...</div>
+    </div>
+
+    <!-- 结果显示 -->
+    <div class="results-section" id="resultsSection" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <h4>📋 处理结果</h4>
+            <a href="{{ url_for('archive.file_list') }}" class="btn btn-secondary">查看全部档案</a>
+        </div>
+        <div id="resultsList"></div>
+        <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e2e8f0;">
+            <a href="{{ url_for('archive.task_list') }}" style="color: #667eea;">
+                → 查看批量任务详情
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+// 文件数据
+let selectedFiles = [];
+let currentTaskId = null;
+let pollInterval = null;
+
+// 初始化
+document.addEventListener('DOMContentLoaded', function() {
+    const uploadZone = document.getElementById('uploadZone');
+    const fileInput = document.getElementById('fileInput');
+    
+    // 点击上传
+    uploadZone.addEventListener('click', () => fileInput.click());
+    
+    // 文件选择
+    fileInput.addEventListener('change', (e) => {
+        addFiles(Array.from(e.target.files));
+    });
+    
+    // 拖拽
+    uploadZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadZone.classList.add('dragover');
+    });
+    
+    uploadZone.addEventListener('dragleave', () => {
+        uploadZone.classList.remove('dragover');
+    });
+    
+    uploadZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadZone.classList.remove('dragover');
+        addFiles(Array.from(e.dataTransfer.files));
+    });
+    
+    // 全宗选择变化
+    document.getElementById('fondsSelect').addEventListener('change', loadCatalogs);
+});
+
+// 添加文件
+function addFiles(files) {
+    const validExts = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.jpg', '.jpeg', '.png', '.tif', '.tiff'];
+    
+    files.forEach(file => {
+        const ext = '.' + file.name.split('.').pop().toLowerCase();
+        if (!validExts.includes(ext)) {
+            alert(`不支持的文件格式: ${file.name}`);
+            return;
+        }
+        
+        if (selectedFiles.length >= 100) {
+            alert('最多只能选择100个文件');
+            return;
+        }
+        
+        selectedFiles.push({
+            id: Date.now() + Math.random(),
+            file: file,
+            name: file.name,
+            size: file.size,
+            status: 'pending'
+        });
+    });
+    
+    updateFileList();
+}
+
+// 更新文件列表显示
+function updateFileList() {
+    const fileList = document.getElementById('fileList');
+    const fileItems = document.getElementById('fileItems');
+    const fileCount = document.getElementById('fileCount');
+    const metadataForm = document.getElementById('metadataForm');
+    const actionBar = document.getElementById('actionBar');
+    
+    if (selectedFiles.length === 0) {
+        fileList.style.display = 'none';
+        metadataForm.style.display = 'none';
+        actionBar.style.display = 'none';
+        return;
+    }
+    
+    fileList.style.display = 'block';
+    metadataForm.style.display = 'block';
+    actionBar.style.display = 'flex';
+    fileCount.textContent = selectedFiles.length;
+    
+    fileItems.innerHTML = selectedFiles.map((f, i) => `
+        <div class="file-item" data-id="${f.id}">
+            <div class="file-icon">${getFileIcon(f.name)}</div>
+            <div class="file-info">
+                <div class="file-name">${f.name}</div>
+                <div class="file-size">${formatSize(f.size)}</div>
+            </div>
+            <span class="file-status ${f.status}">${getStatusText(f.status)}</span>
+            <button class="file-remove" onclick="removeFile(${i})">✕</button>
+        </div>
+    `).join('');
+    
+    // 更新步骤
+    updateSteps(2);
+}
+
+// 获取文件图标
+function getFileIcon(name) {
+    const ext = name.split('.').pop().toLowerCase();
+    const icons = {
+        'pdf': '📄', 'doc': '📝', 'docx': '📝',
+        'xls': '📊', 'xlsx': '📊',
+        'jpg': '🖼️', 'jpeg': '🖼️', 'png': '🖼️', 'tif': '🖼️', 'tiff': '🖼️'
+    };
+    return icons[ext] || '📁';
+}
+
+// 格式化文件大小
+function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+// 获取状态文本
+function getStatusText(status) {
+    const texts = {
+        'pending': '等待中',
+        'uploading': '上传中',
+        'processing': '处理中',
+        'success': '成功',
+        'error': '失败'
+    };
+    return texts[status] || status;
+}
+
+// 移除文件
+function removeFile(index) {
+    selectedFiles.splice(index, 1);
+    updateFileList();
+}
+
+// 清空列表
+function clearAll() {
+    selectedFiles = [];
+    updateFileList();
+}
+
+// 更新步骤指示器
+function updateSteps(step) {
+    for (let i = 1; i <= 3; i++) {
+        const el = document.getElementById('step' + i);
+        el.classList.remove('active', 'completed');
+        if (i < step) el.classList.add('completed');
+        if (i === step) el.classList.add('active');
+    }
+}
+
+// 加载目录
+async function loadCatalogs() {
+    const fondsId = document.getElementById('fondsSelect').value;
+    const catalogSelect = document.getElementById('catalogSelect');
+    
+    if (!fondsId) {
+        catalogSelect.innerHTML = '<option value="">请先选择全宗</option>';
+        return;
+    }
+    
+    catalogSelect.innerHTML = '<option value="">加载中...</option>';
+
+    const allCatalogs = [
+        {% for catalog in catalogs_list %}
+        {
+            id: {{ catalog.id }},
+            fondsId: {{ catalog.fonds_id }},
+            code: {{ catalog.catalog_code|tojson }},
+            name: {{ catalog.catalog_name|tojson }}
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+
+    const matchedCatalogs = allCatalogs.filter(item => String(item.fondsId) === String(fondsId));
+    if (matchedCatalogs.length === 0) {
+        catalogSelect.innerHTML = '<option value="">该全宗下暂无目录</option>';
+        return;
+    }
+
+    catalogSelect.innerHTML = '<option value="">请选择目录</option>' + matchedCatalogs.map(item =>
+        `<option value="${item.id}">${item.code} - ${item.name}</option>`
+    ).join('');
+}
+
+// 开始上传
+async function startUpload() {
+    const fondsId = document.getElementById('fondsSelect').value;
+    const catalogId = document.getElementById('catalogSelect').value;
+    
+    if (!fondsId || !catalogId) {
+        alert('请选择全宗和目录');
+        return;
+    }
+    
+    if (selectedFiles.length === 0) {
+        alert('请选择要上传的文件');
+        return;
+    }
+    
+    // 更新UI
+    document.getElementById('actionBar').style.display = 'none';
+    document.getElementById('progressSection').style.display = 'block';
+    updateSteps(3);
+    
+    // 准备FormData
+    const formData = new FormData();
+    formData.append('fonds_id', fondsId);
+    formData.append('catalog_id', catalogId);
+    selectedFiles.forEach((f, i) => {
+        formData.append('files', f.file);
+    });
+    
+    try {
+        // 提交任务
+        updateProgress(0, 0, selectedFiles.length, '正在提交任务...');
+        
+        // 获取 CSRF token
+        const csrfInput = document.querySelector('input[name="csrf_token"]');
+        const csrfToken = csrfInput ? csrfInput.value : '';
+        formData.append('csrf_token', csrfToken);
+        
+        const response = await fetch('/archive/api/task/submit', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': csrfToken
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            currentTaskId = result.task_id;
+            document.getElementById('currentStep').textContent = '任务已提交，等待处理...';
+            
+            // 开始轮询
+            pollInterval = setInterval(pollTaskStatus, 2000);
+        } else {
+            alert('提交失败: ' + (result.error || '未知错误'));
+            document.getElementById('progressSection').style.display = 'none';
+            document.getElementById('actionBar').style.display = 'flex';
+        }
+    } catch (error) {
+        alert('上传失败: ' + error.message);
+        document.getElementById('progressSection').style.display = 'none';
+        document.getElementById('actionBar').style.display = 'flex';
+    }
+}
+
+// 轮询任务状态
+async function pollTaskStatus() {
+    if (!currentTaskId) return;
+    
+    try {
+        const response = await fetch(`/archive/api/task/progress/${currentTaskId}`);
+        const data = await response.json();
+        
+        // 更新进度
+        updateProgress(
+            data.progress || 0,
+            data.processed_items || 0,
+            data.total_items || selectedFiles.length,
+            data.current_step || '处理中...'
+        );
+        
+        // 更新文件状态
+        updateFileStatuses(data);
+        
+        // 检查是否完成
+        if (data.status === 'completed' || data.status === 'failed') {
+            clearInterval(pollInterval);
+            showResults(data);
+        }
+    } catch (error) {
+        console.error('轮询失败:', error);
+    }
+}
+
+// 更新进度显示
+function updateProgress(percent, processed, total, step) {
+    document.getElementById('progressFill').style.width = percent + '%';
+    document.getElementById('progressPercent').textContent = percent + '%';
+    document.getElementById('processedCount').textContent = `${processed} / ${total}`;
+    document.getElementById('successCount').textContent = 0;
+    document.getElementById('failedCount').textContent = 0;
+    document.getElementById('currentStep').textContent = step;
+}
+
+// 更新文件状态
+function updateFileStatuses(data) {
+    selectedFiles.forEach((f, i) => {
+        if (i < (data.processed_items || 0)) {
+            if (data.success_items && i < data.success_items) {
+                f.status = 'success';
+            } else if (data.failed_items && i < data.failed_items) {
+                f.status = 'error';
+            } else {
+                f.status = 'processing';
+            }
+        } else if (i === data.processed_items) {
+            f.status = 'uploading';
+        } else {
+            f.status = 'pending';
+        }
+    });
+    updateFileListSimple();
+}
+
+// 简化更新文件列表（不重新渲染整个列表）
+function updateFileListSimple() {
+    selectedFiles.forEach((f, i) => {
+        const item = document.querySelector(`.file-item[data-id="${f.id}"]`);
+        if (item) {
+            const statusEl = item.querySelector('.file-status');
+            if (statusEl) {
+                statusEl.className = `file-status ${f.status}`;
+                statusEl.textContent = getStatusText(f.status);
+            }
+        }
+    });
+}
+
+// 显示结果
+function showResults(data) {
+    document.getElementById('progressSection').style.display = 'none';
+    document.getElementById('resultsSection').style.display = 'block';
+
+    const catalogId = document.getElementById('catalogSelect') ? document.getElementById('catalogSelect').value : '';
+    const fondsId = document.getElementById('fondsSelect') ? document.getElementById('fondsSelect').value : '';
+
+    const resultsList = document.getElementById('resultsList');
+    resultsList.innerHTML = `
+        <div style="text-align: center; padding: 2rem;">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">
+                ${data.status === 'completed' ? '🎉' : '⚠️'}
+            </div>
+            <h3>${data.status === 'completed' ? '批量上传完成！' : '处理完成（部分失败）'}</h3>
+            <p style="color: #718096; margin-top: 0.5rem;">
+                成功: ${data.success_items || 0} 个 |
+                失败: ${data.failed_items || 0} 个
+            </p>
+            ${data.error_message ? `<p style="color: #f56565; margin-top: 1rem;">${data.error_message}</p>` : ''}
+            <div style="margin-top:1.5rem; padding:1rem; background:#f0f9ff; border-radius:8px; text-align:left;">
+                <strong style="color:#0369a1;">✨ AI 自动提取：</strong>
+                <p style="margin:0.5rem 0 0 0; color:#075985; font-size:0.9rem;">
+                    系统已对每个文件自动提取了<span style="color:#0369a1;font-weight:600;"> 关键词 / 摘要 / 标签</span>。<br>
+                    上传成功后，请前往
+                    <a href="/archive/files?fonds_id=${fondsId}&catalog_id=${catalogId}" style="color:#0369a1;text-decoration:underline;">档案列表</a>
+                    查看并编辑已上传档案的详细信息。
+                </p>
+            </div>
+            <div style="margin-top:1rem;">
+                <a href="/archive/files?fonds_id=${fondsId}&catalog_id=${catalogId}" class="btn btn-primary" style="text-decoration:none;">
+                    查看已上传档案
+                </a>
+                <button onclick="location.reload()" class="btn btn-secondary" style="margin-left:0.5rem;">
+                    继续上传
+                </button>
+            </div>
+        </div>
+    `;
+}
+</script>
+{% endblock %}

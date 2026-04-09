@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}{{ '编辑机构' if action=='edit' else '新增机构' }}{% endblock %}
+{% block content %}
+<div class="container py-3" style="max-width:700px">
+  <div class="mb-3">
+    <h4><i class="fas fa-building text-primary me-2"></i>{{ '编辑机构' if action=='edit' else '新增机构' }}</h4>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb small mb-0">
+      <li class="breadcrumb-item"><a href="{{ url_for('admin_org_tree') }}">组织架构</a></li>
+      <li class="breadcrumb-item"><a href="{{ url_for('admin_org_list') }}">机构管理</a></li>
+      <li class="breadcrumb-item active">{{ '编辑' if action=='edit' else '新增' }}</li>
+    </ol></nav>
+  </div>
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-4">
+      <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="row g-3">
+          <div class="col-md-8">
+            <label class="form-label fw-semibold">机构名称 <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" name="name" value="{{ org.name if org else '' }}" required>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">机构简称</label>
+            <input type="text" class="form-control" name="short_name" value="{{ org.short_name if org else '' }}">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">机构编码</label>
+            <input type="text" class="form-control" name="code" value="{{ org.code if org else '' }}" placeholder="如 ROOT、BRANCH1">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">机构类型</label>
+            <select class="form-select" name="org_type">
+              {% for val, label in [('unit','单位'),('company','公司'),('group','集团/总部')] %}
+              <option value="{{ val }}" {{ 'selected' if org and org.org_type==val }}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">排序权重</label>
+            <input type="number" class="form-control" name="sort_order" value="{{ org.sort_order if org else 0 }}" min="0">
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-semibold">上级机构</label>
+            <select class="form-select" name="parent_id">
+              <option value="">— 顶级机构（无上级）—</option>
+              {% for o in orgs %}
+              <option value="{{ o.id }}" {{ 'selected' if org and org.parent_id==o.id }}>{{ o.get_full_name() }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">联系电话</label>
+            <input type="text" class="form-control" name="phone" value="{{ org.phone if org else '' }}">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">地址</label>
+            <input type="text" class="form-control" name="address" value="{{ org.address if org else '' }}">
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-semibold">描述</label>
+            <textarea class="form-control" name="description" rows="2">{{ org.description if org else '' }}</textarea>
+          </div>
+          {% if action == 'edit' %}
+          <div class="col-12">
+            <label class="form-label fw-semibold">状态</label>
+            <select class="form-select" name="is_active">
+              <option value="1" {{ 'selected' if org.is_active }}>启用</option>
+              <option value="0" {{ 'selected' if not org.is_active }}>停用</option>
+            </select>
+          </div>
+          {% endif %}
+        </div>
+        <div class="d-flex gap-2 mt-4">
+          <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>保存</button>
+          <a href="{{ url_for('admin_org_list') }}" class="btn btn-outline-secondary">取消</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

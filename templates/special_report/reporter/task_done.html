@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2>已办约稿任务</h2>
+        <table class="table table-bordered">
+            <thead><tr><th>标题</th><th>报送内容</th><th>报送时间</th><th>状态</th><th>操作</th></tr></thead>
+            <tbody>
+                {% for item in tasks %}
+                <tr>
+                    <td>{{ item.task.title }}</td>
+                    <td><a href="{{ url_for('info_detail', report_id=item.submission.report_id) }}">查看详情</a></td>
+                    <td>{{ item.submission.submitted_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>{{ '已报送' }}</td>
+                    <td>
+                        <a href="{{ url_for('task_additional', task_id=item.task.id) }}" class="btn btn-sm btn-info">追报</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

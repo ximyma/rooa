@@ -1,0 +1,485 @@
+{% extends "base.html" %}
+
+{% block title %}档案上传 - 档案管理系统{% endblock %}
+
+{% block content %}
+<style>
+.upload-page { max-width: 1050px; margin: 0 auto; }
+.page-header { margin-bottom: 2rem; }
+.page-title { font-size: 1.8rem; font-weight: 700; color: #2d3748; margin: 0; }
+.page-title i { margin-right: 0.5rem; color: #667eea; }
+.subtitle { color: #718096; margin-top: 0.5rem; }
+.upload-card, .metadata-form {
+    background: white; border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08); padding: 2rem; margin-bottom: 1.5rem;
+}
+.upload-zone {
+    border: 2px dashed #cbd5e0; border-radius: 12px; padding: 2.5rem;
+    text-align: center; cursor: pointer; transition: all 0.3s; background: #f7fafc;
+}
+.upload-zone:hover, .upload-zone.dragover { border-color: #667eea; background: #ebf8ff; }
+.upload-icon { font-size: 3.5rem; color: #667eea; margin-bottom: 0.75rem; }
+.upload-text { font-size: 1.05rem; color: #4a5568; margin-bottom: 0.25rem; }
+.upload-hint { font-size: 0.85rem; color: #a0aec0; }
+.file-preview { display: none; background: #f7fafc; border-radius: 12px; padding: 1.25rem; margin-top: 1rem; }
+.file-preview.show { display: block; }
+.file-preview-header { display: flex; align-items: center; gap: 1rem; }
+.file-icon-box {
+    width: 48px; height: 48px; border-radius: 10px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex; align-items: center; justify-content: center; color: white; font-size: 1.4rem;
+}
+.file-details { flex: 1; }
+.file-name { font-weight: 600; color: #2d3748; }
+.file-meta { font-size: 0.82rem; color: #718096; }
+/* AI提取面板 */
+.ai-panel {
+    background: linear-gradient(135deg, #f0f4ff 0%, #faf5ff 100%);
+    border: 1.5px solid #c3dafe; border-radius: 12px;
+    padding: 1.25rem; margin-top: 1rem; display: none;
+}
+.ai-panel.show { display: block; }
+.ai-panel-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; font-weight: 600; color: #5a67d8; }
+.ai-result-item { margin-bottom: 0.75rem; }
+.ai-result-label { font-size: 0.8rem; color: #805ad5; font-weight: 600; margin-bottom: 0.25rem; }
+.ai-result-value { font-size: 0.9rem; color: #2d3748; }
+.ai-tag { display: inline-block; background: #e9d8fd; color: #6b46c1; padding: 0.2rem 0.6rem; border-radius: 20px; font-size: 0.8rem; margin: 0.1rem; }
+.btn-ai {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white; border: none; padding: 0.5rem 1.25rem;
+    border-radius: 8px; font-size: 0.9rem; cursor: pointer; transition: all 0.2s;
+    display: inline-flex; align-items: center; gap: 0.4rem;
+}
+.btn-ai:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(102,126,234,0.4); }
+.btn-ai:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+.btn-fill { background: white; color: #667eea; border: 1px solid #667eea; padding: 0.35rem 0.9rem; border-radius: 6px; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; }
+.btn-fill:hover { background: #ebf0ff; }
+/* 表单 */
+.form-section { margin-bottom: 1.75rem; }
+.form-section-title { font-size: 1rem; font-weight: 600; color: #2d3748; margin-bottom: 0.75rem; padding-bottom: 0.4rem; border-bottom: 2px solid #edf2f7; }
+.form-section-title i { margin-right: 0.4rem; color: #667eea; }
+.form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem; }
+.form-group { margin-bottom: 0.75rem; }
+.form-group.full-width { grid-column: 1 / -1; }
+.form-label { display: block; font-weight: 500; color: #4a5568; margin-bottom: 0.35rem; font-size: 0.9rem; }
+.form-label .required { color: #e53e3e; }
+.form-control, .form-select { width: 100%; padding: 0.65rem 0.9rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.9rem; transition: all 0.2s; }
+.form-control:focus, .form-select:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.1); }
+textarea.form-control { resize: vertical; min-height: 80px; }
+.archive-code-preview { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 0.9rem 1.25rem; border-radius: 10px; margin-top: 1rem; display: none; }
+.archive-code-preview.show { display: block; }
+.archive-code-preview .code-label { font-size: 0.82rem; opacity: 0.9; margin-bottom: 0.2rem; }
+.archive-code-preview .code-value { font-size: 1.1rem; font-weight: 600; font-family: 'Courier New', monospace; }
+.submit-section { display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #edf2f7; }
+.btn-primary-gradient {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white; border: none; padding: 0.8rem 2rem; border-radius: 10px;
+    font-weight: 600; font-size: 0.95rem; cursor: pointer; transition: all 0.2s;
+    display: inline-flex; align-items: center; gap: 0.5rem;
+}
+.btn-primary-gradient:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(102,126,234,0.4); }
+.btn-secondary { background: white; color: #4a5568; border: 1px solid #e2e8f0; padding: 0.8rem 2rem; border-radius: 10px; font-weight: 500; cursor: pointer; }
+.hint-box { background: #ebf8ff; border-left: 4px solid #3182ce; padding: 0.9rem 1.25rem; border-radius: 0 8px 8px 0; margin-bottom: 1.5rem; }
+.hint-box h6 { color: #2c5282; margin-bottom: 0.35rem; font-size: 0.9rem; }
+.hint-box p { color: #4a5568; margin: 0; font-size: 0.85rem; }
+</style>
+
+<div class="upload-page">
+    <div class="page-header">
+        <h1 class="page-title"><i class="fas fa-upload"></i> 上传档案</h1>
+        <p class="subtitle">上传档案文件，AI将自动提取内容并智能填充元数据</p>
+    </div>
+
+    <div class="hint-box">
+        <h6><i class="fas fa-robot"></i> AI智能辅助</h6>
+        <p>选择文件后，点击"AI智能分析"按钮，系统将自动提取文档内容，生成标题建议、关键词和摘要，一键填充到表单</p>
+    </div>
+
+    <form method="POST" enctype="multipart/form-data" id="uploadForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        
+        <!-- 文件上传区 -->
+        <div class="upload-card">
+            <div class="upload-zone" id="uploadZone">
+                <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                <p class="upload-text">将文件拖拽到此处，或点击选择文件</p>
+                <p class="upload-hint">支持 PDF、Word、Excel、TXT、图片（OCR）等格式，单个文件不超过 100MB</p>
+                <input type="file" name="file" id="fileInput" style="display: none;" 
+                       accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.tiff,.tif,.txt,.md">
+            </div>
+
+            <!-- 文件预览 + AI分析按钮 -->
+            <div class="file-preview" id="filePreview">
+                <div class="file-preview-header">
+                    <div class="file-icon-box"><i class="fas fa-file" id="fileTypeIcon"></i></div>
+                    <div class="file-details">
+                        <div class="file-name" id="fileName"></div>
+                        <div class="file-meta" id="fileMeta"></div>
+                    </div>
+                    <div style="display:flex;gap:0.5rem;align-items:center;">
+                        <button type="button" class="btn-ai" id="aiAnalyzeBtn" onclick="analyzeFile()">
+                            <i class="fas fa-magic"></i> AI智能分析
+                        </button>
+                        <button type="button" onclick="removeFile()" style="background:none;border:none;color:#e53e3e;font-size:1.3rem;cursor:pointer;">
+                            <i class="fas fa-times-circle"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI分析结果面板 -->
+            <div class="ai-panel" id="aiPanel">
+                <div class="ai-panel-header">
+                    <i class="fas fa-robot"></i>
+                    <span>AI分析结果</span>
+                    <span style="font-size:0.8rem;color:#718096;font-weight:400;margin-left:auto;" id="aiWordCount"></span>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="ai-result-item">
+                            <div class="ai-result-label">📝 建议标题</div>
+                            <div class="ai-result-value" id="aiTitle">-</div>
+                        </div>
+                        <div class="ai-result-item">
+                            <div class="ai-result-label">📋 自动摘要</div>
+                            <div class="ai-result-value" id="aiSummary" style="max-height:80px;overflow-y:auto;font-size:0.85rem;color:#4a5568;">-</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="ai-result-item">
+                            <div class="ai-result-label">🏷️ 提取关键词</div>
+                            <div id="aiKeywordTags">-</div>
+                        </div>
+                        <div class="ai-result-item">
+                            <div class="ai-result-label">📂 自动标签</div>
+                            <div id="aiAutoTags">-</div>
+                        </div>
+                    </div>
+                </div>
+                <div style="text-align:right;margin-top:0.75rem;border-top:1px solid #e9d8fd;padding-top:0.75rem;">
+                    <button type="button" class="btn-fill" onclick="fillFromAI()">
+                        <i class="fas fa-fill-drip"></i> 一键填充到表单
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 元数据表单 -->
+        <div class="metadata-form">
+            <div class="form-section">
+                <h5 class="form-section-title"><i class="fas fa-database"></i> 基本信息</h5>
+                <div class="form-grid">
+                    <div class="form-group full-width">
+                        <label class="form-label">档案标题 <span class="required">*</span></label>
+                        <input type="text" name="title" id="inputTitle" class="form-control" required placeholder="请输入档案标题，或使用AI分析自动填充">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">责任者 <span class="required">*</span></label>
+                        <input type="text" name="responsibility" id="inputResponsibility" class="form-control" required placeholder="如：县人民政府办公室">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">文件日期 <span class="required">*</span></label>
+                        <input type="date" name="file_date" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">档案类型</label>
+                        <select name="archive_type" class="form-select">
+                            <option value="文书">文书</option>
+                            <option value="通知">通知</option>
+                            <option value="请示">请示</option>
+                            <option value="报告">报告</option>
+                            <option value="函">函</option>
+                            <option value="决定">决定</option>
+                            <option value="批复">批复</option>
+                            <option value="会议纪要">会议纪要</option>
+                            <option value="科技">科技</option>
+                            <option value="会计">会计</option>
+                            <option value="其他">其他</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">文号/编号</label>
+                        <input type="text" name="reference_number" class="form-control" placeholder="如：县府发〔2024〕1号">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h5 class="form-section-title"><i class="fas fa-folder-open"></i> 归属信息</h5>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">所属全宗 <span class="required">*</span></label>
+                        <select name="fonds_id" id="fondsSelect" class="form-select" required onchange="loadCatalogs()">
+                            <option value="">请选择全宗</option>
+                            {% for fonds in fonds_list %}
+                            <option value="{{ fonds.id }}">{{ fonds.fonds_code }} - {{ fonds.fonds_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">所属目录 <span class="required">*</span></label>
+                        <select name="catalog_id" id="catalogSelect" class="form-select" required onchange="loadVolumes(); updateArchiveCode();">
+                            <option value="">请先选择全宗</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">所属案卷</label>
+                        <select name="volume_id" id="volumeSelect" class="form-select" onchange="updateArchiveCode()">
+                            <option value="">不归属于案卷</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h5 class="form-section-title"><i class="fas fa-shield-alt"></i> 管理信息</h5>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">保管期限</label>
+                        <select name="retention_period" id="retentionSelect" class="form-select" onchange="updateArchiveCode()">
+                            <option value="永久">永久</option>
+                            <option value="30年" selected>30年</option>
+                            <option value="10年">10年</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">密级</label>
+                        <select name="security_level" id="securitySelect" class="form-select" onchange="updateArchiveCode()">
+                            <option value="公开" selected>公开</option>
+                            <option value="内部">内部</option>
+                            <option value="机密">机密</option>
+                            <option value="绝密">绝密</option>
+                        </select>
+                    </div>
+                    <div class="form-group full-width">
+                        <label class="form-label">关键词 <span style="color:#805ad5;font-size:0.8rem;font-weight:400;">（AI可自动提取）</span></label>
+                        <input type="text" name="keywords" id="inputKeywords" class="form-control" placeholder="关键词以逗号分隔，如：乡村振兴,产业发展">
+                    </div>
+                    <div class="form-group full-width">
+                        <label class="form-label">摘要/说明 <span style="color:#805ad5;font-size:0.8rem;font-weight:400;">（AI可自动生成）</span></label>
+                        <textarea name="description" id="inputDescription" class="form-control" placeholder="档案内容摘要，可由AI自动生成"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 档号预览 -->
+            <div class="archive-code-preview" id="archiveCodePreview">
+                <div class="code-label">预览档号：</div>
+                <div class="code-value" id="archiveCodeValue">-</div>
+            </div>
+        </div>
+
+        <!-- 提交按钮 -->
+        <div class="submit-section">
+            <button type="button" class="btn-secondary" onclick="history.back()">
+                <i class="fas fa-arrow-left"></i> 返回
+            </button>
+            <button type="submit" class="btn-primary-gradient" id="submitBtn">
+                <i class="fas fa-upload"></i> 上传档案
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+// ===== 文件上传交互 =====
+const uploadZone = document.getElementById('uploadZone');
+const fileInput = document.getElementById('fileInput');
+const filePreview = document.getElementById('filePreview');
+let aiData = null;
+
+uploadZone.addEventListener('click', () => fileInput.click());
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+uploadZone.addEventListener('drop', e => {
+    e.preventDefault(); uploadZone.classList.remove('dragover');
+    if (e.dataTransfer.files.length) { fileInput.files = e.dataTransfer.files; showFilePreview(e.dataTransfer.files[0]); }
+});
+fileInput.addEventListener('change', () => { if (fileInput.files.length) showFilePreview(fileInput.files[0]); });
+
+function showFilePreview(file) {
+    document.getElementById('fileName').textContent = file.name;
+    document.getElementById('fileMeta').textContent = formatFileSize(file.size) + ' | ' + (file.type || getExtLabel(file.name));
+    // 图标
+    const ext = file.name.split('.').pop().toLowerCase();
+    const iconMap = {pdf:'file-pdf', docx:'file-word', doc:'file-word', xlsx:'file-excel', xls:'file-excel', jpg:'file-image', jpeg:'file-image', png:'file-image', tiff:'file-image', tif:'file-image', txt:'file-alt', md:'file-alt'};
+    document.getElementById('fileTypeIcon').className = 'fas fa-' + (iconMap[ext] || 'file');
+    filePreview.classList.add('show');
+    // 隐藏旧AI结果
+    document.getElementById('aiPanel').classList.remove('show');
+    aiData = null;
+}
+
+function removeFile() {
+    fileInput.value = '';
+    filePreview.classList.remove('show');
+    document.getElementById('aiPanel').classList.remove('show');
+}
+
+function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes/1024).toFixed(1) + ' KB';
+    return (bytes/1048576).toFixed(1) + ' MB';
+}
+
+function getExtLabel(name) {
+    const ext = name.split('.').pop().toUpperCase();
+    return ext + ' 文件';
+}
+
+// ===== AI 预分析 =====
+async function analyzeFile() {
+    if (!fileInput.files.length) { alert('请先选择文件'); return; }
+    
+    const btn = document.getElementById('aiAnalyzeBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 分析中...';
+    
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+    
+    try {
+        const resp = await fetch('/archive/api/analyze_file', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-CSRFToken': document.querySelector('[name=csrf_token]').value }
+        });
+        const data = await resp.json();
+        
+        if (data.success) {
+            aiData = data;
+            // 展示AI面板
+            document.getElementById('aiPanel').classList.add('show');
+            document.getElementById('aiTitle').textContent = data.title || '-';
+            document.getElementById('aiSummary').textContent = data.summary || '-';
+            document.getElementById('aiWordCount').textContent = data.word_count ? `提取 ${data.word_count} 字` : '';
+            
+            // 关键词标签
+            const kwContainer = document.getElementById('aiKeywordTags');
+            if (data.keywords && data.keywords.length) {
+                kwContainer.innerHTML = data.keywords.map(k => `<span class="ai-tag">${k}</span>`).join('');
+            } else { kwContainer.textContent = '-'; }
+            
+            // 自动标签
+            const tagContainer = document.getElementById('aiAutoTags');
+            if (data.tags && data.tags.length) {
+                tagContainer.innerHTML = data.tags.map(t => `<span class="ai-tag" style="background:#bee3f8;color:#2b6cb0;">${t}</span>`).join('');
+            } else { tagContainer.textContent = '-'; }
+            
+        } else {
+            alert('AI分析失败：' + (data.error || '未知错误'));
+        }
+    } catch(e) {
+        alert('网络错误，AI分析失败');
+    }
+    
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-magic"></i> AI智能分析';
+}
+
+// ===== 一键填充 =====
+function fillFromAI() {
+    if (!aiData) return;
+    
+    if (aiData.title) {
+        const titleInput = document.getElementById('inputTitle');
+        if (!titleInput.value.trim()) titleInput.value = aiData.title;
+    }
+    if (aiData.keywords_str) {
+        const kwInput = document.getElementById('inputKeywords');
+        if (!kwInput.value.trim()) kwInput.value = aiData.keywords_str;
+    }
+    if (aiData.summary) {
+        const descInput = document.getElementById('inputDescription');
+        if (!descInput.value.trim()) descInput.value = aiData.summary;
+    }
+    
+    // 闪烁提示已填充
+    ['inputTitle', 'inputKeywords', 'inputDescription'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el.value) {
+            el.style.transition = 'background 0.5s';
+            el.style.background = '#ebf8ff';
+            setTimeout(() => el.style.background = '', 800);
+        }
+    });
+}
+
+// ===== 动态加载目录/案卷 =====
+function loadCatalogs() {
+    const fondsId = document.getElementById('fondsSelect').value;
+    const catalogSelect = document.getElementById('catalogSelect');
+    const volumeSelect = document.getElementById('volumeSelect');
+    
+    catalogSelect.innerHTML = '<option value="">加载中...</option>';
+    volumeSelect.innerHTML = '<option value="">不归属于案卷</option>';
+    document.getElementById('archiveCodePreview').classList.remove('show');
+    
+    if (!fondsId) { catalogSelect.innerHTML = '<option value="">请先选择全宗</option>'; return; }
+    
+    fetch(`/archive/api/catalogs?fonds_id=${fondsId}`)
+        .then(r => r.json())
+        .then(data => {
+            catalogSelect.innerHTML = '<option value="">请选择目录</option>';
+            data.forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat.id;
+                opt.textContent = `${cat.catalog_code} - ${cat.catalog_name}`;
+                catalogSelect.appendChild(opt);
+            });
+        }).catch(() => catalogSelect.innerHTML = '<option value="">加载失败</option>');
+}
+
+function loadVolumes() {
+    const catalogId = document.getElementById('catalogSelect').value;
+    const volumeSelect = document.getElementById('volumeSelect');
+    if (!catalogId) { volumeSelect.innerHTML = '<option value="">不归属于案卷</option>'; return; }
+    
+    fetch(`/archive/api/volumes?catalog_id=${catalogId}`)
+        .then(r => r.json())
+        .then(data => {
+            volumeSelect.innerHTML = '<option value="">不归属于案卷</option>';
+            data.forEach(vol => {
+                const opt = document.createElement('option');
+                opt.value = vol.id;
+                opt.textContent = `${vol.volume_code} - ${vol.volume_title}`;
+                volumeSelect.appendChild(opt);
+            });
+        }).catch(() => {});
+}
+
+function updateArchiveCode() {
+    const fondsId = document.getElementById('fondsSelect').value;
+    const catalogId = document.getElementById('catalogSelect').value;
+    const volumeId = document.getElementById('volumeSelect').value;
+    const retention = document.getElementById('retentionSelect').value;
+    const security = document.getElementById('securitySelect').value;
+    
+    if (!fondsId || !catalogId) { document.getElementById('archiveCodePreview').classList.remove('show'); return; }
+    
+    const params = new URLSearchParams({ fonds_id: fondsId, catalog_id: catalogId, retention_period: retention, security_level: security });
+    if (volumeId) params.append('volume_id', volumeId);
+    
+    fetch('/archive/api/naming/generate', { method: 'POST', body: params, headers: { 'X-CSRFToken': document.querySelector('[name=csrf_token]').value } })
+        .then(r => r.json())
+        .then(data => {
+            if (data.archive_code) {
+                document.getElementById('archiveCodeValue').textContent = data.archive_code;
+                document.getElementById('archiveCodePreview').classList.add('show');
+            }
+        }).catch(() => {});
+}
+
+// 表单提交验证
+document.getElementById('uploadForm').addEventListener('submit', function(e) {
+    if (!fileInput.files.length) {
+        e.preventDefault(); alert('请选择要上传的文件'); return false;
+    }
+    if (fileInput.files[0].size > 100 * 1024 * 1024) {
+        e.preventDefault(); alert('文件大小不能超过 100MB'); return false;
+    }
+    document.getElementById('submitBtn').innerHTML = '<i class="fas fa-spinner fa-spin"></i> 上传中...';
+    document.getElementById('submitBtn').disabled = true;
+});
+</script>
+{% endblock %}

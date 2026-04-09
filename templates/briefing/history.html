@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}历史记录 - 简报系统{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4><i class="fas fa-history me-2"></i>简报历史</h4>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th width="50">#</th>
+                        <th>标题</th>
+                        <th>状态</th>
+                        <th>文章数</th>
+                        <th>创建时间</th>
+                        <th>耗时</th>
+                        <th width="150">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for briefing in briefings.items %}
+                    <tr>
+                        <td>{{ briefing.id }}</td>
+                        <td>{{ briefing.title }}</td>
+                        <td>
+                            {% if briefing.status == 'completed' %}
+                            <span class="badge bg-success">完成</span>
+                            {% elif briefing.status == 'failed' %}
+                            <span class="badge bg-danger">失败</span>
+                            {% elif briefing.status == 'running' %}
+                            <span class="badge bg-warning">进行中</span>
+                            {% else %}
+                            <span class="badge bg-secondary">等待中</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ briefing.article_count }}</td>
+                        <td>{{ briefing.start_time.strftime('%Y-%m-%d %H:%M') if briefing.start_time else '-' }}</td>
+                        <td>{{ briefing.duration }}秒</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary me-1" onclick="viewBriefing('{{ briefing.task_id }}')">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            {% if briefing.status == 'completed' and briefing.docx_path %}
+                            <a href="{{ url_for('briefing_download', task_id=briefing.task_id, format='word') }}" 
+                               class="btn btn-sm btn-outline-success" target="_blank">
+                                <i class="fas fa-download"></i>
+                            </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">
+                            <i class="fas fa-inbox fa-2x mb-2 d-block"></i>
+                            暂无简报记录
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% if briefings.pages > 1 %}
+    <div class="card-footer">
+        <nav>
+            <ul class="pagination justify-content-center mb-0">
+                {% if briefings.has_prev %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('briefing_history', page=briefings.prev_num) }}">上一页</a>
+                </li>
+                {% endif %}
+                
+                {% for p in briefings.iter_pages() %}
+                {% if p %}
+                <li class="page-item {% if p == briefings.page %}active{% endif %}">
+                    <a class="page-link" href="{{ url_for('briefing_history', page=p) }}">{{ p }}</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+                {% endif %}
+                {% endfor %}
+                
+                {% if briefings.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('briefing_history', page=briefings.next_num) }}">下一页</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 简报详情弹窗 -->
+<div class="modal fade" id="briefingModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="briefingModalTitle">简报详情</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="briefingModalBody"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                <a href="#" class="btn btn-primary d-none" id="downloadBtn" target="_blank">
+                    <i class="fas fa-download me-1"></i>下载文档
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function viewBriefing(taskId) {
+    try {
+        const response = await fetch(`/briefing/api/briefing/${taskId}`);
+        const data = await response.json();
+        
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+        
+        document.getElementById('briefingModalTitle').textContent = data.briefing.title;
+        
+        let html = `
+            <div class="mb-3">
+                <strong>状态：</strong>
+                <span class="badge bg-${data.briefing.status === 'completed' ? 'success' : 'secondary'}">${data.briefing.status}</span>
+                <strong class="ms-3">文章数：</strong>${data.briefing.article_count}
+                <strong class="ms-3">创建时间：</strong>${data.briefing.created_at}
+            </div>
+            <h6>文章列表：</h6>
+            <ul class="list-group">
+        `;
+        
+        for (const article of data.articles) {
+            html += `
+                <li class="list-group-item">
+                    <div class="d-flex justify-content-between">
+                        <span class="text-truncate" style="max-width: 400px;">${article.title}</span>
+                        <small class="text-muted">${article.source}</small>
+                    </div>
+                </li>
+            `;
+        }
+        
+        html += '</ul>';
+        document.getElementById('briefingModalBody').innerHTML = html;
+        
+        if (data.briefing.status === 'completed') {
+            document.getElementById('downloadBtn').href = `/briefing/api/download/${taskId}/word`;
+            document.getElementById('downloadBtn').classList.remove('d-none');
+        } else {
+            document.getElementById('downloadBtn').classList.add('d-none');
+        }
+        
+        new bootstrap.Modal(document.getElementById('briefingModal')).show();
+    } catch (error) {
+        alert('加载失败: ' + error.message);
+    }
+}
+</script>
+{% endblock %}

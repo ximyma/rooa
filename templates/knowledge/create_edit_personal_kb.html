@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        {% if mode == 'create' %}
+        <h2>创建个人知识库</h2>
+        {% else %}
+        <h2>编辑个人知识库</h2>
+        {% endif %}
+        
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            
+            <div class="mb-3">
+                <label class="form-label">知识库名称 <span class="text-danger">*</span></label>
+                <input type="text" name="name" class="form-control" value="{{ kb.name if kb else '' }}" required 
+                       placeholder="请输入知识库名称" maxlength="200">
+                <div class="form-text">知识库名称在您的个人知识库中必须唯一</div>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">分类</label>
+                <select name="category" class="form-select">
+                    <option value="">选择分类（可选）</option>
+                    <option value="制度规范" {% if kb and kb.category == '制度规范' %}selected{% endif %}>制度规范</option>
+                    <option value="技术文档" {% if kb and kb.category == '技术文档' %}selected{% endif %}>技术文档</option>
+                    <option value="培训资料" {% if kb and kb.category == '培训资料' %}selected{% endif %}>培训资料</option>
+                    <option value="会议记录" {% if kb and kb.category == '会议记录' %}selected{% endif %}>会议记录</option>
+                    <option value="常见问题" {% if kb and kb.category == '常见问题' %}selected{% endif %}>常见问题</option>
+                    <option value="工作模板" {% if kb and kb.category == '工作模板' %}selected{% endif %}>工作模板</option>
+                    <option value="个人笔记" {% if kb and kb.category == '个人笔记' %}selected{% endif %}>个人笔记</option>
+                    <option value="参考资料" {% if kb and kb.category == '参考资料' %}selected{% endif %}>参考资料</option>
+                    <option value="项目文档" {% if kb and kb.category == '项目文档' %}selected{% endif %}>项目文档</option>
+                    <option value="其他" {% if kb and kb.category == '其他' %}selected{% endif %}>其他</option>
+                </select>
+                <div class="form-text">选择最适合的分类，方便组织管理</div>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">描述</label>
+                <textarea name="description" class="form-control" rows="3" 
+                          placeholder="简要描述知识库用途、包含的内容等">{{ kb.description if kb else '' }}</textarea>
+                <div class="form-text">描述将有助于您记忆知识库的用途</div>
+            </div>
+            
+            <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                {% if mode == 'create' %}
+                <button type="submit" class="btn btn-primary">创建知识库</button>
+                {% else %}
+                <button type="submit" class="btn btn-primary">保存修改</button>
+                {% endif %}
+                <a href="{{ url_for('personal_kb_management') }}" class="btn btn-secondary">取消</a>
+            </div>
+        </form>
+        
+        {% if mode == 'edit' and kb %}
+        <div class="mt-5 pt-3 border-top">
+            <h5>知识库统计信息</h5>
+            <div class="row mt-2">
+                <div class="col-md-6">
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <h6 class="card-subtitle mb-2 text-muted">文件数量</h6>
+                            <p class="card-text h4">{{ kb.files.count() if kb.files else 0 }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <h6 class="card-subtitle mb-2 text-muted">创建时间</h6>
+                            <p class="card-text">{{ kb.created_at.strftime('%Y年%m月%d日 %H:%M') }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+// 表单验证
+document.querySelector('form').addEventListener('submit', function(e) {
+    const nameInput = document.querySelector('input[name="name"]');
+    if (!nameInput.value.trim()) {
+        e.preventDefault();
+        alert('请输入知识库名称');
+        nameInput.focus();
+        return false;
+    }
+    
+    if (nameInput.value.trim().length < 2) {
+        e.preventDefault();
+        alert('知识库名称至少需要2个字符');
+        nameInput.focus();
+        return false;
+    }
+    
+    return true;
+});
+</script>
+{% endblock %}

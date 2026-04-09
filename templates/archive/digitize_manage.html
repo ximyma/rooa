@@ -1,0 +1,528 @@
+{% extends "base.html" %}
+
+{% block title %}数字化管理 - 档案管理系统{% endblock %}
+
+{% block content %}
+<!-- CSRF Token -->
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+<div class="container-fluid py-4">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">
+                <i class="bi bi-collection me-2 text-primary"></i>数字化管理
+            </h2>
+            <p class="text-muted mb-0" style="font-size:.9rem">
+                全流程监控：上传 → 处理 → 质检 → 入库
+            </p>
+        </div>
+        <div class="btn-group">
+            <a href="{{ url_for('archive.file_upload') }}" class="btn btn-primary">
+                <i class="bi bi-upload me-1"></i>单文件上传
+            </a>
+            <a href="{{ url_for('archive.batch_upload') }}" class="btn btn-outline-primary">
+                <i class="bi bi-files me-1"></i>批量上传
+            </a>
+            <a href="{{ url_for('archive.quality_dashboard') }}" class="btn btn-outline-success">
+                <i class="bi bi-clipboard-check me-1"></i>质检报告
+            </a>
+        </div>
+    </div>
+
+    <!-- 快捷统计卡片 -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100" style="border-radius:16px">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div style="width:52px;height:52px;border-radius:14px;
+                                        background:linear-gradient(135deg,#667eea,#764ba2);
+                                        display:flex;align-items:center;justify-content:center">
+                                <i class="bi bi-files text-white fs-5"></i>
+                            </div>
+                        </div>
+                        <div class="ms-3">
+                            <div style="font-size:1.8rem;font-weight:700;color:#2d3748">
+                                {{ stats.total | default(0) }}
+                            </div>
+                            <div class="text-muted" style="font-size:.85rem">数字化档案总量</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100" style="border-radius:16px">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div style="width:52px;height:52px;border-radius:14px;
+                                        background:linear-gradient(135deg,#11998e,#38ef7d);
+                                        display:flex;align-items:center;justify-content:center">
+                                <i class="bi bi-check-circle text-white fs-5"></i>
+                            </div>
+                        </div>
+                        <div class="ms-3">
+                            <div style="font-size:1.8rem;font-weight:700;color:#2d3748">
+                                {{ stats.passed | default(0) }}
+                            </div>
+                            <div class="text-muted" style="font-size:.85rem">质检通过档案</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100" style="border-radius:16px">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div style="width:52px;height:52px;border-radius:14px;
+                                        background:linear-gradient(135deg,#f7971e,#ffd200);
+                                        display:flex;align-items:center;justify-content:center">
+                                <i class="bi bi-hourglass-split text-white fs-5"></i>
+                            </div>
+                        </div>
+                        <div class="ms-3">
+                            <div style="font-size:1.8rem;font-weight:700;color:#2d3748">
+                                {{ stats.pending | default(0) }}
+                            </div>
+                            <div class="text-muted" style="font-size:.85rem">待质检档案</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100" style="border-radius:16px">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div style="width:52px;height:52px;border-radius:14px;
+                                        background:linear-gradient(135deg,#2193b0,#6dd5ed);
+                                        display:flex;align-items:center;justify-content:center">
+                                <i class="bi bi-speedometer2 text-white fs-5"></i>
+                            </div>
+                        </div>
+                        <div class="ms-3">
+                            <div style="font-size:1.8rem;font-weight:700;color:#2d3748">
+                                {{ stats.avg_score | default(0) }}<span style="font-size:1rem">分</span>
+                            </div>
+                            <div class="text-muted" style="font-size:.85rem">平均质检分</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- 左侧：处理队列 -->
+        <div class="col-lg-7">
+            <!-- 后台任务 -->
+            <div class="card border-0 shadow-sm mb-4" style="border-radius:16px">
+                <div class="card-header bg-transparent border-0 pt-3 pb-0">
+                    <h5 class="mb-0">
+                        <i class="bi bi-list-task me-2 text-primary"></i>后台处理任务
+                    </h5>
+                </div>
+                <div class="card-body pt-2" id="taskList">
+                    <div id="taskLoading" class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status"></div>
+                        <p class="text-muted mt-2 mb-0">加载中...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 档案列表（最新） -->
+            <div class="card border-0 shadow-sm" style="border-radius:16px">
+                <div class="card-header bg-transparent border-0 pt-3 pb-0 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-clock-history me-2 text-primary"></i>最新数字化档案
+                    </h5>
+                    <a href="{{ url_for('archive.file_list') }}" class="btn btn-sm btn-outline-primary">
+                        查看全部 <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+                <div class="card-body pt-2">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0" style="font-size:.9rem">
+                            <thead>
+                                <tr>
+                                    <th>档号</th>
+                                    <th>题名</th>
+                                    <th>类型</th>
+                                    <th>质量</th>
+                                    <th>时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            {% for af in recent_archives %}
+                                <tr>
+                                    <td>
+                                        <code style="font-size:.82rem">{{ af.full_archive_code or af.file_code }}</code>
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('archive.file_detail', file_id=af.id) }}"
+                                           class="text-decoration-none text-truncate d-inline-block"
+                                           style="max-width:200px" title="{{ af.title }}">
+                                            {{ af.title[:20] }}{% if af.title|length > 20 %}…{% endif %}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">
+                                            {{ af.archive_type or '其他' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if af.quality_score %}
+                                            {% set score = af.quality_score|int if af.quality_score is string else af.quality_score %}
+                                            {% if score >= 90 %}
+                                                <span class="badge" style="background:#10b981">优 {{ af.quality_score }}</span>
+                                            {% elif score >= 75 %}
+                                                <span class="badge" style="background:#3b82f6">良 {{ af.quality_score }}</span>
+                                            {% elif score >= 60 %}
+                                                <span class="badge" style="background:#f59e0b">合格 {{ af.quality_score }}</span>
+                                            {% else %}
+                                                <span class="badge bg-danger">不合格 {{ af.quality_score }}</span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="badge bg-light text-dark">未质检</span>
+                                        {% endif %}
+                                    </td>
+                                    <td style="white-space:nowrap">
+                                        {{ af.digitized_at.strftime('%m-%d %H:%M') if af.digitized_at else '—' }}
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('archive.file_detail', file_id=af.id) }}"
+                                           class="btn btn-sm btn-outline-secondary">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                            {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted py-4">
+                                        <i class="bi bi-inbox fs-4 d-block mb-2"></i>
+                                        暂无数字化档案，<a href="{{ url_for('archive.batch_upload') }}">立即上传</a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧：工具面板 -->
+        <div class="col-lg-5">
+            <!-- 图像处理工具 -->
+            <div class="card border-0 shadow-sm mb-4" style="border-radius:16px">
+                <div class="card-header bg-transparent border-0 pt-3 pb-0">
+                    <h5 class="mb-0">
+                        <i class="bi bi-image me-2 text-primary"></i>图像处理工具
+                    </h5>
+                </div>
+                <div class="card-body pt-2">
+                    <p class="text-muted mb-3" style="font-size:.85rem">
+                        上传图像后自动执行：纠偏 / 去黑边 / TIFF存储 / OCR嵌入
+                    </p>
+
+                    <form id="imageToolForm" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label class="form-label">选择图像文件</label>
+                            <input type="file" name="image_file" id="imageFile"
+                                   class="form-control" accept=".jpg,.jpeg,.png,.tiff,.tif,.bmp" required>
+                        </div>
+
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <label class="form-label">处理模式</label>
+                                <select name="color_mode" class="form-select form-select-sm">
+                                    <option value="auto">自动检测</option>
+                                    <option value="grayscale">灰度</option>
+                                    <option value="bitonal">黑白二值</option>
+                                    <option value="color">彩色</option>
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label">目标DPI</label>
+                                <select name="target_dpi" class="form-select form-select-sm">
+                                    <option value="200">200 DPI</option>
+                                    <option value="300" selected>300 DPI（国标）</option>
+                                    <option value="400">400 DPI</option>
+                                    <option value="600">600 DPI</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" name="enable_deskew" id="enableDeskew" checked>
+                            <label class="form-check-label" for="enableDeskew">
+                                自动纠偏
+                            </label>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" name="enable_border_removal" id="enableBorder" checked>
+                            <label class="form-check-label" for="enableBorder">
+                                自动去黑边
+                            </label>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100" id="processBtn">
+                            <i class="bi bi-gear me-1"></i>处理图像
+                        </button>
+                    </form>
+
+                    <!-- 处理结果 -->
+                    <div id="processResult" class="mt-3" style="display:none">
+                        <div class="alert alert-secondary py-2" style="font-size:.85rem" id="processMsg"></div>
+                        <div id="processFiles"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 批量质检 -->
+            <div class="card border-0 shadow-sm mb-4" style="border-radius:16px">
+                <div class="card-header bg-transparent border-0 pt-3 pb-0">
+                    <h5 class="mb-0">
+                        <i class="bi bi-clipboard-check me-2 text-success"></i>批量质检
+                    </h5>
+                </div>
+                <div class="card-body pt-2">
+                    <p class="text-muted mb-3" style="font-size:.85rem">
+                        对已数字化档案执行国标质量检验（DA/T 47）
+                    </p>
+
+                    <div class="mb-3">
+                        <label class="form-label">选择全宗</label>
+                        <select id="qcFonds" class="form-select form-select-sm">
+                            <option value="">全部全宗</option>
+                            {% for f in fonds_list %}
+                            <option value="{{ f.id }}">{{ f.fonds_code }} - {{ f.fonds_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label">档案类型</label>
+                            <select id="qcType" class="form-select form-select-sm">
+                                <option value="">全部类型</option>
+                                <option>文书档案</option>
+                                <option>科技档案</option>
+                                <option>会计档案</option>
+                                <option>声像档案</option>
+                                <option>其他</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">质检范围</label>
+                            <select id="qcScope" class="form-select form-select-sm">
+                                <option value="all">全部档案</option>
+                                <option value="unchecked">仅未质检</option>
+                                <option value="failed">仅不合格</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button type="button" class="btn btn-success w-100" id="runQcBtn">
+                        <i class="bi bi-play-fill me-1"></i>开始批量质检
+                    </button>
+
+                    <div id="qcProgress" class="mt-3" style="display:none">
+                        <div class="d-flex justify-content-between mb-1" style="font-size:.82rem">
+                            <span id="qcProgressLabel">处理中...</span>
+                            <span id="qcProgressPct">0%</span>
+                        </div>
+                        <div class="progress" style="height:6px">
+                            <div class="progress-bar bg-success" id="qcProgressBar" style="width:0%"></div>
+                        </div>
+                        <div id="qcResult" class="mt-2" style="font-size:.85rem"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 快捷功能 -->
+            <div class="card border-0 shadow-sm" style="border-radius:16px">
+                <div class="card-header bg-transparent border-0 pt-3 pb-0">
+                    <h5 class="mb-0">
+                        <i class="bi bi-lightning me-2 text-warning"></i>快捷功能
+                    </h5>
+                </div>
+                <div class="card-body pt-2">
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('archive.file_upload') }}" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-upload me-1"></i>上传档案文件
+                        </a>
+                        <a href="{{ url_for('archive.batch_upload') }}" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-cloud-upload me-1"></i>批量上传档案
+                        </a>
+                        <a href="{{ url_for('archive.excel_import') }}" class="btn btn-outline-info btn-sm">
+                            <i class="bi bi-file-earmark-excel me-1"></i>Excel元数据导入
+                        </a>
+                        <a href="{{ url_for('archive.quality_dashboard') }}" class="btn btn-outline-success btn-sm">
+                            <i class="bi bi-bar-chart me-1"></i>查看质检统计
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ── 后台任务轮询 ────────────────────────────────────
+function loadTasks() {
+    fetch('{{ url_for("archive.digitization_tasks_api") }}', {
+        headers: {'X-Requested-With': 'XMLHttpRequest'}
+    })
+    .then(r => r.json())
+    .then(data => {
+        const container = document.getElementById('taskList');
+        if (!data.tasks || data.tasks.length === 0) {
+            container.innerHTML = '<p class="text-muted text-center py-3 mb-0">暂无进行中的任务</p>';
+            return;
+        }
+        container.innerHTML = data.tasks.map(task => `
+            <div class="d-flex align-items-center py-2 border-bottom">
+                <div class="flex-grow-1">
+                    <div class="fw-semibold" style="font-size:.9rem">${task.name}</div>
+                    <div class="progress mt-1" style="height:4px">
+                        <div class="progress-bar" style="width:${task.progress}%"></div>
+                    </div>
+                    <div class="text-muted" style="font-size:.78rem">
+                        ${task.processed}/${task.total} · ${task.status_text}
+                    </div>
+                </div>
+                <div class="ms-3 text-end">
+                    <span class="badge ${task.status === 'completed' ? 'bg-success' :
+                        task.status === 'failed' ? 'bg-danger' : 'bg-primary'}">
+                        ${task.status_text}
+                    </span>
+                </div>
+            </div>
+        `).join('');
+    })
+    .catch(() => {
+        document.getElementById('taskList').innerHTML =
+            '<p class="text-muted text-center py-3 mb-0">加载失败</p>';
+    });
+}
+
+// ── 图像处理工具 ────────────────────────────────────
+document.getElementById('imageToolForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('processBtn');
+    const resultDiv = document.getElementById('processResult');
+    const msgEl = document.getElementById('processMsg');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>处理中...';
+    resultDiv.style.display = 'block';
+    msgEl.textContent = '正在处理图像，请稍候...';
+
+    const form = new FormData(this);
+
+    try {
+        const resp = await fetch('{{ url_for("archive.api_image_process") }}', {
+            method: 'POST',
+            body: form,
+            headers: {'X-Requested-With': 'XMLHttpRequest'}
+        });
+        const data = await resp.json();
+
+        if (data.success) {
+            msgEl.className = 'alert alert-success py-2';
+            msgEl.innerHTML = `处理完成！质量评分：<strong>${data.quality_score}</strong> 分 ` +
+                `（${data.color_mode} / ${data.dpi}DPI）`;
+            document.getElementById('processFiles').innerHTML =
+                `<div class="mt-2" style="font-size:.82rem">` +
+                `<div><strong>TIFF：</strong>${data.tiff_path || '未生成'}</div>` +
+                `<div><strong>JPEG：</strong>${data.jpeg_path || '未生成'}</div>` +
+                `<div><strong>PDF：</strong>${data.pdf_path || '未生成'}</div>` +
+                `</div>`;
+        } else {
+            msgEl.className = 'alert alert-danger py-2';
+            msgEl.textContent = '处理失败：' + (data.error || '未知错误');
+        }
+    } catch(err) {
+        msgEl.className = 'alert alert-danger py-2';
+        msgEl.textContent = '请求失败：' + err.message;
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-gear me-1"></i>处理图像';
+});
+
+// ── 批量质检 ────────────────────────────────────────
+document.getElementById('runQcBtn').addEventListener('click', async function() {
+    const btn = this;
+    const progressDiv = document.getElementById('qcProgress');
+    const bar = document.getElementById('qcProgressBar');
+    const label = document.getElementById('qcProgressLabel');
+    const pct = document.getElementById('qcProgressPct');
+    const resultDiv = document.getElementById('qcResult');
+
+    btn.disabled = true;
+    progressDiv.style.display = 'block';
+    resultDiv.innerHTML = '';
+    bar.style.width = '0%';
+    label.textContent = '提交中...';
+
+    const formData = new FormData();
+    formData.append('fonds_id', document.getElementById('qcFonds').value);
+    formData.append('archive_type', document.getElementById('qcType').value);
+    formData.append('scope', document.getElementById('qcScope').value);
+
+    try {
+        const resp = await fetch('{{ url_for("archive.api_quality_check_batch") }}', {
+            method: 'POST',
+            body: formData,
+            headers: {'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-Token': '{{ csrf_token() }}'}
+        });
+        const data = await resp.json();
+
+        if (data.task_id) {
+            // 轮询进度
+            const poll = setInterval(async () => {
+                const prog = await fetch(`{{ url_for("archive.api_task_progress", task_id='') }}${data.task_id}`, {
+                    headers: {'X-Requested-With': 'XMLHttpRequest'}
+                }).then(r => r.json());
+
+                const pctVal = Math.round(prog.processed_items / prog.total_items * 100);
+                bar.style.width = pctVal + '%';
+                pct.textContent = pctVal + '%';
+                label.textContent = `${prog.processed_items}/${prog.total_items} 已检验`;
+
+                if (prog.status === 'completed') {
+                    clearInterval(poll);
+                    resultDiv.innerHTML = `<div class="alert alert-success py-2 mb-0">
+                        批量质检完成！通过 <strong>${data.passed}</strong> 份，平均分 <strong>${data.avg_score}</strong>
+                    </div>`;
+                    btn.disabled = false;
+                } else if (prog.status === 'failed') {
+                    clearInterval(poll);
+                    resultDiv.innerHTML = `<div class="alert alert-danger py-2 mb-0">任务失败</div>`;
+                    btn.disabled = false;
+                }
+            }, 1000);
+        } else {
+            resultDiv.innerHTML = `<div class="alert alert-warning py-2 mb-0">${data.error || '无符合条件的档案'}</div>`;
+            btn.disabled = false;
+        }
+    } catch(err) {
+        resultDiv.innerHTML = `<div class="alert alert-danger py-2 mb-0">请求失败：${err.message}</div>`;
+        btn.disabled = false;
+    }
+});
+
+// 初始化
+loadTasks();
+setInterval(loadTasks, 5000);  // 每5秒刷新任务列表
+</script>
+{% endblock %}

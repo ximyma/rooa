@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能服务办公平台 - 首页</title>
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/fontawesome.all.min.css">
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --bg-dark: #0f0c29;
+            --bg-card: rgba(255, 255, 255, 0.05);
+            --text-primary: #fff;
+            --text-secondary: rgba(255, 255, 255, 0.7);
+            --accent: #667eea;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: var(--bg-dark); font-family: 'Microsoft YaHei', sans-serif; color: var(--text-primary); overflow-x: hidden; }
+        .bg-grid {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: linear-gradient(rgba(102, 126, 234, 0.05) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(102, 126, 234, 0.05) 1px, transparent 1px);
+            background-size: 50px 50px; z-index: -1;
+        }
+        .top-nav {
+            background: rgba(15, 12, 41, 0.8); backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 15px 30px; position: sticky; top: 0; z-index: 100;
+        }
+        .brand-logo { font-size: 24px; font-weight: 700; background: var(--primary-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .tech-card { background: var(--bg-card); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 25px; margin-bottom: 25px; transition: all 0.3s; }
+        .tech-card:hover { transform: translateY(-5px); border-color: rgba(102, 126, 234, 0.3); box-shadow: 0 10px 40px rgba(102, 126, 234, 0.2); }
+        .stat-card { text-align: center; padding: 20px; }
+        .stat-icon { width: 60px; height: 60px; border-radius: 15px; background: var(--primary-gradient); display: flex; align-items: center; justify-content: center; font-size: 24px; margin: 0 auto 15px; box-shadow: 0 5px 20px rgba(102, 126, 234, 0.3); }
+        .stat-number { font-size: 32px; font-weight: 700; background: var(--primary-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .stat-label { color: var(--text-secondary); font-size: 14px; margin-top: 5px; }
+        .card-title { font-size: 18px; font-weight: 600; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+        .card-title i { color: #667eea; }
+        .quick-action { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border-radius: 10px; background: var(--primary-gradient); color: white; text-decoration: none; font-weight: 500; transition: all 0.3s; }
+        .quick-action:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4); color: white; }
+        .welcome-banner { background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%); border: 1px solid rgba(102, 126, 234, 0.3); border-radius: 20px; padding: 25px; margin-bottom: 25px; }
+        .welcome-title { font-size: 24px; font-weight: 700; margin-bottom: 5px; }
+        .welcome-subtitle { color: var(--text-secondary); font-size: 14px; }
+        .quick-card {
+            display: flex; align-items: center; gap: 12px;
+            padding: 15px 20px; border-radius: 12px;
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+            text-decoration: none; color: #fff; transition: all 0.3s;
+        }
+        .quick-card:hover { background: rgba(102,126,234,0.15); border-color: rgba(102,126,234,0.4); color: #667eea; transform: translateX(5px); }
+        .quick-card i { font-size: 20px; width: 24px; }
+        .quick-card span { font-size: 14px; font-weight: 500; }
+        .tpl-card {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px 18px; border-radius: 10px;
+            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+            text-decoration: none; color: var(--text-secondary); transition: all 0.3s;
+        }
+        .tpl-card:hover { background: rgba(102,126,234,0.1); border-color: rgba(102,126,234,0.3); color: #667eea; }
+        @media (max-width: 768px) { .tech-card { padding: 20px; } .stat-number { font-size: 24px; } }
+    </style>
+</head>
+<body>
+    <div class="bg-grid"></div>
+
+    <!-- 顶部导航 -->
+    <nav class="top-nav">
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-3">
+                <i class="fas fa-rocket fa-2x" style="color: #667eea;"></i>
+                <div>
+                    <div class="brand-logo">智能OA</div>
+                    <small style="color: rgba(255,255,255,0.5);">企业智能办公平台</small>
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <a href="{{ url_for('personal_center') }}" class="text-decoration-none text-white">
+                    <i class="fas fa-user-circle fa-lg"></i>
+                    <span class="ms-2">{{ current_user.username }}</span>
+                </a>
+                <div class="dropdown">
+                    <button class="btn btn-link text-white text-decoration-none" data-bs-toggle="dropdown"><i class="fas fa-cog"></i></button>
+                    <ul class="dropdown-menu dropdown-menu-end" style="background: rgba(15, 12, 41, 0.95); border: 1px solid rgba(255, 255, 255, 0.1);">
+                        <li><a class="dropdown-item text-white" href="{{ url_for('personal_center') }}"><i class="fas fa-user me-2"></i>个人中心</a></li>
+                        <li><a class="dropdown-item text-white" href="{{ url_for('set_home_style', style='tech') }}"><i class="fas fa-palette me-2"></i>科技风格</a></li>
+                        <li><a class="dropdown-item text-white" href="{{ url_for('set_home_style', style='default') }}"><i class="fas fa-desktop me-2"></i>默认风格</a></li>
+                        <li><hr class="dropdown-divider" style="border-color: rgba(255, 255, 255, 0.1);"></li>
+                        <li><a class="dropdown-item text-danger" href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt me-2"></i>退出登录</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+        <!-- 欢迎横幅 -->
+        <div class="welcome-banner">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="welcome-title">欢迎回来，{{ current_user.username }}！</div>
+                    <div class="welcome-subtitle">
+                        {% if current_user.dept %}{{ current_user.dept.name }}{% else %}未分配部门{% endif %}
+                        | {% if current_user.position %}{{ current_user.position.name }}{% else %}未分配岗位{% endif %}
+                        | 登录时间：{% if current_user.last_login %}{{ current_user.last_login.strftime('%Y-%m-%d %H:%M') }}{% else %}首次登录{% endif %}
+                    </div>
+                </div>
+                <div>
+                    <a href="{{ url_for('document_writing') }}" class="quick-action">
+                        <i class="fas fa-plus"></i> 新建公文
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 统计数据 -->
+        <div class="row mb-4">
+            <div class="col-md-3 col-sm-6">
+                <div class="tech-card stat-card">
+                    <div class="stat-icon"><i class="fas fa-file-alt"></i></div>
+                    <div class="stat-number">{{ stats.total_reports }}</div>
+                    <div class="stat-label">我的报告</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="tech-card stat-card">
+                    <div class="stat-icon"><i class="fas fa-tasks"></i></div>
+                    <div class="stat-number">{{ stats.pending_tasks }}</div>
+                    <div class="stat-label">待办任务</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="tech-card stat-card">
+                    <div class="stat-icon"><i class="fas fa-database"></i></div>
+                    <div class="stat-number">{{ stats.total_knowledge }}</div>
+                    <div class="stat-label">知识文件</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="tech-card stat-card">
+                    <div class="stat-icon"><i class="fas fa-robot"></i></div>
+                    <div class="stat-number">{{ stats.ai_chats }}</div>
+                    <div class="stat-label">AI对话</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- 左侧 -->
+            <div class="col-lg-8">
+                <!-- 快捷功能 -->
+                <div class="tech-card">
+                    <div class="card-title"><i class="fas fa-th-large"></i> 快捷功能</div>
+                    <div class="d-flex flex-wrap gap-3">
+                        <a href="{{ url_for('document_writing') }}" class="quick-card"><i class="fas fa-pen-alt" style="color:#667eea;"></i><span>公文写作</span></a>
+                        <a href="{{ url_for('ai_chat') }}" class="quick-card"><i class="fas fa-robot" style="color:#4caf50;"></i><span>AI 智能助手</span></a>
+                        <a href="{{ url_for('template_library_v2') }}" class="quick-card"><i class="fas fa-file-alt" style="color:#ffa726;"></i><span>公文模板库</span></a>
+                        <a href="{{ url_for('personal_knowledge_base') }}" class="quick-card"><i class="fas fa-database" style="color:#42a5f5;"></i><span>个人知识库</span></a>
+                        <a href="{{ url_for('shared_knowledge_base') }}" class="quick-card"><i class="fas fa-share-alt" style="color:#8e44ad;"></i><span>共享知识库</span></a>
+                        <a href="{{ url_for('briefing_index') }}" class="quick-card"><i class="fas fa-newspaper" style="color:#e74c3c;"></i><span>简报生成</span></a>
+                        <a href="{{ url_for('doc_inbox') }}" class="quick-card"><i class="fas fa-envelope-open-text" style="color:#27ae60;"></i><span>电子公文</span></a>
+                        <a href="{{ url_for('personal_center') }}" class="quick-card"><i class="fas fa-user-cog" style="color:#2980b9;"></i><span>个人中心</span></a>
+                    </div>
+                </div>
+
+                <!-- 常用模板 -->
+                <div class="tech-card">
+                    <div class="card-title">
+                        <i class="fas fa-file-alt"></i> 公文模板
+                        <a href="{{ url_for('template_library_v2') }}" class="btn btn-outline-primary btn-sm ms-auto">
+                            <i class="fas fa-th-large me-1"></i>查看全部
+                        </a>
+                    </div>
+                    <div class="d-flex flex-wrap gap-3">
+                        <a href="{{ url_for('template_library_v2', category='通知') }}" class="tpl-card"><i class="fas fa-bell" style="color:#667eea;"></i><span>通知</span></a>
+                        <a href="{{ url_for('template_library_v2', category='报告') }}" class="tpl-card"><i class="fas fa-chart-bar" style="color:#667eea;"></i><span>报告</span></a>
+                        <a href="{{ url_for('template_library_v2', category='请示') }}" class="tpl-card"><i class="fas fa-question-circle" style="color:#667eea;"></i><span>请示</span></a>
+                        <a href="{{ url_for('template_library_v2', category='纪要') }}" class="tpl-card"><i class="fas fa-list-alt" style="color:#667eea;"></i><span>会议纪要</span></a>
+                        <a href="{{ url_for('template_library_v2', category='函') }}" class="tpl-card"><i class="fas fa-envelope" style="color:#667eea;"></i><span>函</span></a>
+                        <a href="{{ url_for('template_library_v2') }}" class="tpl-card"><i class="fas fa-th-large" style="color:#667eea;"></i><span>更多模板</span></a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧 -->
+            <div class="col-lg-4">
+                <!-- 快捷入口 -->
+                <div class="tech-card">
+                    <div class="card-title"><i class="fas fa-rocket"></i> 快捷入口</div>
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('personal_knowledge_base') }}" class="btn btn-outline-light text-start" style="border-color: rgba(255,255,255,0.2);"><i class="fas fa-database me-2"></i>个人知识库</a>
+                        <a href="{{ url_for('ai_chat') }}" class="btn btn-outline-light text-start" style="border-color: rgba(255,255,255,0.2);"><i class="fas fa-robot me-2"></i>AI 智能助手</a>
+                        <a href="{{ url_for('shared_knowledge_base') }}" class="btn btn-outline-light text-start" style="border-color: rgba(255,255,255,0.2);"><i class="fas fa-share-alt me-2"></i>共享知识库</a>
+                        <a href="{{ url_for('briefing_index') }}" class="btn btn-outline-light text-start" style="border-color: rgba(255,255,255,0.2);"><i class="fas fa-newspaper me-2"></i>简报生成</a>
+                        <a href="{{ url_for('doc_inbox') }}" class="btn btn-outline-light text-start" style="border-color: rgba(255,255,255,0.2);"><i class="fas fa-inbox me-2"></i>公文收件箱</a>
+                        <a href="{{ url_for('doc_outbox') }}" class="btn btn-outline-light text-start" style="border-color: rgba(255,255,255,0.2);"><i class="fas fa-paper-plane me-2"></i>公文发件箱</a>
+                        <a href="{{ url_for('doc_compose') }}" class="btn btn-outline-light text-start" style="border-color: rgba(255,255,255,0.2);"><i class="fas fa-pen-alt me-2"></i>起草公文</a>
+                    </div>
+                </div>
+
+                <!-- 系统信息 -->
+                <div class="tech-card">
+                    <div class="card-title"><i class="fas fa-info-circle"></i> 系统信息</div>
+                    <div class="small text-secondary">
+                        <p class="mb-2"><i class="fas fa-server me-2"></i>系统版本: 2.0</p>
+                        <p class="mb-2"><i class="fas fa-clock me-2"></i>运行状态: 正常</p>
+                        <p class="mb-0"><i class="fas fa-check-circle me-2" style="color:#4caf50;"></i>所有服务已就绪</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

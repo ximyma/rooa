@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row">
+    <div class="col-md-3">
+        <div class="card mb-3">
+            <div class="card-header">知识库信息</div>
+            <div class="card-body">
+                <h5>{{ kb.name }}</h5>
+                <p class="text-muted small">创建者：{{ kb.owner.name if kb.owner else '未知' }}</p>
+                <p class="text-muted small">文件数：{{ files|length }}</p>
+                {% if kb.category %}
+                <p class="text-muted small">分类：{{ kb.category }}</p>
+                {% endif %}
+                {% if kb.description %}
+                <p class="small">{{ kb.description }}</p>
+                {% endif %}
+                <span class="badge bg-{{ 'success' if kb.is_public else 'secondary' }}">
+                    {{ '公开' if kb.is_public else '不公开' }}
+                </span>
+            </div>
+        </div>
+        <a href="{{ url_for('knowledge_search_page') }}?kb_type=shared" class="btn btn-outline-success btn-sm w-100 mb-2">🔍 搜索此知识库</a>
+        <a href="{{ url_for('shared_knowledge_base') }}" class="btn btn-outline-secondary btn-sm w-100">← 返回列表</a>
+    </div>
+
+    <div class="col-md-9">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4>{{ kb.name }}</h4>
+            {% if current_user.role in ['manager', 'admin'] or kb.owner_id == current_user.id %}
+            <form method="POST" action="{{ url_for('shared_upload', kb_id=kb.id) }}" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="row g-2">
+                    <div class="col-md-7">
+                        <input type="file" name="file" class="form-control" required accept=".pdf,.docx,.doc,.txt,.md">
+                    </div>
+                    <div class="col-md-3">
+                        <select name="category" class="form-select">
+                            <option value="">选择分类</option>
+                            <option value="制度规范">制度规范</option>
+                            <option value="技术文档">技术文档</option>
+                            <option value="培训资料">培训资料</option>
+                            <option value="会议记录">会议记录</option>
+                            <option value="常见问题">常见问题</option>
+                            <option value="工作模板">工作模板</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary w-100">上传</button>
+                    </div>
+                </div>
+            </form>
+            {% endif %}
+        </div>
+
+        <!-- 搜索框 -->
+        <div class="card mb-3">
+            <div class="card-body py-2">
+                <div class="input-group">
+                    <input type="text" id="searchKeyword" class="form-control" placeholder="在知识库中搜索...">
+                    <button class="btn btn-success" onclick="doSearch()">搜索</button>
+                </div>
+                <div id="searchResults" class="mt-2" style="display:none;"></div>
+            </div>
+        </div>
+
+        <!-- 分类标签筛选 -->
+        <div class="card mb-3">
+            <div class="card-body py-2">
+                <div class="row g-2 align-items-center">
+                    <div class="col-auto">
+                        <select id="filterCategory" class="form-select form-select-sm" onchange="filterFiles()">
+                            <option value="">全部分类</option>
+                            <option value="制度规范">制度规范</option>
+                            <option value="技术文档">技术文档</option>
+                            <option value="培训资料">培训资料</option>
+                            <option value="会议记录">会议记录</option>
+                            <option value="常见问题">常见问题</option>
+                            <option value="工作模板">工作模板</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <input type="text" id="filterTag" class="form-control form-control-sm" placeholder="输入标签搜索" onkeyup="filterFiles()">
+                    </div>
+                    <div class="col-auto">
+                        <span class="badge bg-primary" id="filterCount">共 {{ files|length }} 个文件</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 文件列表 -->
+        <div class="card">
+            <table class="table table-bordered table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>文件名</th>
+                        <th>上传人</th>
+                        <th>状态</th>
+                        <th>类型</th>
+                        <th>字数</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for file in files %}
+                    <tr data-category="{{ file.category or '' }}" data-tags="{{ file.tags or '' }}" data-name="{{ file.original_name or '' }}">
+                        <td>
+                            <strong>{{ file.original_name }}</strong>
+                            {% if file.summary %}
+                            <br><small class="text-muted">{{ file.summary[:50] }}...</small>
+                            {% endif %}
+                            {% if file.tags %}
+                            <br>{% for tag in file.get_tags_list() %}<span class="badge bg-secondary">{{ tag }}</span>{% endfor %}
+                            {% endif %}
+                        </td>
+                        <td>{{ file.uploader.name if file.uploader else '未知' }}</td>
+                        <td>
+                            {% if file.status == 'approved' %}
+                            <span class="badge bg-success">已审核</span>
+                            {% elif file.status == 'pending' %}
+                            <span class="badge bg-warning">待审核</span>
+                            {% else %}
+                            <span class="badge bg-danger">已拒绝</span>
+                            {% endif %}
+                        </td>
+                        <td><span class="badge bg-info">{{ file.file_type|upper if file.file_type else '?' }}</span></td>
+                        <td><small>{{ file.word_count or 0 }}</small></td>
+                        <td>
+                            {% if file.status == 'approved' %}
+                                {% if file.file_type in ['txt','md'] %}
+                                <a href="{{ url_for('knowledge_preview', file_id=file.id) }}" class="btn btn-sm btn-outline-primary" target="_blank">预览</a>
+                                {% elif file.file_type == 'docx' %}
+                                <a href="{{ url_for('knowledge_preview', file_id=file.id) }}" class="btn btn-sm btn-outline-primary" target="_blank">预览</a>
+                                {% endif %}
+                            {% endif %}
+                            <a href="{{ url_for('knowledge_download', file_id=file.id) }}" class="btn btn-sm btn-secondary">下载</a>
+                            <button class="btn btn-sm btn-outline-warning" onclick="toggleFav({{ file.id }})">⭐</button>
+                            {% if current_user.role in ['manager', 'admin'] or kb.owner_id == current_user.id %}
+                            <a href="{{ url_for('shared_delete_file', file_id=file.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('确认删除？')">删除</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if not files %}
+                    <tr><td colspan="6" class="text-center text-muted">暂无文件</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+function doSearch() {
+    const keyword = document.getElementById('searchKeyword').value.trim();
+    if (!keyword) return;
+    const resultsDiv = document.getElementById('searchResults');
+    resultsDiv.style.display = 'block';
+    resultsDiv.innerHTML = '<div class="text-muted">搜索中...</div>';
+
+    fetch('/knowledge/api/search', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}'},
+        body: JSON.stringify({keyword: keyword, kb_type: 'shared', kb_ids: [{{ kb.id }}]})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (!data.results || data.results.length === 0) {
+            resultsDiv.innerHTML = '<div class="text-muted">未找到结果</div>';
+            return;
+        }
+        let html = `<div class="alert alert-info">找到 ${data.total || 0} 条结果</div>`;
+        data.results.forEach(r => {
+            html += `<div class="card mb-2"><div class="card-body py-2">
+                <strong>${r.title}</strong> <span class="badge bg-secondary">${r.file_type}</span>
+                <p class="mb-1 small">${r.snippet || ''}</p>
+                <a href="/knowledge/preview/${r.file_id}" class="btn btn-sm btn-primary" target="_blank">预览</a>
+                <a href="/knowledge/download/${r.file_id}" class="btn btn-sm btn-secondary">下载</a>
+            </div></div>`;
+        });
+        resultsDiv.innerHTML = html;
+    });
+}
+
+function toggleFav(fileId) {
+    fetch(`/knowledge/favorite/${fileId}`, {
+        method: 'POST',
+        headers: {'X-CSRFToken': '{{ csrf_token() }}'}
+    })
+    .then(r => r.json())
+    .then(data => { alert(data.message); });
+}
+
+document.getElementById('searchKeyword').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); doSearch(); }
+});
+
+// 分类标签筛选
+function filterFiles() {
+    const cat = document.getElementById('filterCategory').value.trim();
+    const tag = document.getElementById('filterTag').value.trim().toLowerCase();
+    const rows = document.querySelectorAll('tr[data-category]');
+    let visible = 0;
+    rows.forEach(row => {
+        const rowCat = row.getAttribute('data-category') || '';
+        const rowTags = (row.getAttribute('data-tags') || '').toLowerCase();
+        const rowName = (row.getAttribute('data-name') || '').toLowerCase();
+        const matchCat = !cat || rowCat === cat;
+        const matchTag = !tag || rowTags.includes(tag) || rowName.includes(tag);
+        if (matchCat && matchTag) {
+            row.style.display = '';
+            visible++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+    document.getElementById('filterCount').textContent = `共 ${visible} 个文件`;
+}
+
+// 初始化收藏状态
+document.addEventListener('DOMContentLoaded', function() {
+    {% for file in files %}
+    checkFavStatus({{ file.id }});
+    {% endfor %}
+});
+
+function checkFavStatus(fileId) {
+    fetch(`/knowledge/favorite/${fileId}`, {
+        method: 'GET',
+        headers: {'X-CSRFToken': '{{ csrf_token() }}'}
+    })
+    .then(r => r.json())
+    .then(data => {
+        const btn = document.querySelector(`button[onclick="toggleFav(${fileId})"]`);
+        if (btn && data.status === 'added') {
+            btn.classList.add('btn-warning');
+            btn.classList.remove('btn-outline-warning');
+        }
+    })
+    .catch(() => {});
+}
+</script>
+{% endblock %}

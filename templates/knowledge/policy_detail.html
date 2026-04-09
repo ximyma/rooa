@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row">
+    <!-- 左侧边栏 -->
+    <div class="col-md-3">
+        <div class="card mb-3">
+            <div class="card-header">政策库信息</div>
+            <div class="card-body">
+                <h5>{{ kb.name }}</h5>
+                <p class="text-muted small">创建者：{{ kb.owner.name if kb.owner else '未知' }}</p>
+                <p class="text-muted small">文件数：{{ files|length }}</p>
+                <p class="text-muted small">总字数：{{ files|sum(attribute='word_count') or 0 }}</p>
+                {% if kb.description %}
+                <p class="small">{{ kb.description }}</p>
+                {% endif %}
+            </div>
+        </div>
+        <a href="{{ url_for('knowledge_search_page') }}?kb_type=policy" class="btn btn-outline-success btn-sm w-100 mb-2">🔍 搜索此库</a>
+        <a href="{{ url_for('policy_library') }}" class="btn btn-outline-secondary btn-sm w-100">← 返回列表</a>
+    </div>
+
+    <!-- 右侧主内容 -->
+    <div class="col-md-9">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4>{{ kb.name }}</h4>
+            {% if current_user.role == 'admin' %}
+            <!-- 上传表单：支持批量多文件 -->
+            <form method="POST" action="{{ url_for('policy_upload', kb_id=kb.id) }}" enctype="multipart/form-data" id="uploadForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="row g-2">
+                    <div class="col-md-5">
+                        <input type="file" name="files" class="form-control" multiple accept=".pdf,.docx,.doc,.txt,.md" id="fileInput" onchange="updateFileCount()">
+                    </div>
+                    <div class="col-md-3">
+                        <select name="category" class="form-select">
+                            <option value="">选择分类</option>
+                            <option value="国家政策">国家政策</option>
+                            <option value="省级政策">省级政策</option>
+                            <option value="市级政策">市级政策</option>
+                            <option value="县级政策">县级政策</option>
+                            <option value="部门文件">部门文件</option>
+                            <option value="法规制度">法规制度</option>
+                            <option value="其他">其他</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary w-100" id="uploadBtn">
+                            <i class="fas fa-upload"></i> 上传
+                        </button>
+                    </div>
+                    <div class="col-md-2">
+                        <span class="badge bg-info" id="fileCount" style="line-height:34px;"></span>
+                    </div>
+                </div>
+            </form>
+            {% endif %}
+        </div>
+
+        <!-- 支持的格式提示 -->
+        <div class="alert alert-light small mb-3">
+            <i class="fas fa-info-circle"></i> 支持批量上传：按住 Ctrl/Cmd 可多选文件。
+            支持格式：<strong>PDF、Word(docx/doc)、TXT、Markdown</strong>，
+            上传后自动提取文本内容供全文检索。
+        </div>
+
+        <!-- 文件列表 -->
+        <div class="card">
+            <table class="table table-bordered table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>文件名</th>
+                        <th>分类</th>
+                        <th>类型</th>
+                        <th>大小</th>
+                        <th>字数</th>
+                        <th>上传时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for file in files %}
+                    <tr data-category="{{ file.category or '' }}" data-tags="{{ file.tags or '' }}" data-name="{{ file.original_name or '' }}">
+                        <td>
+                            <strong>{{ file.original_name }}</strong>
+                            {% if file.summary %}
+                            <br><small class="text-muted">{{ file.summary[:50] }}...</small>
+                            {% endif %}
+                            {% if file.tags %}
+                            <br>{% for tag in file.get_tags_list() %}<span class="badge bg-secondary">{{ tag }}</span>{% endfor %}
+                            {% endif %}
+                        </td>
+                        <td><span class="badge bg-warning">{{ file.category or '-' }}</span></td>
+                        <td><span class="badge bg-info">{{ file.file_type|upper if file.file_type else '?' }}</span></td>
+                        <td><small>{{ (file.file_size or 0)|filesizeformat }}</small></td>
+                        <td><small>{{ file.word_count or 0 }}</small></td>
+                        <td><small>{{ file.upload_time.strftime('%Y-%m-%d') if file.upload_time else '-' }}</small></td>
+                        <td>
+                            {% if file.file_type in ['txt','md'] %}
+                            <a href="{{ url_for('knowledge_preview', file_id=file.id) }}" class="btn btn-sm btn-outline-primary" target="_blank">预览</a>
+                            {% elif file.file_type == 'docx' %}
+                            <a href="{{ url_for('knowledge_preview', file_id=file.id) }}" class="btn btn-sm btn-outline-primary" target="_blank">预览</a>
+                            {% endif %}
+                            <a href="{{ url_for('knowledge_download', file_id=file.id) }}" class="btn btn-sm btn-secondary">下载</a>
+                            {% if current_user.role == 'admin' %}
+                            <button class="btn btn-sm btn-outline-warning" onclick="toggleFav({{ file.id }})" id="fav-btn-{{ file.id }}">⭐</button>
+                            <a href="{{ url_for('shared_delete_file', file_id=file.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('确认删除？')">删除</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if not files %}
+                    <tr><td colspan="7" class="text-center text-muted">暂无文件，请上传政策文件</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+// 显示已选文件数量
+function updateFileCount() {
+    const input = document.getElementById('fileInput');
+    const count = input.files.length;
+    document.getElementById('fileCount').textContent = count > 0 ? `已选 ${count} 个文件` : '';
+}
+
+// 收藏
+function toggleFav(fileId) {
+    fetch(`/knowledge/favorite/${fileId}`, {
+        method: 'POST',
+        headers: {'X-CSRFToken': '{{ csrf_token() }}'}
+    })
+    .then(r => r.json())
+    .then(data => {
+        const btn = document.getElementById(`fav-btn-${fileId}`);
+        if (btn) {
+            if (data.status === 'added') {
+                btn.classList.add('btn-warning');
+                btn.classList.remove('btn-outline-warning');
+            } else {
+                btn.classList.remove('btn-warning');
+                btn.classList.add('btn-outline-warning');
+            }
+        }
+    });
+}
+
+// 页面加载时检查收藏状态
+document.addEventListener('DOMContentLoaded', function() {
+    {% for file in files %}
+    checkFavStatus({{ file.id }});
+    {% endfor %}
+});
+
+function checkFavStatus(fileId) {
+    fetch(`/knowledge/favorite/${fileId}`, {
+        method: 'GET',
+        headers: {'X-CSRFToken': '{{ csrf_token() }}'}
+    })
+    .then(r => r.json())
+    .then(data => {
+        const btn = document.getElementById(`fav-btn-${fileId}`);
+        if (btn && data.status === 'added') {
+            btn.classList.add('btn-warning');
+            btn.classList.remove('btn-outline-warning');
+        }
+    })
+    .catch(() => {});
+}
+</script>
+{% endblock %}

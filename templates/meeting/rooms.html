@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}会议室管理{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div>
+      <h3 class="mb-1"><i class="fas fa-door-open me-2 text-secondary"></i>会议室管理</h3>
+      <div class="text-muted">维护会议室容量、设备和使用状态，支撑排会审批</div>
+    </div>
+    <a href="{{ url_for('meeting_index') }}" class="btn btn-outline-secondary">返回会议管理</a>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-7">
+      <div class="card shadow-sm">
+        <div class="card-header bg-white fw-semibold">会议室台账</div>
+        <div class="card-body p-0">
+          {% if rooms %}
+          <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+              <thead class="table-light"><tr><th>名称</th><th>位置</th><th>容量</th><th>设备</th><th>管理员</th><th>状态</th></tr></thead>
+              <tbody>
+                {% for room in rooms %}
+                <tr>
+                  <td class="fw-semibold">{{ room.name }}</td>
+                  <td>{{ room.location or '-' }}</td>
+                  <td>{{ room.capacity }}</td>
+                  <td class="small text-muted">{{ room.equipment or '-' }}</td>
+                  <td>{{ room.manager.name if room.manager else '-' }}</td>
+                  <td><span class="badge bg-{{ 'success' if room.status == 'available' else 'warning' if room.status == 'maintenance' else 'dark' }}">{{ {'available':'可用','maintenance':'维护中','disabled':'停用'}.get(room.status, room.status) }}</span></td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="text-center text-muted py-5">暂无会议室数据</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-5">
+      <div class="card shadow-sm">
+        <div class="card-header bg-white fw-semibold">新增会议室</div>
+        <div class="card-body">
+          <form method="post" class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">会议室名称</label>
+              <input type="text" name="name" class="form-control" placeholder="如：第一会议室">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">位置</label>
+              <input type="text" name="location" class="form-control" placeholder="如：3楼东侧">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">容纳人数</label>
+              <input type="number" name="capacity" class="form-control" value="20">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">状态</label>
+              <select name="status" class="form-select">
+                <option value="available">可用</option>
+                <option value="maintenance">维护中</option>
+                <option value="disabled">停用</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">设备信息</label>
+              <input type="text" name="equipment" class="form-control" placeholder="如：投影仪、视频终端、扩音系统">
+            </div>
+            <div class="col-12">
+              <label class="form-label">管理员</label>
+              <select name="manager_id" class="form-select">
+                <option value="">未指定</option>
+                {% for user in users %}
+                <option value="{{ user.id }}">{{ user.name }}{% if user.department %}（{{ user.department }}）{% endif %}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">备注</label>
+              <textarea name="remark" class="form-control" rows="3" placeholder="例如：仅限党组会使用"></textarea>
+            </div>
+            <div class="col-12 d-grid"><button class="btn btn-primary">保存会议室</button></div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

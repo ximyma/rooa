@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid px-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h4 class="mb-1"><i class="fas fa-file-alt text-success me-2"></i>公文模板库</h4>
+      <p class="text-muted mb-0 small">选择并使用标准公文模板，快速完成文件起草</p>
+    </div>
+    {% if current_user.role in ('admin', 'manager') %}
+    <a href="{{ url_for('admin_doc_templates') }}" class="btn btn-outline-success btn-sm">
+      <i class="fas fa-cog me-1"></i>管理模板
+    </a>
+    {% endif %}
+  </div>
+
+  <!-- 搜索和分类 -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body py-3">
+      <form method="GET" class="row g-2 align-items-end">
+        <div class="col-md-6">
+          <div class="input-group">
+            <span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span>
+            <input type="text" name="keyword" class="form-control" 
+                   placeholder="搜索模板名称或标签..."
+                   value="{{ keyword }}">
+          </div>
+        </div>
+        <div class="col-md-3">
+          <select name="category" class="form-select" onchange="this.form.submit()">
+            <option value="">全部分类</option>
+            {% for cat in categories %}
+            <option value="{{ cat }}" {% if current_category == cat %}selected{% endif %}>{{ cat }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-2">
+          <button type="submit" class="btn btn-primary w-100">搜索</button>
+        </div>
+        <div class="col-md-1">
+          <a href="{{ url_for('template_library_v2') }}" class="btn btn-outline-secondary w-100">
+            <i class="fas fa-redo"></i>
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 分类快捷标签 -->
+  <div class="d-flex flex-wrap gap-2 mb-4">
+    <a href="{{ url_for('template_library_v2') }}" 
+       class="btn btn-sm {% if not current_category %}btn-primary{% else %}btn-outline-primary{% endif %}">全部</a>
+    {% for cat in categories %}
+    <a href="{{ url_for('template_library_v2', category=cat) }}"
+       class="btn btn-sm {% if current_category == cat %}btn-primary{% else %}btn-outline-primary{% endif %}">{{ cat }}</a>
+    {% endfor %}
+  </div>
+
+  <!-- 模板网格 -->
+  <div class="row g-4">
+    {% for tpl in templates %}
+    <div class="col-md-6 col-xl-4 col-xxl-3">
+      <div class="card h-100 border-0 shadow-sm template-card" style="cursor:pointer;"
+           onclick="openTemplate({{ tpl.id }}, '{{ tpl.name|e }}')">
+        <div class="card-body">
+          <div class="d-flex align-items-start mb-3">
+            <div class="flex-shrink-0 me-3">
+              <div class="rounded-3 d-flex align-items-center justify-content-center"
+                   style="width:48px;height:48px;background:linear-gradient(135deg,#28a745,#20c997);">
+                <i class="fas fa-file-alt text-white fs-5"></i>
+              </div>
+            </div>
+            <div class="flex-grow-1 min-width-0">
+              <h6 class="mb-1 fw-semibold text-truncate">{{ tpl.name }}</h6>
+              <span class="badge bg-success bg-opacity-10 text-success small">{{ tpl.category }}</span>
+            </div>
+          </div>
+          <p class="text-muted small mb-3" style="line-height:1.5;">{{ tpl.description or '标准公文格式模板' }}</p>
+          {% if tpl.get_tags() %}
+          <div class="d-flex flex-wrap gap-1">
+            {% for tag in tpl.get_tags()[:3] %}
+            <span class="badge bg-light text-muted border" style="font-size:11px;">{{ tag }}</span>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+        <div class="card-footer bg-transparent border-top-0 d-flex justify-content-between align-items-center">
+          <small class="text-muted"><i class="fas fa-fire text-warning me-1"></i>{{ tpl.use_count or 0 }} 次使用</small>
+          <div class="d-flex gap-1" onclick="event.stopPropagation()">
+            <button class="btn btn-sm btn-outline-success" onclick="openTemplate({{ tpl.id }}, '{{ tpl.name|e }}')">
+              <i class="fas fa-eye me-1"></i>查看
+            </button>
+            <a href="{{ url_for('admin_doc_template_download', tpl_id=tpl.id) }}" class="btn btn-sm btn-success">
+              <i class="fas fa-download me-1"></i>下载
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+    {% if not templates %}
+    <div class="col-12 text-center py-5 text-muted">
+      <i class="fas fa-search fa-3x mb-3 d-block opacity-30"></i>
+      <p>未找到相关模板</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- 模板预览模态框 -->
+<div class="modal fade" id="tplModal" tabindex="-1">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title"><i class="fas fa-file-alt me-2"></i><span id="tplModalTitle"></span></h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0">
+        <div class="row g-0" style="min-height:500px;">
+          <div class="col-md-8 border-end">
+            <div class="p-4">
+              <h6 class="text-muted mb-3">模板内容预览</h6>
+              <pre id="tplContent" class="bg-light p-4 rounded" 
+                   style="white-space:pre-wrap;font-family:'SimSun','宋体',serif;font-size:14px;line-height:1.8;max-height:500px;overflow-y:auto;"></pre>
+            </div>
+          </div>
+          <div class="col-md-4 bg-light">
+            <div class="p-4">
+              <h6 class="fw-semibold mb-3">操作</h6>
+              <div class="d-grid gap-2">
+                <button class="btn btn-success" id="useTemplateBtn">
+                  <i class="fas fa-pen me-2"></i>使用此模板写作
+                </button>
+                <button class="btn btn-outline-success" id="downloadTemplateBtn">
+                  <i class="fas fa-download me-2"></i>下载模板文件
+                </button>
+              </div>
+              <hr>
+              <div id="tplMeta" class="small text-muted"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentTpl = null;
+
+function openTemplate(id, name) {
+  currentTpl = { id, name };
+  document.getElementById('tplModalTitle').textContent = name;
+  document.getElementById('tplContent').textContent = '加载中...';
+  document.getElementById('tplMeta').innerHTML = '';
+  new bootstrap.Modal(document.getElementById('tplModal')).show();
+
+  fetch(`/admin/doc_template/view/${id}`)
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById('tplContent').textContent = data.content || '（无正文内容，请下载文件查看）';
+      document.getElementById('tplMeta').innerHTML = `
+        <div class="mb-2"><strong>分类：</strong>${data.category || '-'}</div>
+        <div class="mb-2"><strong>描述：</strong>${data.description || '-'}</div>
+      `;
+      document.getElementById('downloadTemplateBtn').onclick = () => {
+        window.location.href = `/admin/doc_template/download/${data.id}`;
+      };
+      document.getElementById('useTemplateBtn').onclick = () => {
+        // 跳转到智能写作，带入模板内容
+        const encoded = encodeURIComponent(data.content || '');
+        window.location.href = `/smart_office/document_writing?template=${encoded}&title=${encodeURIComponent(data.name)}`;
+      };
+    });
+}
+
+// 模板卡片悬浮效果
+document.querySelectorAll('.template-card').forEach(card => {
+  card.addEventListener('mouseenter', () => {
+    card.style.transform = 'translateY(-4px)';
+    card.style.boxShadow = '0 8px 25px rgba(0,0,0,0.12)';
+    card.style.transition = 'all 0.2s ease';
+  });
+  card.addEventListener('mouseleave', () => {
+    card.style.transform = '';
+    card.style.boxShadow = '';
+  });
+});
+</script>
+{% endblock %}

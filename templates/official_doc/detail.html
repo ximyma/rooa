@@ -1,0 +1,333 @@
+{% extends "base.html" %}
+{% block title %}{{ doc.title }} - 公文详情{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex align-items-center mb-4 flex-wrap gap-2">
+    <a href="javascript:history.back()" class="btn btn-outline-secondary me-2">
+      <i class="fas fa-arrow-left me-1"></i>返回
+    </a>
+    <h4 class="mb-0 me-3">
+      <i class="fas fa-file-alt me-2 text-primary"></i>公文详情
+    </h4>
+    <!-- 操作按钮组 -->
+    {% if doc.sender_id == current_user.id %}
+      {% if doc.status == 'approved' %}
+      <form method="post" action="{{ url_for('doc_send', doc_id=doc.id) }}" class="d-inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-success">
+          <i class="fas fa-paper-plane me-1"></i>立即发送
+        </button>
+      </form>
+      {% endif %}
+      {% if doc.status in ('sent', 'pending_approve') %}
+      <form method="post" action="{{ url_for('doc_recall', doc_id=doc.id) }}" class="d-inline"
+            onsubmit="return confirm('确认撤回该公文？')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-outline-danger">
+          <i class="fas fa-undo me-1"></i>撤回
+        </button>
+      </form>
+      {% endif %}
+      {% if doc.status == 'sent' %}
+      <form method="post" action="{{ url_for('doc_archive', doc_id=doc.id) }}" class="d-inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-outline-dark">
+          <i class="fas fa-archive me-1"></i>归档
+        </button>
+      </form>
+      {% endif %}
+      {% if doc.status in ('draft','recalled') %}
+      <a href="{{ url_for('doc_compose', id=doc.id) }}" class="btn btn-outline-secondary">
+        <i class="fas fa-edit me-1"></i>编辑
+      </a>
+      {% endif %}
+    {% endif %}
+
+    {% if doc.sender_id == current_user.id or current_user.role in ('admin', 'manager') %}
+    <a href="{{ url_for('supervision_new', doc_id=doc.id) }}" class="btn btn-outline-warning">
+      <i class="fas fa-bolt me-1"></i>转督办
+    </a>
+    <a href="{{ url_for('meeting_new', doc_id=doc.id) }}" class="btn btn-outline-info">
+      <i class="fas fa-calendar-plus me-1"></i>发起会议
+    </a>
+    {% endif %}
+    <a href="{{ url_for('doc_dashboard') }}" class="btn btn-outline-secondary">
+      <i class="fas fa-briefcase me-1"></i>工作台
+    </a>
+
+    <!-- 审批按钮（管理员/经理） -->
+    {% if current_user.role in ('admin','manager') and doc.status == 'pending_approve' %}
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#approveModal">
+      <i class="fas fa-check-circle me-1"></i>审批
+    </button>
+    {% endif %}
+
+
+    <!-- 办理/退回（收件人） -->
+    {% if doc.status == 'sent' %}
+    {% set my_record = None %}
+    {% for r_uid, r in read_map.items() %}{% if r_uid == current_user.id %}{% set my_record = r %}{% endif %}{% endfor %}
+    {% if current_user.id in receivers|map(attribute='id')|list %}
+    {% set my_rec = read_map.get(current_user.id) %}
+    {% if my_rec and my_rec.handle_status in ('unread','read') %}
+    <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#handleModal">
+      <i class="fas fa-check me-1"></i>办理
+    </button>
+    {% endif %}
+    {% endif %}
+    {% endif %}
+  </div>
+
+  <div class="row g-4">
+    <!-- 主体：公文正文 -->
+    <div class="col-lg-8">
+      <!-- 公文头部信息 -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-body">
+          <div class="text-center mb-4">
+            {% if doc.secrecy != '普通' %}
+            <div class="badge bg-danger mb-2 px-3 py-1 fs-6">{{ doc.secrecy }}</div>
+            {% endif %}
+            <h3 class="fw-bold">{{ doc.title }}</h3>
+            <div class="d-flex justify-content-center gap-3 text-muted small mt-2">
+              <span><i class="fas fa-tag me-1"></i>{{ doc.doc_type }}</span>
+              <span><i class="fas fa-code me-1"></i>{{ doc.doc_no }}</span>
+              {% if doc.urgency != '普通' %}
+              <span class="text-danger fw-bold"><i class="fas fa-exclamation-circle me-1"></i>{{ doc.urgency }}</span>
+              {% endif %}
+            </div>
+          </div>
+          <hr>
+          <div class="row text-muted small mb-3">
+            <div class="col-sm-4"><strong>发文部门：</strong>{{ doc.sender_dept or (doc.sender.department if doc.sender else '-') }}</div>
+            <div class="col-sm-4"><strong>主办单位：</strong>{{ doc.sign_dept or '-' }}</div>
+            <div class="col-sm-4"><strong>起草时间：</strong>{{ doc.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+          </div>
+          <div class="row text-muted small mb-3">
+            <div class="col-sm-6"><strong>起草人：</strong>
+              {{ doc.sender.name if doc.sender else '-' }}
+              {% if doc.sender and doc.sender.position %}
+                <small class="text-muted">（{{ doc.sender.position.name }}）</small>
+              {% endif %}
+            </div>
+            <div class="col-sm-6"><strong>当前状态：</strong>{{ {'draft':'草稿','pending_approve':'待审批','approved':'审批通过','sent':'已发送','recalled':'已撤回','archived':'已归档'}.get(doc.status, doc.status) }}</div>
+          </div>
+
+          {% if doc.sent_at %}
+          <div class="row text-muted small mb-3">
+            <div class="col-sm-4"><strong>发送时间：</strong>{{ doc.sent_at.strftime('%Y-%m-%d %H:%M') }}</div>
+            <div class="col-sm-4"><strong>接收部门：</strong>{{ doc.receiver_depts or '-' }}</div>
+          </div>
+          {% endif %}
+
+          <!-- 公文正文 -->
+          <div class="mt-4 p-4 bg-light rounded" style="font-family:serif;font-size:16px;line-height:2;white-space:pre-wrap;min-height:200px">{{ doc.content or '（无正文内容）' }}</div>
+
+          <!-- 附件 -->
+          {% set atts = doc.get_attachments() %}
+          {% if atts %}
+          <div class="mt-3">
+            <strong class="small text-muted">附件：</strong>
+            {% for att in atts %}
+            <a href="{{ url_for('doc_attachment', filename=att.path) }}" class="badge bg-light text-dark border me-1 text-decoration-none" target="_blank">
+              <i class="fas fa-paperclip me-1"></i>{{ att.name }}
+            </a>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧：状态 + 收件人 + 流转 -->
+    <div class="col-lg-4">
+      <!-- 当前状态 -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white fw-semibold">公文状态</div>
+        <div class="card-body">
+          {% set smap = {
+            'draft': ('secondary','草稿','fa-file'),
+            'pending_approve': ('warning','待审批','fa-clock'),
+            'approved': ('info','审批通过','fa-check'),
+            'sent': ('success','已发送','fa-paper-plane'),
+            'recalled': ('danger','已撤回','fa-undo'),
+            'archived': ('dark','已归档','fa-archive')
+          } %}
+          {% set sc, sl, si = smap.get(doc.status, ('secondary',doc.status,'fa-circle')) %}
+          <div class="text-center py-3">
+            <i class="fas {{ si }} fa-3x text-{{ sc }} mb-2"></i>
+            <div><span class="badge bg-{{ sc }} fs-6 px-3 py-2">{{ sl }}</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 收件人阅读状态 -->
+      {% if receivers %}
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white fw-semibold">收件人状态（{{ receivers|length }} 人）</div>
+        <div class="card-body p-0">
+          <ul class="list-group list-group-flush">
+            {% for user in receivers %}
+            {% set rec = read_map.get(user.id) %}
+            <li class="list-group-item d-flex align-items-center py-2">
+              <div class="flex-grow-1">
+                <span class="fw-semibold small">{{ user.name }}</span>
+                <span class="text-muted small ms-1">{{ user.department or '' }}</span>
+              </div>
+              {% if rec %}
+                {% if rec.handle_status == 'unread' %}
+                <span class="badge bg-secondary">未读</span>
+                {% elif rec.handle_status == 'read' %}
+                <span class="badge bg-info">已读</span>
+                {% elif rec.handle_status == 'handled' %}
+                <span class="badge bg-success">已办理</span>
+                {% elif rec.handle_status == 'returned' %}
+                <span class="badge bg-warning text-dark">已退回</span>
+                {% endif %}
+              {% else %}
+              <span class="badge bg-light text-muted border">未投递</span>
+              {% endif %}
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if linked_meetings %}
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white fw-semibold">关联会议</div>
+        <div class="card-body p-0">
+          <ul class="list-group list-group-flush">
+            {% for meeting in linked_meetings %}
+            <li class="list-group-item">
+              <a href="{{ url_for('meeting_detail', meeting_id=meeting.id) }}" class="fw-semibold text-decoration-none">{{ meeting.subject }}</a>
+              <div class="small text-muted">{{ meeting.start_time.strftime('%Y-%m-%d %H:%M') if meeting.start_time else '-' }} · {{ meeting.room.name if meeting.room else '待定会议室' }}</div>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if linked_supervisions %}
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white fw-semibold">关联督办</div>
+        <div class="card-body p-0">
+          <ul class="list-group list-group-flush">
+            {% for task in linked_supervisions %}
+            <li class="list-group-item">
+              <a href="{{ url_for('supervision_detail', task_id=task.id) }}" class="fw-semibold text-decoration-none">{{ task.title }}</a>
+              <div class="small text-muted">负责人：{{ task.owner.name if task.owner else '-' }} · 进度：{{ task.progress_percent or 0 }}%</div>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- 流转记录 -->
+      <div class="card shadow-sm">
+
+        <div class="card-header bg-white fw-semibold">
+          <i class="fas fa-history me-1 text-muted"></i>流转记录
+        </div>
+        <div class="card-body p-0">
+          {% if flows %}
+          <ul class="list-group list-group-flush">
+            {% for flow in flows %}
+            <li class="list-group-item py-2">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <span class="badge bg-{{ 
+                    'success' if flow.action in ('approve','send','handle','archive') else
+                    'warning' if flow.action == 'submit' else
+                    'danger' if flow.action in ('reject','recall','return') else
+                    'secondary'
+                  }} me-1">
+                    {{ {'submit':'提交','approve':'通过','reject':'退回','send':'发送','receive':'收到',
+                        'handle':'已办理','recall':'撤回','archive':'归档','comment':'批注','return':'退回'}.get(flow.action, flow.action) }}
+                  </span>
+                  <span class="small fw-semibold">{{ flow.operator.name if flow.operator else '-' }}</span>
+                </div>
+                <small class="text-muted">{{ flow.created_at.strftime('%m-%d %H:%M') }}</small>
+              </div>
+              {% if flow.opinion %}
+              <p class="text-muted small mb-0 mt-1 ms-1 fst-italic">{{ flow.opinion }}</p>
+              {% endif %}
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <div class="text-center text-muted py-3 small">暂无流转记录</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 审批弹窗 -->
+{% if current_user.role in ('admin','manager') and doc.status == 'pending_approve' %}
+<div class="modal fade" id="approveModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">公文审批</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{{ url_for('doc_approve', doc_id=doc.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">审批意见</label>
+            <textarea name="opinion" class="form-control md-editor" rows="3" data-height="140" placeholder="请输入审批意见（可选）"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+          <button type="submit" name="action" value="reject" class="btn btn-danger">
+            <i class="fas fa-times me-1"></i>退回修改
+          </button>
+          <button type="submit" name="action" value="approve" class="btn btn-success">
+            <i class="fas fa-check me-1"></i>审批通过
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- 办理弹窗 -->
+{% if doc.status == 'sent' %}
+<div class="modal fade" id="handleModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">公文办理</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{{ url_for('doc_handle', doc_id=doc.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">办理意见</label>
+            <textarea name="opinion" class="form-control md-editor" rows="3" data-height="140" placeholder="请输入办理意见（可选）"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+          <button type="submit" name="action" value="return" class="btn btn-warning text-white">
+            <i class="fas fa-reply me-1"></i>退回
+          </button>
+          <button type="submit" name="action" value="handle" class="btn btn-success">
+            <i class="fas fa-check me-1"></i>确认办理
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

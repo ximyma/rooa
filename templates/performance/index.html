@@ -1,0 +1,301 @@
+{% extends "base.html" %}
+{% block title %}绩效考核{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div>
+      <h3 class="mb-1"><i class="fas fa-chart-line me-2 text-success"></i>绩效考核</h3>
+      <div class="text-muted">按考核周期沉淀绩效台账、项目得分和评价意见，并形成汇总看板</div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      {% if current_user.role in ('admin', 'manager') %}
+      <a href="{{ url_for('performance_new') }}" class="btn btn-primary"><i class="fas fa-plus me-1"></i>新增绩效记录</a>
+      {% endif %}
+      <a href="{{ url_for('performance_periods') }}" class="btn btn-outline-secondary"><i class="fas fa-calendar me-1"></i>考核周期</a>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-md-3 col-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">记录总数</div><div class="fs-3 fw-bold">{{ stats.total }}</div></div></div></div>
+    <div class="col-md-3 col-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">已发布</div><div class="fs-3 fw-bold text-info">{{ stats.published }}</div></div></div></div>
+    <div class="col-md-3 col-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">平均分</div><div class="fs-3 fw-bold text-success">{{ stats.avg_score }}</div></div></div></div>
+    <div class="col-md-3 col-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">最高分</div><div class="fs-3 fw-bold text-warning">{{ stats.best_score }}</div></div></div></div>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <form class="row g-3">
+        <div class="col-md-5">
+          <select name="period_id" class="form-select">
+            <option value="">全部周期</option>
+            {% for period in periods %}
+            <option value="{{ period.id }}" {{ 'selected' if period_id == period.id else '' }}>{{ period.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <select name="status" class="form-select">
+            <option value="">全部状态</option>
+            <option value="draft" {{ 'selected' if status_filter == 'draft' else '' }}>草稿</option>
+            <option value="published" {{ 'selected' if status_filter == 'published' else '' }}>已发布</option>
+          </select>
+        </div>
+        <div class="col-md-2 d-grid"><button class="btn btn-primary">筛选</button></div>
+        <div class="col-md-2 d-grid"><a href="{{ url_for('performance_index') }}" class="btn btn-outline-secondary">重置</a></div>
+      </form>
+    </div>
+  </div>
+
+  <div class="row g-4 mb-4">
+    <div class="col-lg-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-white fw-semibold">部门维度汇总</div>
+        <div class="card-body">
+          {% if dashboard.dept_summary %}
+          <canvas id="deptChart" height="180"></canvas>
+          <div class="table-responsive mt-3">
+            <table class="table table-sm align-middle mb-0">
+              <thead><tr><th>部门</th><th>人数</th><th>记录</th><th>平均分</th><th>得分率</th><th>已发布</th></tr></thead>
+              <tbody>
+                {% for row in dashboard.dept_summary %}
+                <tr>
+                  <td class="fw-semibold">{{ row.department }}</td>
+                  <td>{{ row.employees }}</td>
+                  <td>{{ row.count }}</td>
+                  <td>{{ row.avg_score }}</td>
+                  <td><span class="fw-semibold text-success">{{ row.avg_rate }}%</span></td>
+                  <td>{{ row.published }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="text-muted">暂无部门汇总数据</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-white fw-semibold">周期维度汇总</div>
+        <div class="card-body">
+          {% if dashboard.period_summary %}
+          <canvas id="periodChart" height="180"></canvas>
+          <div class="table-responsive mt-3">
+            <table class="table table-sm align-middle mb-0">
+              <thead><tr><th>周期</th><th>记录</th><th>平均分</th><th>得分率</th><th>已发布</th></tr></thead>
+              <tbody>
+                {% for row in dashboard.period_summary %}
+                <tr>
+                  <td class="fw-semibold">{{ row.period }}</td>
+                  <td>{{ row.count }}</td>
+                  <td>{{ row.avg_score }}</td>
+                  <td><span class="fw-semibold text-primary">{{ row.avg_rate }}%</span></td>
+                  <td>{{ row.published }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="text-muted">暂无周期汇总数据</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4 mb-4">
+    <div class="col-lg-8">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <span class="fw-semibold">个人维度趋势</span>
+          <span class="small text-muted">按当前筛选范围展示个人得分率走势</span>
+        </div>
+        <div class="card-body">
+          {% if dashboard.user_trend.labels and dashboard.user_trend.datasets %}
+          <canvas id="userTrendChart" height="180"></canvas>
+          {% endif %}
+          {% if dashboard.user_summary %}
+          <div class="table-responsive mt-3">
+            <table class="table table-sm align-middle mb-0">
+              <thead><tr><th>人员</th><th>记录</th><th>平均分</th><th>得分率</th><th>已发布</th></tr></thead>
+              <tbody>
+                {% for row in dashboard.user_summary %}
+                <tr>
+                  <td class="fw-semibold">{{ row.employee }}</td>
+                  <td>{{ row.count }}</td>
+                  <td>{{ row.avg_score }}</td>
+                  <td><span class="badge bg-light text-dark border">{{ row.avg_rate }}%</span></td>
+                  <td>{{ row.published }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="text-muted">暂无个人维度数据</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-4">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-white fw-semibold">高低分预警</div>
+        <div class="card-body">
+          {% if dashboard.score_alerts %}
+            {% for alert in dashboard.score_alerts %}
+            <div class="border rounded p-3 mb-3 border-{{ 'danger' if alert.level == 'danger' else 'success' }}-subtle">
+              <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+                <div class="fw-semibold">{{ alert.employee }}</div>
+                <span class="badge bg-{{ 'danger' if alert.level == 'danger' else 'success' }}">{{ alert.label }}</span>
+              </div>
+              <div class="small text-muted">{{ alert.project_name }} · {{ alert.period }}</div>
+              <div class="small mt-2"><span class="fw-semibold">{{ alert.score_rate }}%</span>（{{ alert.score_text }}）</div>
+              <div class="small text-muted mt-1 text-break">{{ alert.evaluation }}</div>
+            </div>
+            {% endfor %}
+          {% else %}
+          <div class="text-muted">当前没有可提示的高低分记录</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <span class="fw-semibold">绩效记录台账</span>
+      <span class="small text-muted">共 {{ records|length }} 条</span>
+    </div>
+    <div class="card-body p-0">
+      {% if records %}
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light"><tr><th>考核项目</th><th style="width:140px">考核周期</th><th style="width:120px">被考核人</th><th style="width:120px">得分</th><th style="width:110px">得分率</th><th>评价</th><th style="width:100px">状态</th>{% if can_manage_records %}<th style="width:160px">操作</th>{% endif %}</tr></thead>
+          <tbody>
+            {% for record in records %}
+            {% set rate = ((record.score or 0) / (record.full_score or 100) * 100) if (record.full_score or 100) else 0 %}
+            <tr>
+              <td>
+                <div class="fw-semibold">{{ record.project_name }}</div>
+                <div class="small text-muted">{{ record.category }} · 考核人：{{ record.assessor.name if record.assessor else '-' }}</div>
+              </td>
+              <td>{{ record.period.name if record.period else '未设置' }}</td>
+              <td>{{ record.employee.name if record.employee else '-' }}</td>
+              <td><span class="fw-bold text-success">{{ record.score }}</span> / {{ record.full_score }}</td>
+              <td><span class="badge bg-light text-dark border">{{ '%.1f'|format(rate) }}%</span></td>
+              <td class="small text-muted">{{ record.evaluation or '暂无评价' }}</td>
+              <td><span class="badge bg-{{ 'secondary' if record.status == 'draft' else 'success' }}">{{ '草稿' if record.status == 'draft' else '已发布' }}</span></td>
+              {% if can_manage_records %}
+              <td>
+                <div class="d-grid gap-1">
+                  <a href="{{ url_for('performance_edit', record_id=record.id) }}" class="btn btn-sm btn-outline-primary">编辑</a>
+                  {% if record.status == 'published' %}
+                  <form method="post" action="{{ url_for('performance_retract', record_id=record.id) }}" onsubmit="return confirm('确认将该绩效记录撤回为草稿吗？');">
+                    <button class="btn btn-sm btn-outline-danger w-100">撤回发布</button>
+                  </form>
+                  {% endif %}
+                </div>
+              </td>
+              {% endif %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="text-center text-muted py-5">暂无绩效记录</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+(function () {
+  const deptRows = {{ dashboard.dept_summary|tojson }};
+  const periodRows = {{ dashboard.period_summary|tojson }};
+  const userTrend = {{ dashboard.user_trend|tojson }};
+
+  if (deptRows.length) {
+    const ctx = document.getElementById('deptChart');
+    if (ctx) {
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: deptRows.map(item => item.department),
+          datasets: [{
+            label: '平均得分率',
+            data: deptRows.map(item => item.avg_rate),
+            backgroundColor: 'rgba(25, 135, 84, 0.75)',
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, max: 100 } }
+        }
+      });
+    }
+  }
+
+  if (periodRows.length) {
+    const ctx = document.getElementById('periodChart');
+    if (ctx) {
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: periodRows.map(item => item.period),
+          datasets: [{
+            label: '平均得分率',
+            data: periodRows.map(item => item.avg_rate),
+            borderColor: 'rgba(13, 110, 253, 0.9)',
+            backgroundColor: 'rgba(13, 110, 253, 0.15)',
+            tension: 0.35,
+            fill: true
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { y: { beginAtZero: true, max: 100 } }
+        }
+      });
+    }
+  }
+
+  if (userTrend.labels && userTrend.labels.length && userTrend.datasets && userTrend.datasets.length) {
+    const ctx = document.getElementById('userTrendChart');
+    if (ctx) {
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: userTrend.labels,
+          datasets: userTrend.datasets.map(item => ({
+            label: item.label,
+            data: item.data,
+            borderColor: item.borderColor,
+            backgroundColor: item.backgroundColor,
+            fill: false,
+            tension: 0.3,
+            spanGaps: true
+          }))
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { y: { beginAtZero: true, max: 100 } }
+        }
+      });
+    }
+  }
+})();
+</script>
+{% endblock %}

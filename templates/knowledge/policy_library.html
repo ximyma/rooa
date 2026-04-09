@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2>政策文件库</h2>
+        {% if current_user.role == 'admin' %}
+        <a href="{{ url_for('create_policy') }}" class="btn btn-primary mb-3">新建政策库</a>
+        {% endif %}
+        <div class="row">
+            {% for kb in kbs %}
+            <div class="col-md-4 mb-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ kb.name }}</h5>
+                        <a href="{{ url_for('policy_detail', kb_id=kb.id) }}" class="btn btn-primary">进入</a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

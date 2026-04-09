@@ -1,0 +1,651 @@
+{% extends "base.html" %}
+{% block title %}数字化质检仪表板 - 档案系统{% endblock %}
+
+{% block content %}
+<!-- CSRF Token -->
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+<style>
+/* ── 变量 ─────────────────────────────────────────── */
+:root {
+    --grade-a: #10b981;
+    --grade-b: #3b82f6;
+    --grade-c: #f59e0b;
+    --grade-d: #ef4444;
+}
+
+/* ── 统计卡片 ──────────────────────────────────────── */
+.qc-stat-card {
+    border-radius: 16px;
+    padding: 1.5rem 1.8rem;
+    color: white;
+    margin-bottom: 1rem;
+    position: relative;
+    overflow: hidden;
+}
+.qc-stat-card .big-num {
+    font-size: 2.8rem;
+    font-weight: 700;
+    line-height: 1.1;
+}
+.qc-stat-card .label {
+    font-size: .9rem;
+    opacity: .9;
+    margin-top: .3rem;
+}
+.qc-stat-card .icon-bg {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 4rem;
+    opacity: .15;
+}
+.bg-purple   { background: linear-gradient(135deg,#667eea,#764ba2); }
+.bg-green    { background: linear-gradient(135deg,#11998e,#38ef7d); }
+.bg-blue     { background: linear-gradient(135deg,#2193b0,#6dd5ed); }
+.bg-orange   { background: linear-gradient(135deg,#f7971e,#ffd200); }
+.bg-red      { background: linear-gradient(135deg,#eb3349,#f45c43); }
+
+/* ── 等级徽章 ─────────────────────────────────────── */
+.grade-badge {
+    display: inline-block;
+    width: 2rem; height: 2rem;
+    border-radius: 50%;
+    line-height: 2rem;
+    text-align: center;
+    font-weight: 700;
+    color: white;
+    font-size: .9rem;
+}
+.grade-A { background: var(--grade-a); }
+.grade-B { background: var(--grade-b); }
+.grade-C { background: var(--grade-c); }
+.grade-D { background: var(--grade-d); }
+
+/* ── 进度条 ──────────────────────────────────────── */
+.qc-progress { height: 8px; border-radius: 4px; }
+
+/* ── 图表容器 ────────────────────────────────────── */
+.chart-box {
+    background: white;
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 12px rgba(0,0,0,.08);
+    margin-bottom: 1.5rem;
+}
+.chart-box h6 {
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 1rem;
+}
+
+/* ── 等级分布卡片 ────────────────────────────────── */
+.grade-dist-card {
+    border-radius: 12px;
+    padding: 1rem 1.3rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: .8rem;
+    border-left: 4px solid;
+}
+.grade-dist-card .count { font-size: 1.8rem; font-weight: 700; }
+.grade-dist-card .pct  { font-size: .85rem; color: #6b7280; }
+.grade-A-card { background: #ecfdf5; border-color: var(--grade-a); }
+.grade-B-card { background: #eff6ff; border-color: var(--grade-b); }
+.grade-C-card { background: #fffbeb; border-color: var(--grade-c); }
+.grade-D-card { background: #fef2f2; border-color: var(--grade-d); }
+
+/* ── 操作区 ──────────────────────────────────────── */
+.action-panel {
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 1.2rem 1.5rem;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 1.5rem;
+}
+
+/* ── 质检弹窗 ────────────────────────────────────── */
+.check-item-row {
+    padding: .6rem .8rem;
+    border-radius: 8px;
+    margin-bottom: .4rem;
+}
+.check-item-row.pass  { background: #ecfdf5; }
+.check-item-row.fail  { background: #fef2f2; }
+.check-item-row .score-pill {
+    font-weight: 700;
+    padding: .2rem .6rem;
+    border-radius: 99px;
+    font-size: .8rem;
+}
+.score-high { background: #d1fae5; color: #065f46; }
+.score-mid  { background: #fef3c7; color: #92400e; }
+.score-low  { background: #fee2e2; color: #991b1b; }
+</style>
+
+<div class="container-fluid px-4 py-3">
+
+    <!-- 页头 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0"><i class="fas fa-clipboard-check me-2 text-primary"></i>数字化质检仪表板</h2>
+            <small class="text-muted">符合 DA/T 47-2009 / DA/T 31-2005 质量规范</small>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#batchCheckModal">
+                <i class="fas fa-tasks me-1"></i>批量质检
+            </button>
+            <button class="btn btn-outline-secondary" onclick="exportReport()">
+                <i class="fas fa-file-export me-1"></i>导出报告
+            </button>
+        </div>
+    </div>
+
+    <!-- 核心指标卡 -->
+    <div class="row mb-4">
+        <div class="col-6 col-md-3">
+            <div class="qc-stat-card bg-purple">
+                <div class="big-num">{{ total }}</div>
+                <div class="label"><i class="fas fa-file-image me-1"></i>数字化档案总数</div>
+                <div class="icon-bg"><i class="fas fa-database"></i></div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="qc-stat-card bg-green">
+                <div class="big-num">{{ checked }}</div>
+                <div class="label"><i class="fas fa-check-double me-1"></i>已质检档案</div>
+                <div class="icon-bg"><i class="fas fa-check-circle"></i></div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="qc-stat-card bg-blue">
+                <div class="big-num">{{ passed }}</div>
+                <div class="label"><i class="fas fa-award me-1"></i>质检通过（≥80分）</div>
+                <div class="icon-bg"><i class="fas fa-star"></i></div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="qc-stat-card bg-red">
+                <div class="big-num">{{ dpi_fail }}</div>
+                <div class="label"><i class="fas fa-exclamation-triangle me-1"></i>DPI不达标</div>
+                <div class="icon-bg"><i class="fas fa-times-circle"></i></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 检查进度 -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="chart-box py-3">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted small">质检完成率</span>
+                            <strong>
+                                {% if total > 0 %}{{ (checked / total * 100) | round(1) }}%{% else %}0%{% endif %}
+                            </strong>
+                        </div>
+                        <div class="progress qc-progress mb-3">
+                            <div class="progress-bar bg-success"
+                                 style="width: {% if total > 0 %}{{ (checked / total * 100) | round(1) }}{% else %}0{% endif %}%"></div>
+                        </div>
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted small">质检通过率</span>
+                            <strong>
+                                {% if checked > 0 %}{{ (passed / checked * 100) | round(1) }}%{% else %}0%{% endif %}
+                            </strong>
+                        </div>
+                        <div class="progress qc-progress mb-3">
+                            <div class="progress-bar bg-primary"
+                                 style="width: {% if checked > 0 %}{{ (passed / checked * 100) | round(1) }}{% else %}0{% endif %}%"></div>
+                        </div>
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted small">格式合规率</span>
+                            <strong>
+                                {% if total > 0 %}{{ ((total - format_fail) / total * 100) | round(1) }}%{% else %}0%{% endif %}
+                            </strong>
+                        </div>
+                        <div class="progress qc-progress">
+                            <div class="progress-bar bg-info"
+                                 style="width: {% if total > 0 %}{{ ((total - format_fail) / total * 100) | round(1) }}{% else %}0{% endif %}%"></div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="row g-2 mt-md-0 mt-3">
+                            <div class="col-6">
+                                <div class="bg-light rounded p-2 text-center">
+                                    <div class="fw-bold text-danger fs-5">{{ dpi_fail }}</div>
+                                    <div class="text-muted small">DPI不达标（&lt;300）</div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="bg-light rounded p-2 text-center">
+                                    <div class="fw-bold text-warning fs-5">{{ format_fail }}</div>
+                                    <div class="text-muted small">缺少TIFF/PDF格式</div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="bg-light rounded p-2 text-center">
+                                    <div class="fw-bold text-success fs-5">{{ total - checked }}</div>
+                                    <div class="text-muted small">待质检档案</div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="bg-light rounded p-2 text-center">
+                                    <div class="fw-bold text-primary fs-5">{{ checked - passed }}</div>
+                                    <div class="text-muted small">质检未通过</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 等级分布 + 图表 -->
+    <div class="row">
+        <div class="col-md-5">
+            <div class="chart-box">
+                <h6><i class="fas fa-chart-pie me-1"></i>质检等级分布</h6>
+                {% set total_graded = (score_dist['A（90-100）'] + score_dist['B（75-89）'] + score_dist['C（60-74）'] + score_dist['D（<60）']) %}
+                <div class="grade-dist-card grade-A-card">
+                    <div class="grade-badge grade-A">A</div>
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="fw-semibold">优 (90-100分)</span>
+                            <span class="count text-success">{{ score_dist['A（90-100）'] }}</span>
+                        </div>
+                        <div class="progress qc-progress mt-1">
+                            <div class="progress-bar" style="background:var(--grade-a);width:{% if total_graded > 0 %}{{ (score_dist['A（90-100）'] / total_graded * 100)|round(0) }}{% else %}0{% endif %}%"></div>
+                        </div>
+                        <div class="pct">{% if total_graded > 0 %}{{ (score_dist['A（90-100）'] / total_graded * 100)|round(1) }}%{% else %}0%{% endif %}</div>
+                    </div>
+                </div>
+                <div class="grade-dist-card grade-B-card">
+                    <div class="grade-badge grade-B">B</div>
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="fw-semibold">良 (75-89分)</span>
+                            <span class="count text-primary">{{ score_dist['B（75-89）'] }}</span>
+                        </div>
+                        <div class="progress qc-progress mt-1">
+                            <div class="progress-bar" style="background:var(--grade-b);width:{% if total_graded > 0 %}{{ (score_dist['B（75-89）'] / total_graded * 100)|round(0) }}{% else %}0{% endif %}%"></div>
+                        </div>
+                        <div class="pct">{% if total_graded > 0 %}{{ (score_dist['B（75-89）'] / total_graded * 100)|round(1) }}%{% else %}0%{% endif %}</div>
+                    </div>
+                </div>
+                <div class="grade-dist-card grade-C-card">
+                    <div class="grade-badge grade-C">C</div>
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="fw-semibold">合格 (60-74分)</span>
+                            <span class="count text-warning">{{ score_dist['C（60-74）'] }}</span>
+                        </div>
+                        <div class="progress qc-progress mt-1">
+                            <div class="progress-bar" style="background:var(--grade-c);width:{% if total_graded > 0 %}{{ (score_dist['C（60-74）'] / total_graded * 100)|round(0) }}{% else %}0{% endif %}%"></div>
+                        </div>
+                        <div class="pct">{% if total_graded > 0 %}{{ (score_dist['C（60-74）'] / total_graded * 100)|round(1) }}%{% else %}0%{% endif %}</div>
+                    </div>
+                </div>
+                <div class="grade-dist-card grade-D-card">
+                    <div class="grade-badge grade-D">D</div>
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="fw-semibold">不合格 (&lt;60分)</span>
+                            <span class="count text-danger">{{ score_dist['D（<60）'] }}</span>
+                        </div>
+                        <div class="progress qc-progress mt-1">
+                            <div class="progress-bar" style="background:var(--grade-d);width:{% if total_graded > 0 %}{{ (score_dist['D（<60）'] / total_graded * 100)|round(0) }}{% else %}0{% endif %}%"></div>
+                        </div>
+                        <div class="pct">{% if total_graded > 0 %}{{ (score_dist['D（<60）'] / total_graded * 100)|round(1) }}%{% else %}0%{% endif %}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-7">
+            <div class="chart-box">
+                <h6><i class="fas fa-chart-donut me-1"></i>质量评分分布</h6>
+                <canvas id="gradeChart" height="220"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- 操作区 -->
+    <div class="action-panel">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label small fw-semibold">选择全宗</label>
+                <select class="form-select form-select-sm" id="selectFonds">
+                    <option value="">-- 所有全宗 --</option>
+                    {% for f in fonds_list %}
+                    <option value="{{ f.id }}">{{ f.fonds_code }} - {{ f.fonds_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-semibold">质检范围</label>
+                <select class="form-select form-select-sm" id="checkScope">
+                    <option value="true">仅未质检档案</option>
+                    <option value="false">所有档案（重新质检）</option>
+                </select>
+            </div>
+            <div class="col-md-5 d-flex gap-2">
+                <button class="btn btn-primary btn-sm flex-grow-1" onclick="runBatchCheck()">
+                    <i class="fas fa-play me-1"></i>执行批量质检
+                </button>
+                <button class="btn btn-outline-info btn-sm" onclick="checkSingle()">
+                    <i class="fas fa-search me-1"></i>单档质检
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="location.reload()">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 未通过档案列表（质检结果问题列表） -->
+    <div class="chart-box" id="failListSection" style="display:none">
+        <h6><i class="fas fa-exclamation-circle me-1 text-danger"></i>质检问题清单</h6>
+        <div class="table-responsive">
+            <table class="table table-hover table-sm" id="failTable">
+                <thead class="table-light">
+                    <tr>
+                        <th>档号</th>
+                        <th>题名</th>
+                        <th>等级</th>
+                        <th>评分</th>
+                        <th>主要问题</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="failTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<!-- ══ 批量质检结果弹窗 ══════════════════════════════ -->
+<div class="modal fade" id="batchCheckModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-tasks me-2"></i>批量质检</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="batchModalBody">
+                <div class="text-center py-4" id="batchLoading" style="display:none">
+                    <div class="spinner-border text-primary mb-3"></div>
+                    <p class="text-muted">正在执行质检，请稍候…</p>
+                </div>
+                <div id="batchResult"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                <button class="btn btn-primary" onclick="runBatchCheck(true)">
+                    <i class="fas fa-play me-1"></i>开始质检
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 单档质检弹窗 ════════════════════════════════════ -->
+<div class="modal fade" id="singleCheckModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-search me-2"></i>单档质检</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group mb-3">
+                    <input type="number" class="form-control" id="singleArchiveId" placeholder="输入档案ID">
+                    <button class="btn btn-primary" onclick="doSingleCheck()">
+                        <i class="fas fa-play me-1"></i>质检
+                    </button>
+                </div>
+                <div id="singleCheckResult"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// ── 等级分布饼图 ──────────────────────────────────────
+const gradeData = {
+    labels: ['优 A（90-100）', '良 B（75-89）', '合格 C（60-74）', '不合格 D（<60）'],
+    datasets: [{
+        data: [
+            {{ score_dist['A（90-100）'] }},
+            {{ score_dist['B（75-89）'] }},
+            {{ score_dist['C（60-74）'] }},
+            {{ score_dist['D（<60）'] }}
+        ],
+        backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'],
+        borderWidth: 2,
+        borderColor: '#fff'
+    }]
+};
+new Chart(document.getElementById('gradeChart'), {
+    type: 'doughnut',
+    data: gradeData,
+    options: {
+        plugins: {
+            legend: { position: 'bottom', labels: { padding: 16 } }
+        },
+        cutout: '55%'
+    }
+});
+
+// ── 批量质检 ──────────────────────────────────────────
+function runBatchCheck(fromModal = false) {
+    const fondsId  = document.getElementById('selectFonds').value;
+    const unchecked = document.getElementById('checkScope').value;
+
+    if (fromModal) {
+        document.getElementById('batchLoading').style.display = 'block';
+        document.getElementById('batchResult').innerHTML = '';
+    }
+
+    const modal = fromModal
+        ? bootstrap.Modal.getOrCreateInstance(document.getElementById('batchCheckModal'))
+        : null;
+    if (modal) modal.show();
+
+    const fd = new FormData();
+    if (fondsId) fd.append('fonds_id', fondsId);
+    fd.append('unchecked_only', unchecked);
+    
+    // Add CSRF token
+    const csrfToken = document.querySelector('input[name="csrf_token"]')?.value || '';
+    fd.append('csrf_token', csrfToken);
+
+    fetch('/archive/api/quality_check/batch', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(data => {
+            if (fromModal) document.getElementById('batchLoading').style.display = 'none';
+            renderBatchResult(data, fromModal);
+        })
+        .catch(err => {
+            if (fromModal) {
+                document.getElementById('batchLoading').style.display = 'none';
+                document.getElementById('batchResult').innerHTML =
+                    `<div class="alert alert-danger">质检失败：${err}</div>`;
+            }
+        });
+}
+
+function renderBatchResult(data, toModal) {
+    const html = `
+    <div class="row g-3 mb-3">
+        <div class="col-3 text-center">
+            <div class="fs-4 fw-bold text-primary">${data.total || 0}</div>
+            <div class="text-muted small">共检验</div>
+        </div>
+        <div class="col-3 text-center">
+            <div class="fs-4 fw-bold text-success">${data.passed || 0}</div>
+            <div class="text-muted small">通过</div>
+        </div>
+        <div class="col-3 text-center">
+            <div class="fs-4 fw-bold text-danger">${data.failed || 0}</div>
+            <div class="text-muted small">不合格</div>
+        </div>
+        <div class="col-3 text-center">
+            <div class="fs-4 fw-bold text-warning">${data.avg_score || 0}</div>
+            <div class="text-muted small">平均分</div>
+        </div>
+    </div>
+    <div class="alert alert-info py-2">${data.batch_summary || ''}</div>
+    ${renderFailItems(data.files || [])}
+    `;
+
+    if (toModal) {
+        document.getElementById('batchResult').innerHTML = html;
+    } else {
+        // 同时更新页面失败列表
+        const failBody = document.getElementById('failTableBody');
+        const failItems = (data.files || []).filter(f => !f.passed);
+        if (failItems.length > 0) {
+            document.getElementById('failListSection').style.display = '';
+            failBody.innerHTML = failItems.map(f => `
+                <tr>
+                    <td><code>${f.archive_code || f.archive_id}</code></td>
+                    <td class="text-truncate" style="max-width:180px">${f.title || '-'}</td>
+                    <td><span class="grade-badge grade-${f.grade}">${f.grade}</span></td>
+                    <td><span class="badge ${scoreColor(f.total_score)}">${f.total_score}分</span></td>
+                    <td class="small text-muted text-truncate" style="max-width:200px">${(f.critical_issues || []).join('；')}</td>
+                    <td>
+                        <button class="btn btn-xs btn-outline-primary py-0 px-1"
+                                onclick="viewReport(${f.archive_id})">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+    }
+}
+
+function renderFailItems(files) {
+    const fails = files.filter(f => !f.passed);
+    if (fails.length === 0) return '<div class="alert alert-success">所有档案均通过质检！</div>';
+    return `
+    <h6 class="text-danger mt-3"><i class="fas fa-exclamation-circle me-1"></i>未通过档案（${fails.length}份）</h6>
+    <ul class="list-group list-group-flush">
+        ${fails.slice(0, 15).map(f => `
+        <li class="list-group-item d-flex align-items-start gap-2 px-0">
+            <span class="grade-badge grade-${f.grade} mt-1">${f.grade}</span>
+            <div class="flex-grow-1">
+                <div class="fw-semibold small">${f.title || f.archive_id}</div>
+                <div class="text-muted small">${(f.critical_issues || []).slice(0,2).join('；') || f.summary || ''}</div>
+            </div>
+            <span class="badge ${scoreColor(f.total_score)} ms-auto">${f.total_score}分</span>
+        </li>`).join('')}
+    </ul>`;
+}
+
+// ── 单档质检 ──────────────────────────────────────────
+function checkSingle() {
+    const m = bootstrap.Modal.getOrCreateInstance(document.getElementById('singleCheckModal'));
+    m.show();
+}
+
+function doSingleCheck() {
+    const id = document.getElementById('singleArchiveId').value;
+    if (!id) return;
+    document.getElementById('singleCheckResult').innerHTML =
+        '<div class="text-center py-3"><div class="spinner-border text-primary"></div></div>';
+
+    fetch(`/archive/api/quality_check/${id}`, { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) {
+                document.getElementById('singleCheckResult').innerHTML =
+                    `<div class="alert alert-danger">${data.error}</div>`;
+                return;
+            }
+            renderSingleReport(data);
+        });
+}
+
+function renderSingleReport(r) {
+    const checks = (r.checks || []).map(c => `
+        <div class="check-item-row ${c.passed ? 'pass' : 'fail'}">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <i class="fas fa-${c.passed ? 'check-circle text-success' : 'times-circle text-danger'} me-1"></i>
+                    <span class="fw-semibold">${c.item}</span>
+                    <div class="text-muted small mt-1">${c.detail}</div>
+                    ${c.suggestion ? `<div class="text-primary small"><i class="fas fa-lightbulb me-1"></i>${c.suggestion}</div>` : ''}
+                </div>
+                <span class="score-pill ${c.score >= 80 ? 'score-high' : c.score >= 60 ? 'score-mid' : 'score-low'}">${c.score}分</span>
+            </div>
+        </div>
+    `).join('');
+
+    document.getElementById('singleCheckResult').innerHTML = `
+        <div class="d-flex align-items-center gap-3 mb-3 p-3 rounded bg-light">
+            <div class="grade-badge grade-${r.grade}" style="width:3rem;height:3rem;line-height:3rem;font-size:1.4rem">${r.grade}</div>
+            <div>
+                <div class="fw-bold fs-5">${r.summary || ''}</div>
+                <div class="text-muted small">${r.archive_code || ''} · 检验时间：${new Date(r.checked_at).toLocaleString('zh-CN')}</div>
+            </div>
+            <span class="badge ms-auto fs-6 ${scoreColor(r.total_score)}">${r.total_score}分</span>
+        </div>
+        <h6 class="text-muted">检验详情</h6>
+        ${checks}
+        ${r.suggestions && r.suggestions.length > 0 ? `
+        <div class="alert alert-warning mt-2 py-2">
+            <strong>整改建议：</strong>${r.suggestions.join('；')}
+        </div>` : ''}
+    `;
+}
+
+// ── 查看报告 ──────────────────────────────────────────
+function viewReport(id) {
+    document.getElementById('singleArchiveId').value = id;
+    const m = bootstrap.Modal.getOrCreateInstance(document.getElementById('singleCheckModal'));
+    m.show();
+    doSingleCheck();
+}
+
+// ── 导出报告 ──────────────────────────────────────────
+function exportReport() {
+    const rows = [
+        ['档案数字化质检报告'],
+        ['生成时间', new Date().toLocaleString('zh-CN')],
+        [''],
+        ['数字化档案总数', '{{ total }}'],
+        ['已质检', '{{ checked }}'],
+        ['质检通过', '{{ passed }}'],
+        ['DPI不达标', '{{ dpi_fail }}'],
+        ['格式不合规', '{{ format_fail }}'],
+        [''],
+        ['等级', 'A（优）', 'B（良）', 'C（合格）', 'D（不合格）'],
+        ['数量',
+         '{{ score_dist["A（90-100）"] }}',
+         '{{ score_dist["B（75-89）"] }}',
+         '{{ score_dist["C（60-74）"] }}',
+         '{{ score_dist["D（<60）"] }}'],
+    ];
+    const csv = rows.map(r => r.join('\t')).join('\n');
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/plain;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = '质检报告_' + new Date().toLocaleDateString('zh-CN').replace(/\//g, '-') + '.txt';
+    a.click();
+}
+
+// ── 辅助：分数颜色 ──────────────────────────────────
+function scoreColor(s) {
+    if (s >= 80) return 'bg-success';
+    if (s >= 60) return 'bg-warning text-dark';
+    return 'bg-danger';
+}
+</script>
+{% endblock %}

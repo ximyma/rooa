@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2>共享知识库</h2>
+        {% if current_user.role in ['manager', 'admin'] %}
+        <a href="{{ url_for('create_shared_kb') }}" class="btn btn-primary mb-3">新增知识库</a>
+        {% endif %}
+
+        <!-- 分类筛选 -->
+        <div class="card mb-3">
+            <div class="card-body py-2">
+                <div class="row g-2 align-items-center">
+                    <div class="col-auto">
+                        <select id="filterCategory" class="form-select form-select-sm" onchange="filterKbs()">
+                            <option value="">全部知识库</option>
+                            <option value="制度规范">制度规范</option>
+                            <option value="技术文档">技术文档</option>
+                            <option value="培训资料">培训资料</option>
+                            <option value="会议记录">会议记录</option>
+                            <option value="常见问题">常见问题</option>
+                            <option value="工作模板">工作模板</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <span class="badge bg-primary" id="kbCount">共 {{ knowledge_bases|length }} 个知识库</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row" id="kbGrid">
+            {% for kb in knowledge_bases %}
+            <div class="col-md-4 mb-3 kb-card"
+                 data-category="{{ kb.category or '' }}"
+                 data-name="{{ kb.name or '' }}">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ kb.name }}</h5>
+                        {% if kb.category %}
+                        <span class="badge bg-info mb-1">{{ kb.category }}</span>
+                        {% endif %}
+                        {% if kb.description %}
+                        <p class="card-text small text-muted">{{ kb.description[:60] }}{% if kb.description|length > 60 %}...{% endif %}</p>
+                        {% endif %}
+                        <p class="card-text small">
+                            创建者：{{ kb.owner.name if kb.owner else '未知' }}<br>
+                            公开：{{ '是' if kb.is_public else '否' }}
+                        </p>
+                        <a href="{{ url_for('shared_knowledge_detail', kb_id=kb.id) }}" class="btn btn-primary btn-sm">进入</a>
+                        {% if current_user.role in ['manager', 'admin'] and kb.owner_id == current_user.id %}
+                        <button class="btn btn-warning btn-sm" onclick="unshareKb({{ kb.id }}, '{{ kb.name }}')">取消分享</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteKb({{ kb.id }})">删除</button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+<script>
+function filterKbs() {
+    const cat = document.getElementById('filterCategory').value.trim();
+    const cards = document.querySelectorAll('.kb-card');
+    let visible = 0;
+    cards.forEach(card => {
+        const rowCat = card.getAttribute('data-category') || '';
+        const match = !cat || rowCat === cat;
+        card.style.display = match ? '' : 'none';
+        if (match) visible++;
+    });
+    document.getElementById('kbCount').textContent = `共 ${visible} 个知识库`;
+}
+
+function deleteKb(id) {
+    if (!confirm('删除知识库将同时删除所有文件，确认删除？')) return;
+    fetch(`/knowledge/shared/delete/${id}`, {
+        method: 'POST',
+        headers: {'X-CSRFToken': '{{ csrf_token() }}'}
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.status === 'ok') {
+            location.reload();
+        } else {
+            alert(d.error || '删除失败');
+        }
+    })
+    .catch(() => alert('删除失败'));
+}
+
+function unshareKb(id, name) {
+    if (!confirm(`确定要将共享知识库 "${name}" 转为个人知识库吗？\n\n转为个人后：\n1. 只有您自己能看到该知识库\n2. 其他用户将无法访问\n3. 可以随时重新分享为共享知识库`)) {
+        return;
+    }
+    
+    fetch(`/knowledge/shared/unshare/${id}`, {
+        method: 'POST',
+        headers: {'X-CSRFToken': '{{ csrf_token() }}'}
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert(data.error || '取消分享失败');
+        }
+    })
+    .catch(error => {
+        alert('取消分享失败，请稍后重试');
+        console.error('取消分享知识库失败:', error);
+    });
+}
+</script>
+{% endblock %}

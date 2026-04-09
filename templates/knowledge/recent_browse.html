@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h4>🕐 最近浏览</h4>
+        <a href="{{ url_for('personal_knowledge_base') }}" class="btn btn-outline-secondary btn-sm mb-3">← 返回知识库</a>
+
+        {% if recents %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>文件名</th>
+                        <th>所属知识库</th>
+                        <th>浏览时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for rec in recents %}
+                    <tr>
+                        <td>
+                            <strong>{{ rec.file.original_name if rec.file else '(文件已删除)' }}</strong>
+                            {% if rec.file and rec.file.summary %}
+                            <br><small class="text-muted">{{ rec.file.summary[:60] }}</small>
+                            {% endif %}
+                        </td>
+                        <td>{{ rec.file.kb_name if rec.file else '-' }}</td>
+                        <td>{{ rec.browsed_at.strftime('%Y-%m-%d %H:%M') if rec.browsed_at else '-' }}</td>
+                        <td>
+                            {% if rec.file %}
+                            {% if rec.file.file_type in ['txt','md'] %}
+                            <a href="{{ url_for('knowledge_preview', file_id=rec.file.id) }}" class="btn btn-sm btn-primary" target="_blank">预览</a>
+                            {% elif rec.file.file_type == 'docx' %}
+                            <a href="{{ url_for('knowledge_preview', file_id=rec.file.id) }}" class="btn btn-sm btn-primary" target="_blank">预览</a>
+                            {% endif %}
+                            <a href="{{ url_for('download_file', filepath=rec.file.file_path.replace('\\','/')) }}" class="btn btn-sm btn-secondary">下载</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-5">
+            <p>暂无浏览记录</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2>AI精编</h2>
+        <div class="row">
+            <div class="col-md-6">
+                <h5>原文</h5>
+                <pre class="bg-light p-3">{{ report.content }}</pre>
+            </div>
+            <div class="col-md-6">
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <label class="form-label">编写原因/补充原因</label>
+                        <textarea name="reason" class="form-control md-editor" rows="5" data-height="220" required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">确认保存</button>
+                    <a href="{{ url_for('info_pool') }}" class="btn btn-secondary">取消</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

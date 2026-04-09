@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>栏目监测 - 智能办公平台</title>
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/css/fontawesome.all.min.css" rel="stylesheet">
+    <style>
+        :root { --bg-primary: #0a0e1a; --bg-secondary: #111827; --bg-card: #1a2235; --accent-cyan: #00d4ff; --accent-green: #00ff9d; --accent-orange: #ff9f43; --accent-red: #ff4757; --text-primary: #e8edf5; --text-secondary: #8892a4; --border-color: #2a3550; }
+        * { box-sizing: border-box; }
+        body { background: var(--bg-primary); color: var(--text-primary); font-family: 'Microsoft YaHei', sans-serif; min-height: 100vh; }
+        .sidebar { background: var(--bg-secondary); min-height: 100vh; border-right: 1px solid var(--border-color); }
+        .nav-link-custom { color: var(--text-secondary); padding: 12px 20px; border-radius: 8px; transition: all 0.3s; display: flex; align-items: center; gap: 10px; text-decoration: none; }
+        .nav-link-custom:hover, .nav-link-custom.active { background: rgba(0,212,255,0.1); color: var(--accent-cyan); }
+        .card-dark { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; }
+        .btn-cyber { border: 1px solid var(--accent-cyan); color: var(--accent-cyan); border-radius: 8px; padding: 8px 20px; font-weight: 600; transition: all 0.3s; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-cyber:hover { background: var(--accent-cyan); color: #000; box-shadow: 0 0 20px rgba(0,212,255,0.4); }
+        .btn-cyber-green { border-color: var(--accent-green); color: var(--accent-green); }
+        .btn-cyber-green:hover { background: var(--accent-green); color: #000; }
+        .btn-cyber-red { border-color: var(--accent-red); color: var(--accent-red); }
+        .btn-cyber-red:hover { background: var(--accent-red); color: #fff; }
+        .glow-title { color: var(--accent-cyan); text-shadow: 0 0 20px rgba(0,212,255,0.5); }
+        .table-dark-custom thead th { background: rgba(0,212,255,0.08); border-color: var(--border-color); color: var(--accent-cyan); padding: 12px; }
+        .table-dark-custom tbody td { border-color: var(--border-color); padding: 12px; vertical-align: middle; }
+        .table-dark-custom tbody tr:hover { background: rgba(0,212,255,0.04); }
+        .stat-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; text-align: center; transition: all 0.3s; }
+        .stat-card:hover { border-color: var(--accent-cyan); transform: translateY(-2px); }
+        .stat-value { font-size: 2rem; font-weight: 700; }
+        .stat-label { color: var(--text-secondary); font-size: 0.85rem; margin-top: 5px; }
+        .library-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; transition: all 0.3s; cursor: pointer; }
+        .library-card:hover { border-color: var(--accent-cyan); box-shadow: 0 4px 20px rgba(0,212,255,0.1); }
+        .library-card .lib-name { font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; }
+        .library-card .lib-meta { font-size: 0.8rem; color: var(--text-secondary); display: flex; flex-wrap: wrap; gap: 8px; }
+        .badge-overdue { background: rgba(255,71,87,0.2); color: var(--accent-red); padding: 3px 10px; border-radius: 6px; font-size: 0.8rem; }
+        .badge-expiring { background: rgba(255,159,67,0.2); color: var(--accent-orange); padding: 3px 10px; border-radius: 6px; font-size: 0.8rem; }
+        .badge-normal { background: rgba(0,255,157,0.2); color: var(--accent-green); padding: 3px 10px; border-radius: 6px; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+<div class="d-flex">
+    <!-- 侧边栏 -->
+    <div class="sidebar p-3" style="width: 240px; flex-shrink: 0;">
+        <div class="mb-4 px-2">
+            <h5 class="glow-title mb-1">📡 栏目监测</h5>
+            <small style="color: var(--text-secondary);">Column Monitor</small>
+        </div>
+        <nav class="nav flex-column">
+            <a href="{{ url_for('monitor_index') }}" class="nav-link-custom active">
+                <i class="fas fa-broadcast-tower"></i> 监测中心
+            </a>
+            <a href="{{ url_for('monitor_schedule_index') }}" class="nav-link-custom">
+                <i class="fas fa-clock"></i> 定时任务
+            </a>
+            <a href="{{ url_for('crawler_index') }}" class="nav-link-custom">
+                <i class="fas fa-spider"></i> 网站爬虫
+            </a>
+            <hr style="border-color: var(--border-color);">
+            <a href="{{ url_for('index') }}" class="nav-link-custom">
+                <i class="fas fa-home"></i> 返回首页
+            </a>
+        </nav>
+    </div>
+
+    <!-- 主内容 -->
+    <div class="flex-fill p-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h4 class="mb-1">📡 栏目监测中心</h4>
+                <small style="color: var(--text-secondary);">精准监测政府网站栏目更新情况，自动标记逾期和即将逾期的栏目</small>
+            </div>
+            <a href="{{ url_for('monitor_library_new') }}" class="btn-cyber btn-cyber-green">
+                <i class="fas fa-plus"></i> 新建网址库
+            </a>
+        </div>
+
+        <!-- 统计卡片 -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="stat-value" style="color: var(--accent-cyan);">{{ libs|length }}</div>
+                    <div class="stat-label">网址库总数</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="stat-value" style="color: var(--accent-red);">
+                        {{ lib_stats.values()|sum(attribute='overdue') }}
+                    </div>
+                    <div class="stat-label">逾期栏目</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="stat-value" style="color: var(--accent-orange);">
+                        {{ lib_stats.values()|sum(attribute='expiring') }}
+                    </div>
+                    <div class="stat-label">即将逾期</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="stat-value" style="color: var(--accent-green);">
+                        {{ lib_stats.values()|sum(attribute='total') }}
+                    </div>
+                    <div class="stat-label">监测网址总数</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 网址库列表 -->
+        <div class="row g-3">
+            {% for lib in libs %}
+            {% set stats = lib_stats.get(lib.id, {'overdue':0,'expiring':0,'total':0,'last_monitor':None}) %}
+            <div class="col-md-6 col-lg-4">
+                <div class="library-card">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div class="lib-name">
+                            <i class="fas fa-folder-open me-1" style="color: var(--accent-cyan);"></i>
+                            {{ lib.name }}
+                        </div>
+                        <div class="dropdown">
+                            <button class="btn btn-sm" style="border:1px solid var(--border-color); color: var(--text-secondary);" data-bs-toggle="dropdown">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                            <ul class="dropdown-menu" style="background: var(--bg-secondary); border: 1px solid var(--border-color);">
+                                <li><a class="dropdown-item" href="{{ url_for('monitor_library_edit', lib_id=lib.id) }}" style="color: var(--text-primary);">
+                                    <i class="fas fa-edit me-2"></i>编辑库
+                                </a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('monitor_results', lib_id=lib.id) }}" style="color: var(--text-primary);">
+                                    <i class="fas fa-list me-2"></i>查看结果
+                                </a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('monitor_logs', lib_id=lib.id) }}" style="color: var(--text-primary);">
+                                    <i class="fas fa-file-alt me-2"></i>监测日志
+                                </a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('monitor_export', lib_id=lib.id) }}" style="color: var(--text-primary);">
+                                    <i class="fas fa-download me-2"></i>导出结果
+                                </a></li>
+                                <li><hr class="dropdown-divider" style="border-color: var(--border-color);"></li>
+                                <li>
+                                    <form method="post" action="{{ url_for('monitor_library_delete', lib_id=lib.id) }}" onsubmit="return confirm('确定删除此网址库？');" style="display:inline;">
+                                        <button type="submit" class="dropdown-item" style="color: var(--accent-red); background: none; border: none; width: 100%; text-align: left; cursor: pointer;">
+                                            <i class="fas fa-trash me-2"></i>删除库
+                                        </button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="lib-meta mb-3">
+                        <span><i class="fas fa-link me-1"></i>{{ lib.item_count }} 个网址</span>
+                        {% if lib.category %}
+                        <span><i class="fas fa-tag me-1"></i>{{ lib.category }}</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="d-flex gap-2 mb-3 flex-wrap">
+                        {% if stats.overdue > 0 %}
+                        <span class="badge-overdue"><i class="fas fa-exclamation-circle me-1"></i>{{ stats.overdue }} 逾期</span>
+                        {% endif %}
+                        {% if stats.expiring > 0 %}
+                        <span class="badge-expiring"><i class="fas fa-clock me-1"></i>{{ stats.expiring }} 即将逾期</span>
+                        {% endif %}
+                        {% if stats.overdue == 0 and stats.expiring == 0 and stats.total > 0 %}
+                        <span class="badge-normal"><i class="fas fa-check-circle me-1"></i>全部正常</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <form method="post" action="{{ url_for('monitor_run', lib_id=lib.id) }}" class="flex-fill">
+                            <button type="submit" class="btn btn-cyber btn-cyber-green w-100" style="padding: 6px;">
+                                <i class="fas fa-play me-1"></i>执行监测
+                            </button>
+                        </form>
+                        <a href="{{ url_for('monitor_results', lib_id=lib.id) }}" class="btn" style="border:1px solid var(--border-color); color: var(--text-secondary); padding: 6px 12px;">
+                            <i class="fas fa-chart-bar"></i>
+                        </a>
+                    </div>
+
+                    {% if stats.last_monitor %}
+                    <div class="mt-2" style="font-size: 0.72rem; color: var(--text-secondary);">
+                        <i class="fas fa-history me-1"></i>{{ stats.last_monitor.strftime('%Y-%m-%d %H:%M') }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% else %}
+            <div class="col-12">
+                <div class="text-center py-5" style="color: var(--text-secondary);">
+                    <i class="fas fa-folder-open fa-3x mb-3 opacity-25"></i>
+                    <p>暂无网址库，<a href="{{ url_for('monitor_library_new') }}" class="text-decoration-none" style="color: var(--accent-cyan);">创建第一个网址库</a></p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+<script src="/static/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

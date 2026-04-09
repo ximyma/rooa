@@ -1,0 +1,492 @@
+{% extends "base.html" %}
+
+{% block title %}批量任务 - 档案管理系统{% endblock %}
+
+{% block content %}
+<!-- CSRF Token -->
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+<style>
+.task-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.page-header h1 {
+    font-size: 1.75rem;
+    color: #2d3748;
+    margin: 0;
+}
+
+/* 任务卡片 */
+.task-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    transition: all 0.2s;
+}
+
+.task-card:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+}
+
+.task-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.task-info h3 {
+    font-size: 1.1rem;
+    color: #2d3748;
+    margin: 0 0 0.5rem 0;
+}
+
+.task-meta {
+    display: flex;
+    gap: 1.5rem;
+    font-size: 0.85rem;
+    color: #718096;
+}
+
+.task-meta span {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+/* 状态标签 */
+.status-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.status-pending {
+    background: #edf2f7;
+    color: #4a5568;
+}
+
+.status-running {
+    background: #bee3f8;
+    color: #2b6cb0;
+}
+
+.status-completed {
+    background: #c6f6d5;
+    color: #276749;
+}
+
+.status-failed {
+    background: #fed7d7;
+    color: #c53030;
+}
+
+.status-cancelled {
+    background: #e2e8f0;
+    color: #718096;
+}
+
+/* 进度条 */
+.progress-container {
+    margin: 1rem 0;
+}
+
+.progress-bar {
+    height: 8px;
+    background: #e2e8f0;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: #718096;
+    margin-top: 0.5rem;
+}
+
+/* 统计 */
+.task-stats {
+    display: flex;
+    gap: 2rem;
+    margin: 1rem 0;
+}
+
+.stat-item {
+    text-align: center;
+}
+
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #2d3748;
+}
+
+.stat-label {
+    font-size: 0.8rem;
+    color: #718096;
+}
+
+.stat-success .stat-value {
+    color: #48bb78;
+}
+
+.stat-failed .stat-value {
+    color: #f56565;
+}
+
+/* 操作按钮 */
+.task-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.btn {
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+}
+
+.btn-sm {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.8rem;
+}
+
+.btn-primary {
+    background: #667eea;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #5a67d8;
+}
+
+.btn-danger {
+    background: #f56565;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #e53e3e;
+}
+
+.btn-secondary {
+    background: #e2e8f0;
+    color: #4a5568;
+}
+
+.btn-secondary:hover {
+    background: #cbd5e0;
+}
+
+/* 实时进度动画 */
+@keyframes progress-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.progress-fill.running {
+    animation: progress-pulse 1.5s ease-in-out infinite;
+}
+
+/* 错误信息 */
+.error-message {
+    background: #fff5f5;
+    border: 1px solid #feb2b2;
+    border-radius: 6px;
+    padding: 1rem;
+    margin-top: 1rem;
+    color: #c53030;
+    font-size: 0.85rem;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+/* 空状态 */
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: #718096;
+}
+
+.empty-state .icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+}
+</style>
+
+<div class="task-container">
+    <div class="page-header">
+        <h1>📋 批量任务管理</h1>
+        <a href="{{ url_for('archive.batch_upload') }}" class="btn btn-primary">+ 新建批量任务</a>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}" style="padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- 正在运行的任务 -->
+    <h2 style="font-size: 1.2rem; color: #2d3748; margin-bottom: 1rem;">⚡ 正在运行</h2>
+    <div id="running-tasks">
+        {% for task in tasks %}
+            {% if task.status in ['pending', 'running'] %}
+                <div class="task-card" data-task-id="{{ task.task_id }}" data-status="{{ task.status }}">
+                    <div class="task-header">
+                        <div class="task-info">
+                            <h3>{{ task.task_name or task.task_id }}</h3>
+                            <div class="task-meta">
+                                <span>📁 {{ task.total_items or 0 }} 个文件</span>
+                                <span>⏱️ {{ task.current_step or '准备中...' }}</span>
+                            </div>
+                        </div>
+                        <span class="status-badge status-{{ task.status }}">
+                            {{ '等待中' if task.status == 'pending' else '处理中' }}
+                        </span>
+                    </div>
+                    
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div class="progress-fill {{ task.status }}" style="width: {{ task.progress or 0 }}%"></div>
+                        </div>
+                        <div class="progress-text">
+                            <span>{{ task.processed_items or 0 }} / {{ task.total_items or 0 }} 已处理</span>
+                            <span>{{ task.progress or 0 }}%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="task-stats">
+                        <div class="stat-item stat-success">
+                            <div class="stat-value">{{ task.success_items or 0 }}</div>
+                            <div class="stat-label">成功</div>
+                        </div>
+                        <div class="stat-item stat-failed">
+                            <div class="stat-value">{{ task.failed_items or 0 }}</div>
+                            <div class="stat-label">失败</div>
+                        </div>
+                    </div>
+                    
+                    <div class="task-actions">
+                        <button class="btn btn-secondary btn-sm" onclick="refreshTask('{{ task.task_id }}')">🔄 刷新</button>
+                        <button class="btn btn-danger btn-sm" onclick="cancelTask('{{ task.task_id }}')">❌ 取消</button>
+                    </div>
+                </div>
+            {% endif %}
+        {% endfor %}
+        
+        {% set has_running = false %}
+        {% for task in tasks %}
+            {% if task.status in ['pending', 'running'] %}
+                {% set has_running = true %}
+            {% endif %}
+        {% endfor %}
+        
+        {% if not has_running %}
+            <div class="empty-state">
+                <div class="icon">✨</div>
+                <p>没有正在运行的任务</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- 历史任务 -->
+    <h2 style="font-size: 1.2rem; color: #2d3748; margin: 2rem 0 1rem 0;">📜 历史记录</h2>
+    <div id="completed-tasks">
+        {% for task in tasks %}
+            {% if task.status not in ['pending', 'running'] %}
+                <div class="task-card">
+                    <div class="task-header">
+                        <div class="task-info">
+                            <h3>{{ task.task_name or task.task_id }}</h3>
+                            <div class="task-meta">
+                                <span>📁 {{ task.total_items or 0 }} 个文件</span>
+                                <span>⏱️ {{ task.created_at[:16] if task.created_at else '' }}</span>
+                            </div>
+                        </div>
+                        <span class="status-badge status-{{ task.status }}">
+                            {{ {'completed': '已完成', 'failed': '失败', 'cancelled': '已取消'}.get(task.status, task.status) }}
+                        </span>
+                    </div>
+                    
+                    <div class="task-stats">
+                        <div class="stat-item">
+                            <div class="stat-value">{{ task.total_items or 0 }}</div>
+                            <div class="stat-label">总计</div>
+                        </div>
+                        <div class="stat-item stat-success">
+                            <div class="stat-value">{{ task.success_items or 0 }}</div>
+                            <div class="stat-label">成功</div>
+                        </div>
+                        <div class="stat-item stat-failed">
+                            <div class="stat-value">{{ task.failed_items or 0 }}</div>
+                            <div class="stat-label">失败</div>
+                        </div>
+                    </div>
+                    
+                    {% if task.status == 'failed' and task.error_message %}
+                    <div class="error-message">
+                        <strong>错误信息:</strong><br>
+                        {{ task.error_message[:500] }}{% if task.error_message|length > 500 %}...{% endif %}
+                    </div>
+                    {% endif %}
+                    
+                    <div class="task-actions">
+                        {% if task.status == 'failed' %}
+                            <button class="btn btn-primary btn-sm" onclick="retryTask('{{ task.task_id }}')">🔄 重试</button>
+                        {% endif %}
+                        <button class="btn btn-secondary btn-sm" onclick="viewResults('{{ task.task_id }}')">📋 查看详情</button>
+                    </div>
+                </div>
+            {% endif %}
+        {% endfor %}
+        
+        {% set has_completed = false %}
+        {% for task in tasks %}
+            {% if task.status not in ['pending', 'running'] %}
+                {% set has_completed = true %}
+            {% endif %}
+        {% endfor %}
+        
+        {% if not has_completed %}
+            <div class="empty-state">
+                <div class="icon">📭</div>
+                <p>暂无历史任务</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+// 轮询更新运行中的任务
+function pollTasks() {
+    const runningCards = document.querySelectorAll('.task-card[data-status="running"], .task-card[data-status="pending"]');
+    runningCards.forEach(card => {
+        const taskId = card.dataset.taskId;
+        refreshTask(taskId);
+    });
+}
+
+// 刷新单个任务
+function refreshTask(taskId) {
+    fetch(`/archive/api/task/progress/${taskId}`)
+        .then(r => r.json())
+        .then(data => {
+            const card = document.querySelector(`.task-card[data-task-id="${taskId}"]`);
+            if (!card) return;
+            
+            // 更新进度条
+            const progressFill = card.querySelector('.progress-fill');
+            if (progressFill) {
+                progressFill.style.width = `${data.progress || 0}%`;
+            }
+            
+            // 更新文字
+            const progressText = card.querySelector('.progress-text');
+            if (progressText) {
+                progressText.innerHTML = `
+                    <span>${data.processed_items || 0} / ${data.total_items || 0} 已处理</span>
+                    <span>${data.progress || 0}%</span>
+                `;
+            }
+            
+            // 更新统计
+            const successVal = card.querySelector('.stat-success .stat-value');
+            const failedVal = card.querySelector('.stat-failed .stat-value');
+            if (successVal) successVal.textContent = data.success_items || 0;
+            if (failedVal) failedVal.textContent = data.failed_items || 0;
+            
+            // 更新步骤
+            const stepText = card.querySelector('.task-meta span:last-child');
+            if (stepText && data.current_step) {
+                stepText.textContent = data.current_step;
+            }
+            
+            // 如果完成或失败，刷新页面
+            if (data.status === 'completed' || data.status === 'failed' || data.status === 'cancelled') {
+                location.reload();
+            }
+        })
+        .catch(err => console.error('刷新失败:', err));
+}
+
+// 取消任务
+function cancelTask(taskId) {
+    if (!confirm('确定要取消这个任务吗？')) return;
+    
+    const csrfToken = document.querySelector('input[name="csrf_token"]')?.value || '';
+    fetch(`/archive/api/task/cancel/${taskId}`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfToken }
+    })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert(data.message || '取消失败');
+            }
+        });
+}
+
+// 重试任务
+function retryTask(taskId) {
+    if (!confirm('确定要重试这个任务吗？')) return;
+    
+    const csrfToken = document.querySelector('input[name="csrf_token"]')?.value || '';
+    fetch(`/archive/api/task/retry/${taskId}`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfToken }
+    })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert(data.message || '重试失败');
+            }
+        });
+}
+
+// 查看详情
+function viewResults(taskId) {
+    // 简单的弹窗显示结果
+    fetch(`/archive/api/task/status/${taskId}`)
+        .then(r => r.json())
+        .then(data => {
+            alert(`任务详情:\\n\\n总计: ${data.total_items}\\n成功: ${data.success_items}\\n失败: ${data.failed_items}\\n\\n状态: ${data.status}`);
+        });
+}
+
+// 每5秒轮询一次
+setInterval(pollTasks, 5000);
+</script>
+{% endblock %}

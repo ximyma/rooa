@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}{{ '编辑工作日志' if log else '新建工作日志' }}{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  {% set status_map = {'draft':'草稿','submitted':'待阅','returned':'退回修改','reviewed':'已阅'} %}
+  {% set badge_map = {'draft':'secondary','submitted':'warning','returned':'danger','reviewed':'success'} %}
+  {% set is_returned = log and log.status == 'returned' %}
+
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div>
+      <a href="{{ url_for('worklog_index') }}" class="btn btn-outline-secondary mb-3"><i class="fas fa-arrow-left me-1"></i>返回</a>
+      <h3 class="mb-1"><i class="fas fa-edit me-2 text-primary"></i>{{ '编辑工作日志' if log else '新建工作日志' }}</h3>
+      <div class="text-muted">记录工作内容、成果复盘和明日安排；支持草稿保存、退回修改和重新提交留痕</div>
+    </div>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <span class="badge bg-{{ badge_map.get(log.status if log else 'draft', 'secondary') }} fs-6">{{ status_map.get(log.status if log else 'draft', '草稿') }}</span>
+      {% if log %}
+      <span class="text-muted small">最近更新：{{ log.updated_at.strftime('%Y-%m-%d %H:%M') if log.updated_at else '-' }}</span>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if latest_return %}
+  <div class="alert alert-danger border-0 shadow-sm mb-4">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+      <div>
+        <div class="fw-semibold mb-1"><i class="fas fa-exclamation-circle me-1"></i>最新退回意见</div>
+        <div class="small text-muted mb-2">
+          {{ latest_return.operator.name if latest_return.operator else '审核人' }} · {{ latest_return.created_at.strftime('%Y-%m-%d %H:%M') if latest_return.created_at else '-' }}
+        </div>
+        <div style="white-space:pre-wrap;line-height:1.8;">{{ latest_return.comment or '审核退回，请补充完善后重新提交。' }}</div>
+      </div>
+      {% if is_returned %}
+      <span class="badge bg-danger">待修改后重新提交</span>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="row g-4">
+      <div class="col-lg-8">
+        <div class="card shadow-sm mb-4">
+          <div class="card-header bg-white fw-semibold">日志内容</div>
+          <div class="card-body row g-3">
+            <div class="col-md-8">
+              <label class="form-label">日志标题</label>
+              <input type="text" name="title" class="form-control" required value="{{ log.title if log else '' }}" placeholder="如：4月7日重点工作推进情况">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">日期</label>
+              <input type="date" name="log_date" class="form-control" value="{{ log.log_date.strftime('%Y-%m-%d') if log and log.log_date else '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">日志分类</label>
+              <select name="category" class="form-select">
+                {% for item in ['日常工作','重点工作','会议落实','督办反馈','学习培训'] %}
+                <option value="{{ item }}" {{ 'selected' if log and log.category == item else '' }}>{{ item }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">投入工时</label>
+              <input type="number" step="0.5" min="0" max="24" name="hours" class="form-control" value="{{ log.hours if log else 8 }}">
+
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">当前状态</label>
+              <div class="form-control bg-light d-flex align-items-center">
+                <span class="badge bg-{{ badge_map.get(log.status if log else 'draft', 'secondary') }} me-2">{{ status_map.get(log.status if log else 'draft', '草稿') }}</span>
+                <span class="small text-muted">审核状态由提交流程和审核动作自动维护</span>
+              </div>
+            </div>
+            <div class="col-12">
+              <label class="form-label">工作内容</label>
+              <textarea name="content" rows="6" class="form-control" placeholder="按事项列出今天完成的工作内容">{{ log.content if log else '' }}</textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label">工作成果</label>
+              <textarea name="achievements" rows="5" class="form-control" placeholder="例如：完成公文起草3份、推进会议纪要定稿、更新督办进度等">{{ log.achievements if log else '' }}</textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label">存在问题</label>
+              <textarea name="issues" rows="4" class="form-control" placeholder="记录堵点、风险点和需要协调的事项">{{ log.issues if log else '' }}</textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label">明日计划</label>
+              <textarea name="tomorrow_plan" rows="4" class="form-control" placeholder="说明下一步安排和计划完成事项">{{ log.tomorrow_plan if log else '' }}</textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-4">
+        <div class="card shadow-sm mb-4">
+          <div class="card-header bg-white fw-semibold">关联任务</div>
+          <div class="card-body">
+            <label class="form-label">关联督办任务</label>
+            <select name="related_task_id" class="form-select">
+              <option value="">不关联</option>
+              {% for task in tasks %}
+              <option value="{{ task.id }}" {{ 'selected' if log and log.related_task_id == task.id else '' }}>{{ task.title }}</option>
+              {% endfor %}
+            </select>
+            <div class="form-text mt-2">建议将重点工作、会议落实和督办反馈类日志与具体任务关联，便于领导查看进展闭环。</div>
+          </div>
+        </div>
+
+        <div class="card shadow-sm mb-4">
+          <div class="card-header bg-white fw-semibold">提交流程说明</div>
+          <div class="card-body small text-muted" style="line-height:1.9;">
+            <div>1. 可先保存草稿，后续继续补充。</div>
+            <div>2. 提交后进入“待阅”状态，等待管理员或部门负责人审核。</div>
+            <div>3. 如被退回，请根据最新意见修改后点击“重新提交”。</div>
+          </div>
+        </div>
+
+        <div class="card shadow-sm mb-4">
+          <div class="card-header bg-white fw-semibold">最近审批留痕</div>
+          <div class="card-body">
+            {% if review_logs %}
+            <div class="d-flex flex-column gap-3">
+              {% for review in review_logs[:4] %}
+              {% set action_label = {'save_draft':'保存草稿','submit':'提交审核','resubmit':'重新提交','review':'已阅批注','return':'退回修改'}.get(review.action, review.action) %}
+              {% set action_color = 'danger' if review.action == 'return' else 'success' if review.action == 'review' else 'secondary' %}
+              <div class="border-start border-3 border-{{ action_color }} ps-3">
+                <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                  <div class="fw-semibold small">{{ action_label }}</div>
+                  <div class="small text-muted">{{ review.created_at.strftime('%m-%d %H:%M') if review.created_at else '-' }}</div>
+                </div>
+                <div class="small text-muted mb-1">{{ review.operator.name if review.operator else '系统' }}</div>
+                <div class="small" style="white-space:pre-wrap;line-height:1.7;">{{ review.comment or '无附加意见' }}</div>
+              </div>
+              {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-muted small">当前还没有审批留痕，提交或保存后会自动记录。</div>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="card shadow-sm">
+          <div class="card-body d-grid gap-2">
+            <button type="submit" name="action" value="draft" class="btn btn-outline-secondary"><i class="fas fa-save me-1"></i>保存草稿</button>
+            <button type="submit" name="action" value="submit" class="btn btn-primary"><i class="fas fa-paper-plane me-1"></i>{{ '重新提交日志' if is_returned else '提交日志' }}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}
+

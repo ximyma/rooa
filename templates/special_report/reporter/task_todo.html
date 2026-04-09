@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2>待办约稿任务</h2>
+        {% if not tasks %}
+        <div class="alert alert-info">暂无待办约稿任务</div>
+        {% else %}
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>标题</th><th>类别</th><th>截止时间</th><th>紧急程度</th><th>签收状态</th><th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in tasks %}
+                {% set task = item.task %}
+                {% set signed = item.signed %}
+                <tr class="{% if task.urgency == 'urgent' %}table-warning{% endif %}">
+                    <td><a href="#" data-bs-toggle="modal" data-bs-target="#taskModal{{ task.id }}">{{ task.title }}</a></td>
+                    <td>{{ task.category }}</td>
+                    <td>{{ task.end_time.strftime('%Y-%m-%d %H:%M') if task.end_time else '无截止时间' }}</td>
+                    <td>
+                        {% if task.urgency == 'urgent' %}
+                        <span class="badge bg-danger">加急</span>
+                        {% else %}
+                        <span class="badge bg-secondary">普通</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if signed %}
+                        <span class="badge bg-success">已签收</span>
+                        {% else %}
+                        <span class="badge bg-light text-dark border">未签收</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if not signed %}
+                        <a href="{{ url_for('task_sign', task_id=task.id) }}" class="btn btn-sm btn-success">签收</a>
+                        {% endif %}
+                        <a href="{{ url_for('task_submit', task_id=task.id) }}" class="btn btn-sm btn-primary">报送</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 任务详情模态框 -->
+{% for item in tasks %}
+{% set task = item.task %}
+<div class="modal fade" id="taskModal{{ task.id }}" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ task.title }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>信息类别：</strong>{{ task.category }}</p>
+                        <p><strong>开始时间：</strong>{{ task.start_time.strftime('%Y-%m-%d %H:%M') if task.start_time else '未设置' }}</p>
+                        <p><strong>截止时间：</strong>{{ task.end_time.strftime('%Y-%m-%d %H:%M') if task.end_time else '无截止时间' }}</p>
+                        <p><strong>紧急程度：</strong>{{ '加急' if task.urgency=='urgent' else '普通' }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>联系人：</strong>{{ task.creator.name if task.creator else '' }}</p>
+                        <p><strong>联系电话：</strong>{{ task.creator.phone if task.creator else '' }}</p>
+                        <p><strong>相关附件：</strong>{{ task.attachments or '无' }}</p>
+                    </div>
+                </div>
+                <hr>
+                <p><strong>任务要求：</strong></p>
+                <p>{{ task.description }}</p>
+            </div>
+            <div class="modal-footer">
+                {% if not item.signed %}
+                <a href="{{ url_for('task_sign', task_id=task.id) }}" class="btn btn-success">签收任务</a>
+                {% endif %}
+                <a href="{{ url_for('task_submit', task_id=task.id) }}" class="btn btn-primary">前往报送</a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}

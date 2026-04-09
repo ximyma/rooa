@@ -1,0 +1,586 @@
+{% extends "base.html" %}
+{% block content %}
+<!-- CSRF Token -->
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+<style>
+/* ====== AI对话页面样式 ====== */
+.chat-sidebar {
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+.chat-sidebar .card-header {
+    background: #495057;
+    color: #fff;
+    font-weight: 600;
+    border-radius: 8px 8px 0 0;
+}
+.session-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background .15s;
+    border: none;
+    background: none;
+    text-decoration: none;
+    color: #333;
+    margin-bottom: 2px;
+}
+.session-item:hover { background: #e9ecef; }
+.session-item.active { background: #0d6efd; color: #fff; }
+.session-item .session-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.88rem; }
+.session-item .del-btn { opacity: 0; font-size: 0.75rem; padding: 0 4px; }
+.session-item:hover .del-btn, .session-item.active .del-btn { opacity: 1; }
+.session-item.active .del-btn { color: #fff; }
+
+/* 对话区 */
+#chatBox {
+    height: 460px;
+    overflow-y: auto;
+    padding: 12px;
+    background: #fff;
+}
+.msg-user, .msg-ai {
+    margin-bottom: 14px;
+}
+.msg-user .bubble {
+    background: #e8f4fd;
+    border-radius: 12px 12px 4px 12px;
+    padding: 10px 14px;
+    display: inline-block;
+    max-width: 85%;
+    float: right;
+    clear: both;
+    word-break: break-word;
+}
+.msg-ai .bubble {
+    background: #f1f3f5;
+    border-radius: 12px 12px 12px 4px;
+    padding: 10px 14px;
+    display: inline-block;
+    max-width: 90%;
+    float: left;
+    clear: both;
+    word-break: break-word;
+}
+.msg-label {
+    font-size: 0.78rem;
+    color: #888;
+    margin-bottom: 3px;
+}
+.msg-user .msg-label { text-align: right; }
+.clearfix::after { content: ''; display: table; clear: both; }
+
+/* 思考块 */
+.think-block {
+    background: #fffbf0;
+    border-left: 3px solid #ffc107;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    font-size: 0.88rem;
+    color: #7a6a00;
+}
+.think-toggle {
+    cursor: pointer;
+    padding: 5px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: 500;
+    user-select: none;
+}
+.think-toggle:hover { background: rgba(255,193,7,.15); border-radius: 4px 4px 0 0; }
+.think-content {
+    padding: 6px 12px 8px;
+    border-top: 1px solid #ffe08a;
+    display: none;
+    white-space: pre-wrap;
+    line-height: 1.6;
+}
+.think-content.show { display: block; }
+
+/* Markdown 渲染区 */
+.markdown-body { line-height: 1.7; }
+.markdown-body p:last-child { margin-bottom: 0; }
+.markdown-body pre { background: #282c34; color: #abb2bf; padding: 10px 14px; border-radius: 6px; overflow-x: auto; }
+.markdown-body code { background: #f0f0f0; padding: 1px 4px; border-radius: 3px; font-size: 0.9em; }
+.markdown-body pre code { background: none; padding: 0; }
+.markdown-body blockquote { border-left: 4px solid #dee2e6; padding-left: 12px; color: #6c757d; margin: 8px 0; }
+.markdown-body table { border-collapse: collapse; width: 100%; margin: 8px 0; }
+.markdown-body th, .markdown-body td { border: 1px solid #dee2e6; padding: 6px 10px; }
+.markdown-body th { background: #f8f9fa; }
+
+/* 输入区 */
+#chatFooter {
+    border-top: 1px solid #e9ecef;
+    padding: 10px 12px;
+    background: #fafbfc;
+    border-radius: 0 0 8px 8px;
+}
+#question {
+    resize: none;
+    min-height: 52px;
+    max-height: 140px;
+    border-radius: 8px;
+    border: 1px solid #ced4da;
+    padding: 8px 12px;
+    font-size: 0.95rem;
+    transition: border-color .2s;
+}
+#question:focus { border-color: #0d6efd; box-shadow: 0 0 0 3px rgba(13,110,253,.1); outline: none; }
+#sendBtn { border-radius: 8px; min-width: 70px; }
+
+/* 打字动画 */
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+.typing-cursor::after { content: '▋'; animation: blink 1s infinite; font-size: 0.9em; }
+
+/* 加载动画 */
+.dot-loading span {
+    display: inline-block; width: 6px; height: 6px; background: #0d6efd;
+    border-radius: 50%; margin: 0 2px;
+    animation: dotBounce .8s infinite ease-in-out;
+}
+.dot-loading span:nth-child(2) { animation-delay: .15s; }
+.dot-loading span:nth-child(3) { animation-delay: .3s; }
+@keyframes dotBounce { 0%,80%,100%{transform:scale(0)} 40%{transform:scale(1)} }
+</style>
+
+<div class="row g-3">
+    <!-- 左侧：会话历史 -->
+    <div class="col-md-3">
+        <div class="chat-sidebar card h-100">
+            <div class="card-header d-flex align-items-center justify-content-between py-2">
+                <span>💬 对话历史</span>
+                <button class="btn btn-sm btn-light" id="newChatBtn" title="新建对话">
+                    ✏️ 新建
+                </button>
+            </div>
+            <div class="card-body p-2" style="overflow-y: auto; max-height: 520px;">
+                {% if sessions %}
+                    {% for session in sessions %}
+                    <div class="session-item {% if current_session and session.id == current_session.id %}active{% endif %}"
+                         data-id="{{ session.id }}">
+                        <span class="session-title" title="{{ session.title }}">{{ session.title }}</span>
+                        <button class="btn del-btn delete-session" data-id="{{ session.id }}" title="删除">🗑</button>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted text-center small mt-3">暂无对话记录</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 右侧：对话区域 -->
+    <div class="col-md-9">
+        <div class="card" style="border-radius:8px; box-shadow:0 1px 8px rgba(0,0,0,.07);">
+            <!-- 顶部工具栏 -->
+            <div class="card-header py-2 px-3">
+                <div class="row align-items-center g-2">
+                    <div class="col-auto">
+                        <select id="modelSelect" class="form-select form-select-sm" style="min-width:180px;">
+                            {% for model in models %}
+                            <option value="{{ model.id }}" {% if current_session and current_session.model_config_id == model.id %}selected{% endif %}>
+                                {{ model.name }} ({{ model.provider }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <div class="dropdown">
+                            <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">📚 知识库</button>
+                            <div class="dropdown-menu p-3" style="width:280px; max-height:320px; overflow-y:auto;">
+                                <h6 class="text-muted small mb-1">个人知识库</h6>
+                                {% if personal_kb %}
+                                <div class="form-check mb-1">
+                                    <input type="checkbox" class="form-check-input kb-checkbox" value="personal_{{ personal_kb.id }}" id="kb_personal">
+                                    <label class="form-check-label small" for="kb_personal">{{ personal_kb.name }}</label>
+                                </div>
+                                {% else %}
+                                <p class="text-muted small">无个人知识库</p>
+                                {% endif %}
+                                <h6 class="text-muted small mb-1 mt-2">共享知识库</h6>
+                                {% if shared_kbs %}
+                                    {% for kb in shared_kbs %}
+                                    <div class="form-check mb-1">
+                                        <input type="checkbox" class="form-check-input kb-checkbox" value="shared_{{ kb.id }}" id="kb_s{{ kb.id }}">
+                                        <label class="form-check-label small" for="kb_s{{ kb.id }}">{{ kb.name }}</label>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                <p class="text-muted small">无共享知识库</p>
+                                {% endif %}
+                                {% if policy_kbs %}
+                                <h6 class="text-muted small mb-1 mt-2">政策文件库</h6>
+                                    {% for kb in policy_kbs %}
+                                    <div class="form-check mb-1">
+                                        <input type="checkbox" class="form-check-input kb-checkbox" value="policy_{{ kb.id }}" id="kb_p{{ kb.id }}">
+                                        <label class="form-check-label small" for="kb_p{{ kb.id }}">{{ kb.name }}</label>
+                                    </div>
+                                    {% endfor %}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-auto ms-auto">
+                        <button class="btn btn-outline-primary btn-sm" id="uploadBtn" title="上传文件到对话">📎 附件</button>
+                        <input type="file" id="fileInput" style="display:none;" accept=".txt,.pdf,.docx">
+                        {% if current_user.role == 'admin' %}
+                        <a href="{{ url_for('ai_config_list') }}" class="btn btn-outline-secondary btn-sm">⚙️ 配置</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 对话内容区 -->
+            <div id="chatBox">
+                {% if not current_session %}
+                <div style="text-align:center; padding: 80px 20px; color:#aaa;">
+                    <div style="font-size:3rem;">💬</div>
+                    <div class="mt-2">开始新的对话吧</div>
+                </div>
+                {% else %}
+                    {% for msg in messages %}
+                    {% if msg.role == 'user' %}
+                    <div class="msg-user">
+                        <div class="msg-label">你</div>
+                        <div class="bubble">{{ msg.content }}</div>
+                        <div class="clearfix"></div>
+                    </div>
+                    {% else %}
+                    <div class="msg-ai">
+                        <div class="msg-label">AI</div>
+                        <div class="bubble">
+                            <div class="ai-content" data-raw="{{ msg.content | e }}"></div>
+                        </div>
+                        <div class="clearfix"></div>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                {% endif %}
+            </div>
+
+            <!-- 底部输入区 -->
+            <div id="chatFooter">
+                <div id="filePreview" class="mb-2 text-muted small" style="display:none;">
+                    📎 <span id="fileName"></span>
+                    <button class="btn btn-sm btn-link text-danger p-0 ms-1" id="removeFile">✕</button>
+                </div>
+                <div class="d-flex gap-2 align-items-end">
+                    <textarea id="question" class="form-control flex-grow-1"
+                              placeholder="输入问题，Ctrl+Enter 发送..." rows="2"></textarea>
+                    <button class="btn btn-primary" id="sendBtn">发送</button>
+                </div>
+                <div class="text-muted small mt-1">Ctrl+Enter 快捷发送</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<link rel="stylesheet" href="/static/css/github-markdown.min.css">
+<script src="/static/js/marked.min.js"></script>
+<script>
+// ============================================================
+//  配置
+// ============================================================
+let currentSessionId = {{ current_session.id if current_session else 'null' }};
+let selectedKbs = [];
+let attachedFile = null;
+
+// marked 配置
+if (typeof marked !== 'undefined') {
+    marked.setOptions({ breaks: true, gfm: true });
+}
+
+// ============================================================
+//  工具函数
+// ============================================================
+function scrollToBottom() {
+    const chatBox = document.getElementById('chatBox');
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+/**
+ * 将 AI 回复文本渲染到指定容器
+ * 1. 提取 <think>...</think> 思考块 → 折叠显示
+ * 2. 剩余部分 marked.parse() → HTML
+ */
+function renderAIText(container, rawText) {
+    // 匹配 <think>...</think>（支持多段、大小写不敏感、跨行）
+    const thinkRe = /<think>([\s\S]*?)<\/think>/gi;
+    let thinkMatches = [];
+    let m;
+    while ((m = thinkRe.exec(rawText)) !== null) {
+        thinkMatches.push(m[1].trim());
+    }
+    // 去掉思考块后的正文
+    const mainText = rawText.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+
+    let html = '';
+
+    // 渲染思考块
+    if (thinkMatches.length > 0) {
+        thinkMatches.forEach((thinkContent, idx) => {
+            const uid = 'think_' + Date.now() + '_' + idx;
+            html += `<div class="think-block">
+                <div class="think-toggle" onclick="toggleThink('${uid}')">
+                    <span>🧠 思考过程</span><span class="think-arrow">▼</span>
+                </div>
+                <div class="think-content" id="${uid}">${escapeHtml(thinkContent)}</div>
+            </div>`;
+        });
+    }
+
+    // 渲染正文 Markdown
+    if (mainText) {
+        html += `<div class="markdown-body">${marked.parse(mainText)}</div>`;
+    }
+
+    container.innerHTML = html;
+}
+
+function toggleThink(uid) {
+    const el = document.getElementById(uid);
+    const arrow = el.closest('.think-block').querySelector('.think-arrow');
+    if (el.classList.toggle('show')) {
+        arrow.textContent = '▲';
+    } else {
+        arrow.textContent = '▼';
+    }
+}
+
+function escapeHtml(text) {
+    const d = document.createElement('div');
+    d.textContent = text;
+    return d.innerHTML;
+}
+
+function appendUserMsg(text) {
+    const chatBox = document.getElementById('chatBox');
+    // 清除"空状态"占位
+    const emptyPlaceholder = chatBox.querySelector('[style*="text-align:center"]');
+    if (emptyPlaceholder) emptyPlaceholder.remove();
+
+    const div = document.createElement('div');
+    div.className = 'msg-user';
+    div.innerHTML = `<div class="msg-label">你</div>
+        <div class="bubble">${escapeHtml(text)}</div>
+        <div class="clearfix"></div>`;
+    chatBox.appendChild(div);
+    scrollToBottom();
+}
+
+function appendAIMsg(rawText) {
+    const chatBox = document.getElementById('chatBox');
+    const div = document.createElement('div');
+    div.className = 'msg-ai';
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'ai-content';
+    div.innerHTML = `<div class="msg-label">AI</div>`;
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.appendChild(contentDiv);
+    div.appendChild(bubble);
+    const cf = document.createElement('div');
+    cf.className = 'clearfix';
+    div.appendChild(cf);
+    chatBox.appendChild(div);
+    renderAIText(contentDiv, rawText);
+    scrollToBottom();
+    return div;
+}
+
+function showTypingIndicator() {
+    const chatBox = document.getElementById('chatBox');
+    const div = document.createElement('div');
+    div.id = 'typingIndicator';
+    div.className = 'msg-ai';
+    div.innerHTML = `<div class="msg-label">AI</div>
+        <div class="bubble">
+            <div class="dot-loading"><span></span><span></span><span></span></div>
+        </div>
+        <div class="clearfix"></div>`;
+    chatBox.appendChild(div);
+    scrollToBottom();
+}
+
+function removeTypingIndicator() {
+    const el = document.getElementById('typingIndicator');
+    if (el) el.remove();
+}
+
+// ============================================================
+//  初始化：渲染历史消息中的 AI 内容
+// ============================================================
+document.querySelectorAll('.ai-content[data-raw]').forEach(el => {
+    const raw = el.getAttribute('data-raw');
+    // data-raw 是经过 Jinja2 |e 转义的，需要反转义
+    const decoded = raw
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&')
+        .replace(/&#39;/g, "'")
+        .replace(/&quot;/g, '"');
+    renderAIText(el, decoded);
+    el.removeAttribute('data-raw');
+});
+scrollToBottom();
+
+// ============================================================
+//  发送消息
+// ============================================================
+async function sendMessage() {
+    const questionEl = document.getElementById('question');
+    const question = questionEl.value.trim();
+    if (!question) return;
+
+    const modelId = document.getElementById('modelSelect').value;
+    const formData = new FormData();
+    formData.append('question', question);
+    formData.append('model_id', modelId);
+    if (currentSessionId) formData.append('session_id', currentSessionId);
+    selectedKbs.forEach(kb => formData.append('knowledge_bases', kb));
+    if (attachedFile) {
+        formData.append('file', attachedFile);
+        clearAttachment();
+    }
+
+    appendUserMsg(question);
+    questionEl.value = '';
+    document.getElementById('sendBtn').disabled = true;
+    showTypingIndicator();
+
+    try {
+        const res = await fetch('{{ url_for("ai_chat") }}', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+        removeTypingIndicator();
+
+        if (data.error) {
+            appendAIMsg('⚠️ ' + data.error);
+        } else {
+            const prevSessionId = currentSessionId;
+            currentSessionId = data.session_id;
+            appendAIMsg(data.answer);
+
+            // 新会话首次回复后，刷新左侧会话列表
+            if (!prevSessionId && currentSessionId) {
+                // 用 history.replaceState 更新 URL 不刷页面，然后动态插入会话项
+                history.replaceState({}, '', '{{ url_for("ai_chat") }}?session_id=' + currentSessionId);
+                prependSessionItem(currentSessionId, question.substring(0, 30));
+            }
+        }
+    } catch (err) {
+        removeTypingIndicator();
+        appendAIMsg('⚠️ 请求失败，请检查网络或模型配置。');
+    } finally {
+        document.getElementById('sendBtn').disabled = false;
+        document.getElementById('question').focus();
+    }
+}
+
+function prependSessionItem(id, title) {
+    const sidebar = document.querySelector('.chat-sidebar .card-body');
+    const empty = sidebar.querySelector('p.text-muted');
+    if (empty) empty.remove();
+    // 取消当前所有 active
+    sidebar.querySelectorAll('.session-item').forEach(el => el.classList.remove('active'));
+    const div = document.createElement('div');
+    div.className = 'session-item active';
+    div.dataset.id = id;
+    div.innerHTML = `<span class="session-title" title="${escapeHtml(title)}">${escapeHtml(title)}</span>
+        <button class="btn del-btn delete-session" data-id="${id}" title="删除">🗑</button>`;
+    sidebar.prepend(div);
+    bindSessionItem(div);
+}
+
+document.getElementById('sendBtn').addEventListener('click', sendMessage);
+document.getElementById('question').addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.key === 'Enter') {
+        e.preventDefault();
+        sendMessage();
+    }
+});
+
+// ============================================================
+//  新建对话
+// ============================================================
+document.getElementById('newChatBtn').addEventListener('click', function() {
+    // 跳转到带 new=1 参数的页面，强制新建
+    window.location.href = '{{ url_for("ai_chat") }}?new=1';
+});
+
+// ============================================================
+//  会话列表点击切换
+// ============================================================
+function bindSessionItem(el) {
+    el.addEventListener('click', function(e) {
+        if (e.target.closest('.delete-session')) return;
+        const id = this.dataset.id;
+        window.location.href = '{{ url_for("ai_chat") }}?session_id=' + id;
+    });
+}
+document.querySelectorAll('.session-item').forEach(bindSessionItem);
+
+// ============================================================
+//  删除会话
+// ============================================================
+document.querySelectorAll('.delete-session').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (!confirm('确认删除此对话？')) return;
+        const sessionId = this.dataset.id;
+        const csrfToken = document.querySelector('input[name="csrf_token"]')?.value || '';
+        fetch(`/chat/session/delete/${sessionId}`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken }
+        }).then(() => {
+            // 如果删的是当前会话，跳到新建
+            if (String(currentSessionId) === String(sessionId)) {
+                window.location.href = '{{ url_for("ai_chat") }}?new=1';
+            } else {
+                location.reload();
+            }
+        });
+    });
+});
+
+// ============================================================
+//  知识库选择
+// ============================================================
+document.querySelectorAll('.kb-checkbox').forEach(cb => {
+    cb.addEventListener('change', function() {
+        if (this.checked) {
+            selectedKbs.push(this.value);
+        } else {
+            selectedKbs = selectedKbs.filter(v => v !== this.value);
+        }
+    });
+});
+
+// ============================================================
+//  文件附件
+// ============================================================
+document.getElementById('uploadBtn').addEventListener('click', function() {
+    document.getElementById('fileInput').click();
+});
+document.getElementById('fileInput').addEventListener('change', function() {
+    if (this.files.length > 0) {
+        attachedFile = this.files[0];
+        document.getElementById('fileName').textContent = attachedFile.name;
+        document.getElementById('filePreview').style.display = 'block';
+    }
+});
+document.getElementById('removeFile').addEventListener('click', clearAttachment);
+function clearAttachment() {
+    attachedFile = null;
+    document.getElementById('fileInput').value = '';
+    document.getElementById('filePreview').style.display = 'none';
+}
+</script>
+{% endblock %}

@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2>会议纪要</h2>
+        <div class="card">
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">选择AI模型</label>
+                    <select id="modelSelect" class="form-select">
+                        {% for model in models %}
+                        <option value="{{ model.id }}">{{ model.name }} ({{ model.provider }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">关联知识库</label>
+                    <div>
+                        <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">📚 选择知识库</button>
+                        <div class="dropdown-menu p-3" style="width: 300px;">
+                            <h6>个人知识库</h6>
+                            {% if personal_kb %}
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input kb-checkbox" value="{{ personal_kb.id }}" id="kb_personal">
+                                <label class="form-check-label" for="kb_personal">{{ personal_kb.name }}</label>
+                            </div>
+                            {% else %}
+                            <p class="text-muted">无个人知识库</p>
+                            {% endif %}
+                            <h6 class="mt-2">共享知识库</h6>
+                            {% if shared_kbs %}
+                                {% for kb in shared_kbs %}
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input kb-checkbox" value="{{ kb.id }}" id="kb_{{ kb.id }}">
+                                    <label class="form-check-label" for="kb_{{ kb.id }}">{{ kb.name }}</label>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                            <p class="text-muted">无共享知识库</p>
+                            {% endif %}
+                            <h6 class="mt-2">政策文件库</h6>
+                            {% if policy_kbs %}
+                                {% for kb in policy_kbs %}
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input kb-checkbox" value="{{ kb.id }}" id="policy_kb_{{ kb.id }}">
+                                    <label class="form-check-label" for="policy_kb_{{ kb.id }}">{{ kb.name }}</label>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                            <p class="text-muted">无政策文件库</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">会议模板</label>
+                    <select id="template" class="form-select">
+                        <option value="通用">通用模板</option>
+                        <option value="专题">专题模板</option>
+                        <option value="项目">项目会议模板</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">上传录音文件</label>
+                    <input type="file" id="audioFile" class="form-control" accept=".mp3,.wav,.m4a">
+                    <small class="text-muted">支持mp3、wav等常见音频格式</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">或直接输入录音转写文本</label>
+                    <textarea id="content" class="form-control md-editor" rows="8" data-height="320" placeholder="可以直接输入录音转写的文本，支持 Markdown 格式..."></textarea>
+                </div>
+                <button class="btn btn-primary" id="generateBtn">生成会议纪要</button>
+                <div id="resultArea" class="mt-4" style="display:none;">
+                    <div class="card">
+                        <div class="card-header">会议纪要</div>
+                        <div class="card-body">
+                            <div id="resultContent" class="markdown-body"></div>
+                            <button class="btn btn-secondary mt-2 copy-btn">复制全文</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<link rel="stylesheet" href="/static/css/github-markdown.min.css">
+<script src="/static/js/marked.min.js"></script>
+<script>
+let selectedKbs = [];
+
+document.querySelectorAll('.kb-checkbox').forEach(cb => {
+    cb.addEventListener('change', function() {
+        const val = this.value;
+        if (this.checked) {
+            selectedKbs.push(val);
+        } else {
+            selectedKbs = selectedKbs.filter(v => v !== val);
+        }
+    });
+});
+
+document.getElementById('generateBtn').addEventListener('click', function() {
+    const modelId = document.getElementById('modelSelect').value;
+    const template = document.getElementById('template').value;
+    const audioFile = document.getElementById('audioFile').files[0];
+    const content = document.getElementById('content').value;
+
+    const formData = new FormData();
+    formData.append('model_id', modelId);
+    formData.append('template', template);
+    selectedKbs.forEach(kb => formData.append('knowledge_bases', kb));
+
+    if (audioFile) {
+        formData.append('audio', audioFile);
+    } else if (content.trim()) {
+        formData.append('content', content);
+    } else {
+        alert('请上传录音文件或输入录音转写文本');
+        return;
+    }
+
+    const resultArea = document.getElementById('resultArea');
+    const resultContent = document.getElementById('resultContent');
+    resultArea.style.display = 'block';
+    resultContent.innerHTML = '<div class="spinner-border"></div> 生成中...';
+    
+    fetch('{{ url_for("meeting_minutes") }}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.error) {
+            resultContent.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+        } else {
+            resultContent.innerHTML = marked.parse(data.result);
+        }
+    })
+    .catch(err => {
+        resultContent.innerHTML = `<div class="alert alert-danger">请求失败：${err.message}</div>`;
+    });
+});
+
+document.querySelector('.copy-btn')?.addEventListener('click', function() {
+    const text = document.getElementById('resultContent').innerText;
+    navigator.clipboard.writeText(text);
+    alert('复制成功');
+});
+</script>
+{% endblock %}

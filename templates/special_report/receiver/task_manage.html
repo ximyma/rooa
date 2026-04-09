@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="mb-0"><i class="fas fa-tasks me-2 text-primary"></i>专项约稿管理</h4>
+            <a href="{{ url_for('create_task') }}" class="btn btn-primary btn-sm">
+                <i class="fas fa-plus me-1"></i>新建约稿
+            </a>
+        </div>
+
+        {% if not tasks %}
+        <div class="card">
+            <div class="card-body text-center py-5 text-muted">
+                <i class="fas fa-tasks fa-3x mb-3 d-block" style="opacity:.3"></i>
+                <h6>暂无约稿任务</h6>
+                <a href="{{ url_for('create_task') }}" class="btn btn-primary mt-2">立即创建</a>
+            </div>
+        </div>
+        {% else %}
+        <div class="card">
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>标题</th>
+                            <th>类别</th>
+                            <th>截止时间</th>
+                            <th>状态</th>
+                            <th>报送进度</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in tasks %}
+                        {% set task = item.task %}
+                        <tr class="{{ 'table-warning' if task.urgency == 'urgent' and task.status == 'active' }}">
+                            <td>
+                                <a href="{{ url_for('task_detail', task_id=task.id) }}" class="fw-semibold text-decoration-none">
+                                    {{ task.title }}
+                                </a>
+                                {% if task.urgency == 'urgent' %}
+                                <span class="badge bg-danger ms-1" style="font-size:10px;">加急</span>
+                                {% endif %}
+                            </td>
+                            <td><small class="text-muted">{{ task.category }}</small></td>
+                            <td>
+                                {% if task.end_time %}
+                                <small class="{{ 'text-danger fw-bold' if task.end_time < now and task.status == 'active' else 'text-muted' }}">
+                                    {{ task.end_time.strftime('%m-%d %H:%M') }}
+                                </small>
+                                {% else %}
+                                <small class="text-muted">无截止</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if task.status == 'active' %}
+                                <span class="badge bg-primary">进行中</span>
+                                {% else %}
+                                <span class="badge bg-secondary">已关闭</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div style="min-width:120px;">
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <small class="text-muted">
+                                            已报送 {{ item.submitted_count }}/{{ item.assigned_count }}人
+                                        </small>
+                                        <small class="text-muted">
+                                            签收 {{ item.signed_count }}
+                                        </small>
+                                    </div>
+                                    {% if item.assigned_count > 0 %}
+                                    <div class="progress" style="height:6px;">
+                                        <div class="progress-bar bg-success"
+                                             style="width:{{ (item.submitted_count / item.assigned_count * 100)|int }}%">
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>
+                                <div class="d-flex gap-1">
+                                    <a href="{{ url_for('task_detail', task_id=task.id) }}" class="btn btn-xs btn-outline-info" style="padding:2px 8px;font-size:12px;">查看</a>
+                                    {% if task.status == 'active' %}
+                                    <a href="{{ url_for('close_task', task_id=task.id) }}" class="btn btn-xs btn-outline-warning" style="padding:2px 8px;font-size:12px;" onclick="return confirm('确认关闭任务？')">关闭</a>
+                                    {% endif %}
+                                    {% if task.status == 'closed' and item.submitted_count == 0 %}
+                                    <a href="{{ url_for('delete_task', task_id=task.id) }}" class="btn btn-xs btn-outline-danger" style="padding:2px 8px;font-size:12px;" onclick="return confirm('确认删除？')">删除</a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <div class="card">
+            <div class="card-header">
+                <h4><i class="fas fa-undo me-2"></i>退回信息</h4>
+            </div>
+            <div class="card-body">
+                <div class="mb-4 p-3 bg-light rounded">
+                    <h5>{{ report.title }}</h5>
+                    <p class="mb-1"><strong>报送人：</strong>{{ report.reporter_name }}</p>
+                    <p class="mb-1"><strong>报送单位：</strong>{{ report.target_department }}</p>
+                    <p class="mb-0"><strong>报送时间：</strong>{{ report.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                </div>
+                <form method="POST" action="{{ url_for('return_report', report_id=report.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="next" value="{{ next_url or url_for('info_pool') }}">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">退回意见 <span class="text-danger">*</span></label>
+                        <textarea name="feedback" class="form-control md-editor" rows="5" data-height="220" required
+                                  placeholder="请填写退回原因或修改意见...">{{ report.feedback or '' }}</textarea>
+                        <small class="text-muted">请详细说明退回原因，以便报送人修改完善。</small>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-undo me-2"></i>确认退回
+                        </button>
+                        <a href="{{ next_url or url_for('info_pool') }}" class="btn btn-secondary">
+                            <i class="fas fa-times me-2"></i>取消
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}会议管理{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div>
+      <h3 class="mb-1"><i class="fas fa-calendar-check me-2 text-primary"></i>会议管理</h3>
+      <div class="text-muted">支持会议发起、会议日历、会议室排期、签到反馈和纪要留存</div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <a href="{{ url_for('meeting_new') }}" class="btn btn-primary"><i class="fas fa-plus me-1"></i>发起会议</a>
+      <a href="{{ url_for('meeting_calendar') }}" class="btn btn-outline-info"><i class="fas fa-calendar-alt me-1"></i>会议日历</a>
+      <a href="{{ url_for('meeting_rooms') }}" class="btn btn-outline-secondary"><i class="fas fa-door-open me-1"></i>会议室管理</a>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-md-3 col-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">今日会议</div><div class="fs-3 fw-bold">{{ stats.today }}</div></div></div></div>
+    <div class="col-md-3 col-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">待确认/待召开</div><div class="fs-3 fw-bold text-warning">{{ stats.upcoming }}</div></div></div></div>
+    <div class="col-md-3 col-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">进行中</div><div class="fs-3 fw-bold text-info">{{ stats.in_progress }}</div></div></div></div>
+    <div class="col-md-3 col-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">已结束</div><div class="fs-3 fw-bold text-success">{{ stats.completed }}</div></div></div></div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-xl-3 col-md-6"><div class="card border-0 bg-light h-100"><div class="card-body"><div class="text-muted small">已签到</div><div class="fs-4 fw-bold text-success">{{ attendance_overview.signed }}</div></div></div></div>
+    <div class="col-xl-3 col-md-6"><div class="card border-0 bg-light h-100"><div class="card-body"><div class="text-muted small">请假</div><div class="fs-4 fw-bold text-warning">{{ attendance_overview.leave }}</div></div></div></div>
+    <div class="col-xl-3 col-md-6"><div class="card border-0 bg-light h-100"><div class="card-body"><div class="text-muted small">缺席</div><div class="fs-4 fw-bold text-danger">{{ attendance_overview.absent }}</div></div></div></div>
+    <div class="col-xl-3 col-md-6"><div class="card border-0 bg-light h-100"><div class="card-body"><div class="text-muted small">待反馈</div><div class="fs-4 fw-bold text-secondary">{{ attendance_overview.pending }}</div></div></div></div>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <div class="d-flex flex-wrap gap-2">
+        <a href="{{ url_for('meeting_index', quick='today', status=status_filter, scope=scope, keyword=keyword) }}" class="btn btn-sm {{ 'btn-primary' if quick_filter == 'today' else 'btn-outline-primary' }}">今日日程</a>
+        <a href="{{ url_for('meeting_index', quick='upcoming', status=status_filter, scope=scope, keyword=keyword) }}" class="btn btn-sm {{ 'btn-primary' if quick_filter == 'upcoming' else 'btn-outline-primary' }}">待召开</a>
+        <a href="{{ url_for('meeting_index', quick='need_signin', status=status_filter, scope=scope, keyword=keyword) }}" class="btn btn-sm {{ 'btn-primary' if quick_filter == 'need_signin' else 'btn-outline-primary' }}">需签到会议</a>
+        <a href="{{ url_for('meeting_index', quick='pending_feedback', status=status_filter, scope=scope, keyword=keyword) }}" class="btn btn-sm {{ 'btn-primary' if quick_filter == 'pending_feedback' else 'btn-outline-primary' }}">待反馈会议</a>
+        {% if quick_filter %}
+        <a href="{{ url_for('meeting_index', status=status_filter, scope=scope, keyword=keyword) }}" class="btn btn-sm btn-outline-secondary">清除快捷筛选</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+
+    <div class="card-body">
+      <form class="row g-3">
+        <div class="col-lg-4"><input type="text" name="keyword" value="{{ keyword }}" class="form-control" placeholder="搜索会议主题或议程"></div>
+        <div class="col-lg-2">
+          <select name="status" class="form-select">
+            <option value="">全部状态</option>
+            {% for val, label in [('draft','草稿'),('pending','待确认'),('confirmed','已确认'),('in_progress','进行中'),('completed','已结束'),('cancelled','已取消')] %}
+            <option value="{{ val }}" {{ 'selected' if status_filter == val else '' }}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-lg-2">
+          <select name="scope" class="form-select">
+            <option value="all" {{ 'selected' if scope == 'all' else '' }}>全部会议</option>
+            <option value="mine" {{ 'selected' if scope == 'mine' else '' }}>我发起/主持</option>
+            <option value="participated" {{ 'selected' if scope == 'participated' else '' }}>我参会</option>
+          </select>
+        </div>
+        <div class="col-lg-2 d-grid"><button class="btn btn-primary">筛选</button></div>
+        <div class="col-lg-2 d-grid"><a href="{{ url_for('meeting_index') }}" class="btn btn-outline-secondary">重置</a></div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <span class="fw-semibold">会议台账</span>
+      <span class="text-muted small">当前共 {{ meetings|length }} 条记录</span>
+    </div>
+    <div class="card-body p-0">
+      {% if meetings %}
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>会议主题</th>
+              <th style="width:100px">类型</th>
+              <th style="width:170px">时间</th>
+              <th style="width:120px">会议室</th>
+              <th style="width:110px">主持人</th>
+              <th style="width:220px">签到概况</th>
+              <th style="width:100px">状态</th>
+              <th style="width:180px">操作</th>
+
+            </tr>
+          </thead>
+          <tbody>
+            {% for meeting in meetings %}
+            {% set attendance = meeting_attendance_map.get(meeting.id, {}) %}
+            <tr>
+              <td>
+                <a href="{{ url_for('meeting_detail', meeting_id=meeting.id) }}" class="fw-semibold text-decoration-none">{{ meeting.subject }}</a>
+                <div class="small text-muted mt-1">
+                  {{ meeting.level }} · {{ meeting.priority }}
+                  {% if meeting.require_signin %}
+                  <span class="badge bg-success-subtle text-success border border-success-subtle ms-1">需签到</span>
+                  {% else %}
+                  <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle ms-1">免签到</span>
+                  {% endif %}
+                </div>
+              </td>
+              <td>{{ meeting.meeting_type }}</td>
+              <td>
+                <div class="small">{{ meeting.start_time.strftime('%Y-%m-%d %H:%M') if meeting.start_time else '-' }}</div>
+                <div class="small text-muted">至 {{ meeting.end_time.strftime('%H:%M') if meeting.end_time else '-' }}</div>
+              </td>
+              <td>{{ meeting.room.name if meeting.room else '待定' }}</td>
+              <td>{{ meeting.host.name if meeting.host else '-' }}</td>
+              <td>
+                <div class="small mb-1">应到 {{ attendance.total or 0 }} 人，反馈 {{ attendance.feedback_count or 0 }} 条</div>
+                <div class="d-flex flex-wrap gap-1 small">
+                  <span class="badge bg-success">签 {{ attendance.signed or 0 }}</span>
+                  <span class="badge bg-warning text-dark">假 {{ attendance.leave or 0 }}</span>
+                  <span class="badge bg-danger">缺 {{ attendance.absent or 0 }}</span>
+                  <span class="badge bg-secondary">待 {{ attendance.pending or 0 }}</span>
+                </div>
+              </td>
+              <td>
+                <span class="badge bg-{{ 'secondary' if meeting.status == 'draft' else 'warning' if meeting.status == 'pending' else 'info' if meeting.status == 'confirmed' else 'primary' if meeting.status == 'in_progress' else 'success' if meeting.status == 'completed' else 'dark' }}">{{ {'draft':'草稿','pending':'待确认','confirmed':'已确认','in_progress':'进行中','completed':'已结束','cancelled':'已取消'}.get(meeting.status, meeting.status) }}</span>
+              </td>
+              <td>
+                <div class="d-grid gap-1">
+                  <a href="{{ url_for('meeting_detail', meeting_id=meeting.id) }}" class="btn btn-sm btn-outline-primary">查看</a>
+                  {% if meeting.id in meeting_manage_ids and meeting.status in ('draft', 'pending', 'confirmed') %}
+                  <a href="{{ url_for('meeting_edit', meeting_id=meeting.id) }}" class="btn btn-sm btn-outline-secondary">编辑</a>
+                  {% endif %}
+                  {% if meeting.id in meeting_manage_ids and meeting.status not in ('completed', 'cancelled') %}
+                  <form method="post" action="{{ url_for('meeting_update_status', meeting_id=meeting.id) }}" onsubmit="return confirm('确认取消该会议吗？');">
+                    <button class="btn btn-sm btn-outline-danger w-100" name="action" value="cancel">取消</button>
+                  </form>
+                  {% endif %}
+                </div>
+              </td>
+
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="text-center text-muted py-5">
+        <i class="fas fa-calendar-times fa-3x mb-3 opacity-25"></i>
+        <p>暂无会议记录</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+

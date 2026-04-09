@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>企业智能OA系统</title>
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/fontawesome.all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="/static/css/md-editor.css">
+    <!-- 引入 marked.js 用于渲染 Markdown -->
+    <script src="/static/js/marked.min.js"></script>
+</head>
+<body>
+    {% if current_user.is_authenticated %}
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('index') }}">企业智能OA系统</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('index') }}">首页</a></li>
+                    
+                    <!-- 智能办公下拉菜单 -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">智能办公</a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{{ url_for('document_writing') }}">公文写作</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('document_polish') }}">稿件润色</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('document_proofread') }}">稿件校对</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('suggestion') }}">拟办意见</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('template_library_v2') }}">公文模板库</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('meeting_minutes') }}">会议纪要</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('pdf_convert') }}">文档转换</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- 知识管理下拉菜单 -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">知识管理</a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{{ url_for('personal_knowledge_base') }}">个人知识库</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('shared_knowledge_base') }}">共享知识库</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('policy_library') }}">政策文件库</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('knowledge_search') }}">知识库搜索</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('policy_search') }}">政策文件搜索</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- 智能问答下拉菜单 -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">智能问答</a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{{ url_for('ai_chat') }}">AI对话</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- 电子公文下拉菜单 -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">电子公文</a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{{ url_for('doc_dashboard') }}">
+                                <i class="fas fa-briefcase me-1"></i>公文工作台</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('doc_inbox') }}">
+                                <i class="fas fa-inbox me-1"></i>公文收件箱</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('doc_outbox') }}">
+                                <i class="fas fa-paper-plane me-1"></i>公文发件箱</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('doc_compose') }}">
+                                <i class="fas fa-pen-alt me-1"></i>起草公文</a></li>
+                            {% if current_user.role in ('admin', 'manager') %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('doc_pending') }}">
+                                <i class="fas fa-clock me-1"></i>待审批公文</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('doc_archive_list') }}">
+                                <i class="fas fa-archive me-1"></i>公文归档库</a></li>
+                            {% endif %}
+                        </ul>
+                    </li>
+
+
+                    <!-- 会议管理 -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">会议管理</a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{{ url_for('meeting_index') }}"><i class="fas fa-calendar-check me-1"></i>会议首页</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('meeting_new') }}"><i class="fas fa-plus me-1"></i>发起会议</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('meeting_calendar') }}"><i class="fas fa-calendar-alt me-1"></i>会议日历</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('meeting_rooms') }}"><i class="fas fa-door-open me-1"></i>会议室管理</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- 督查督办 -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">督查督办</a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{{ url_for('supervision_index') }}"><i class="fas fa-tasks me-1"></i>任务督办</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('supervision_new') }}"><i class="fas fa-plus me-1"></i>新建任务</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- 绩效考核 -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">绩效考核</a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{{ url_for('performance_index') }}"><i class="fas fa-chart-line me-1"></i>绩效台账</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('performance_periods') }}"><i class="fas fa-calendar me-1"></i>考核周期</a></li>
+                            {% if current_user.role in ('admin', 'manager') %}
+                            <li><a class="dropdown-item" href="{{ url_for('performance_new') }}"><i class="fas fa-plus me-1"></i>新增绩效记录</a></li>
+                            {% endif %}
+                        </ul>
+                    </li>
+
+                    <!-- 工作日志 -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">工作日志</a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{{ url_for('worklog_index') }}"><i class="fas fa-book me-1"></i>日志列表</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('worklog_new') }}"><i class="fas fa-plus me-1"></i>新建日志</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- 简报生成系统下拉菜单 -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">简报生成</a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{{ url_for('briefing_index') }}">简报首页</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('briefing_sources') }}">数据源管理</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('briefing_keywords') }}">关键词管理</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('briefing_history') }}">历史记录</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('briefing_settings') }}">系统设置</a></li>
+                        </ul>
+                    </li>
+
+
+                    <!-- 网站采集下拉菜单 -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">🕷️ 网站采集</a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{{ url_for('crawler_index') }}">
+                                <i class="fas fa-spider me-1"></i>网站爬虫</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('crawler_search') }}">
+                                <i class="fas fa-search me-1"></i>内容检索</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('crawler_advanced_search') }}">
+                                <i class="fas fa-stream me-1"></i>高级检索</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('monitor_index') }}">
+                                <i class="fas fa-broadcast-tower me-1"></i>栏目监测</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('monitor_library_new') }}">
+                                <i class="fas fa-folder-plus me-1"></i>新建网址库</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- 档案管理下拉菜单 -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">📁 档案管理</a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{{ url_for('archive.index') }}">
+                                <i class="fas fa-home me-1"></i>档案首页</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><h6 class="dropdown-header">📂 档案浏览</h6></li>
+                            <li><a class="dropdown-item" href="{{ url_for('archive.fonds_list') }}">
+                                <i class="fas fa-landmark me-1"></i>全宗管理</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('archive.file_list') }}">
+                                <i class="fas fa-file-alt me-1"></i>档案列表</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('archive.search') }}">
+                                <i class="fas fa-search me-1"></i>智能检索</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><h6 class="dropdown-header">📤 上传入库</h6></li>
+                            <li><a class="dropdown-item" href="{{ url_for('archive.batch_upload') }}">
+                                <i class="fas fa-cloud-upload-alt me-1"></i>批量上传</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('archive.file_upload') }}">
+                                <i class="fas fa-upload me-1"></i>单文件上传</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('archive.excel_import') }}">
+                                <i class="fas fa-file-excel me-1"></i>Excel元数据导入</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><h6 class="dropdown-header">📊 数字化管理</h6></li>
+                            <li><a class="dropdown-item" href="{{ url_for('archive.statistics') }}">
+                                <i class="fas fa-chart-bar me-1"></i>统计报表</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('archive.task_list') }}">
+                                <i class="fas fa-tasks me-1"></i>批量任务</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('archive.quality_dashboard') }}">
+                                <i class="fas fa-clipboard-check me-1"></i>数字化质检</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><h6 class="dropdown-header">📋 借阅管理</h6></li>
+                            <li><a class="dropdown-item" href="{{ url_for('archive.my_borrows') }}">
+                                <i class="fas fa-hand-holding me-1"></i>我的借阅</a></li>
+                            {% if current_user.role in ('admin', 'manager') %}
+                            <li><a class="dropdown-item" href="{{ url_for('archive.borrow_manage') }}">
+                                <i class="fas fa-undo me-1"></i>借阅审批</a></li>
+                            {% endif %}
+                        </ul>
+                    </li>
+
+                    <!-- 专项信息上报下拉菜单 -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">信息上报</a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{{ url_for('report_list') }}">我的上报</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('task_todo') }}">约稿任务(待办)</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('task_done') }}">约稿任务(已办)</a></li>
+                            {% if current_user.is_receiver %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('info_pool') }}">专项信息池</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('task_manage') }}">约稿管理</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('statistics') }}">报送统计</a></li>
+                            {% endif %}
+                        </ul>
+                    </li>
+
+                    <!-- 系统管理菜单（管理员/经理可见） -->
+                    {% if current_user.role in ('admin', 'manager') %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">系统管理</a>
+                        <ul class="dropdown-menu">
+                            {% if current_user.role == 'admin' %}
+                            <li><h6 class="dropdown-header"><i class="fas fa-sitemap me-1"></i>组织架构</h6></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin_org_tree') }}">
+                                <i class="fas fa-sitemap me-1"></i>架构总览</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin_org_list') }}">
+                                <i class="fas fa-building me-1"></i>机构管理</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin_dept_list') }}">
+                                <i class="fas fa-layer-group me-1"></i>部门管理</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin_position_list') }}">
+                                <i class="fas fa-id-badge me-1"></i>岗位管理</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><h6 class="dropdown-header"><i class="fas fa-users-cog me-1"></i>用户与权限</h6></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin_users') }}">用户管理</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin_roles') }}">角色权限</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin_operation_logs') }}">操作日志</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('ai_config_list') }}">AI模型配置</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('system_config') }}">⚙️ 系统配置</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            {% endif %}
+                            <li><a class="dropdown-item" href="{{ url_for('admin_doc_templates') }}">模板管理</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin_stats') }}">报表统计</a></li>
+                        </ul>
+                    </li>
+                    {% endif %}
+                </ul>
+
+                <!-- 通知铃铛 -->
+                <div class="dropdown me-2" id="notifDropdown">
+                    <button class="btn btn-dark position-relative" type="button" data-bs-toggle="dropdown" 
+                            aria-label="消息通知" style="padding:0.375rem 0.65rem;border:1px solid rgba(255,255,255,0.2);"
+                            id="notifBellBtn">
+                        <i class="fas fa-bell"></i>
+                        <span id="notif-navbar-badge"
+                              style="display:none;position:absolute;top:2px;right:2px;background:#e53e3e;color:white;
+                                     font-size:0.65rem;font-weight:700;padding:0.1rem 0.35rem;border-radius:10px;
+                                     line-height:1.3;min-width:16px;text-align:center;pointer-events:none;">0</span>
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end" id="notifDropdownMenu"
+                         style="min-width:340px;max-width:380px;padding:0;border-radius:12px;overflow:hidden;
+                                box-shadow:0 8px 30px rgba(0,0,0,0.15);border:1px solid #edf2f7;">
+                        <!-- 下拉头部 -->
+                        <div style="padding:0.85rem 1rem;background:linear-gradient(135deg,#667eea,#764ba2);color:white;
+                                    display:flex;align-items:center;justify-content:space-between;">
+                            <span style="font-weight:600;font-size:0.9rem;"><i class="fas fa-bell me-1"></i>消息通知</span>
+                            <a href="{{ url_for('archive.notifications') }}"
+                               style="color:rgba(255,255,255,0.8);font-size:0.78rem;text-decoration:none;"
+                               onclick="event.stopPropagation()">查看全部</a>
+                        </div>
+                        <!-- 通知列表 -->
+                        <div id="notifDropList" style="max-height:320px;overflow-y:auto;">
+                            <div style="text-align:center;padding:2rem;color:#a0aec0;">
+                                <i class="fas fa-spinner fa-spin"></i> 加载中...
+                            </div>
+                        </div>
+                        <!-- 底部 -->
+                        <div style="padding:0.6rem 1rem;border-top:1px solid #edf2f7;text-align:center;background:#f8f9ff;">
+                            <a href="{{ url_for('archive.notifications') }}" 
+                               style="font-size:0.82rem;color:#667eea;text-decoration:none;font-weight:500;">
+                                前往通知中心 <i class="fas fa-arrow-right" style="font-size:0.72rem;"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 右侧用户菜单 -->
+                <div class="dropdown">
+                    <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        {{ current_user.name }}
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="{{ url_for('personal_center') }}">个人中心</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('column_settings') }}">栏目设置</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{{ url_for('logout') }}">退出登录</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+    {% endif %}
+
+    <div class="container mt-4">
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="alert alert-info alert-dismissible fade show" role="alert">
+                    {% for message in messages %}
+                        {{ message }}<br>
+                    {% endfor %}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endif %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- 全局 CSRF Token -->
+    {% if current_user and current_user.is_authenticated %}
+    <input type="hidden" id="global_csrf_token" value="{{ csrf_token() }}">
+    <script>
+    window.getCsrfToken = function() {
+        return document.getElementById('global_csrf_token')?.value || '';
+    };
+
+    window.ensureFormCsrfToken = function(form) {
+        if (!form) return;
+        var method = (form.getAttribute('method') || form.method || 'GET').toUpperCase();
+        if (['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(method)) return;
+        var token = window.getCsrfToken();
+        if (!token) return;
+        var input = form.querySelector('input[name="csrf_token"]');
+        if (!input) {
+            input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'csrf_token';
+            form.appendChild(input);
+        }
+        if (!input.value) {
+            input.value = token;
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('form').forEach(function(form) {
+            window.ensureFormCsrfToken(form);
+        });
+    });
+
+    document.addEventListener('submit', function(event) {
+        if (event.target && event.target.tagName === 'FORM') {
+            window.ensureFormCsrfToken(event.target);
+        }
+    }, true);
+
+    (function() {
+        if (!window.fetch || window.__csrfFetchWrapped) return;
+        window.__csrfFetchWrapped = true;
+        var originalFetch = window.fetch.bind(window);
+        window.fetch = function(input, init) {
+            var requestInit = init ? Object.assign({}, init) : {};
+            var method = (requestInit.method || (input && input.method) || 'GET').toUpperCase();
+            if (!['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(method)) {
+                try {
+                    var requestUrl = typeof input === 'string' ? input : (input && input.url);
+                    var resolvedUrl = new URL(requestUrl, window.location.origin);
+                    if (resolvedUrl.origin === window.location.origin) {
+                        var headers = new Headers(requestInit.headers || (input instanceof Request ? input.headers : undefined) || {});
+                        if (!headers.has('X-CSRFToken')) {
+                            var token = window.getCsrfToken();
+                            if (token) {
+                                headers.set('X-CSRFToken', token);
+                            }
+                        }
+                        requestInit.headers = headers;
+                    }
+                } catch (error) {
+                    console.warn('CSRF header 注入失败', error);
+                }
+            }
+            if (input instanceof Request) {
+                return originalFetch(new Request(input, requestInit));
+            }
+            return originalFetch(input, requestInit);
+        };
+    })();
+    </script>
+    {% endif %}
+
+    <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="/static/js/md-editor.js"></script>
+    {% block extra_js %}{% endblock %}
+    <script>
+    // 全局自动初始化所有带 .md-editor class 的 textarea
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('textarea.md-editor').forEach(function(ta) {
+            var h = parseInt(ta.dataset.height) || 320;
+            new MdEditor(ta, { height: h });
+        });
+    });
+    </script>
+
+    {% if current_user.is_authenticated %}
+    <script>
+    /* ===== 通知铃铛：轮询未读数 + 下拉预览 ===== */
+    (function() {
+        var badge = document.getElementById('notif-navbar-badge');
+        var dropList = document.getElementById('notifDropList');
+        var POLL_INTERVAL = 60000; // 每60秒轮询一次
+        var _loaded = false;
+
+        // 更新未读徽章
+        function pollUnread() {
+            fetch('/archive/api/notifications/unread_count', {cache: 'no-store'})
+                .then(function(r) { return r.ok ? r.json() : null; })
+                .then(function(data) {
+                    if (!data) return;
+                    var cnt = data.count || 0;
+                    if (badge) {
+                        badge.textContent = cnt > 99 ? '99+' : cnt;
+                        badge.style.display = cnt > 0 ? 'inline-flex' : 'none';
+                    }
+                }).catch(function(){});
+        }
+
+        // 加载最近5条通知
+        function loadRecentNotifs() {
+            if (!dropList) return;
+            fetch('/archive/api/notifications/recent', {cache: 'no-store'})
+                .then(function(r) { return r.ok ? r.json() : null; })
+                .then(function(data) {
+                    if (!data || !data.notifications) {
+                        dropList.innerHTML = '<div style="text-align:center;padding:1.5rem;color:#a0aec0;font-size:0.875rem;"><i class="fas fa-bell-slash me-1"></i>暂无通知</div>';
+                        return;
+                    }
+                    var items = data.notifications;
+                    if (items.length === 0) {
+                        dropList.innerHTML = '<div style="text-align:center;padding:1.5rem;color:#a0aec0;font-size:0.875rem;"><i class="fas fa-bell-slash me-1"></i>暂无通知</div>';
+                        return;
+                    }
+                    var iconMap = {success:'fas fa-check-circle', warning:'fas fa-exclamation-triangle', danger:'fas fa-times-circle', info:'fas fa-info-circle'};
+                    var colorMap = {success:'#38a169', warning:'#dd6b20', danger:'#e53e3e', info:'#3182ce'};
+                    var html = '';
+                    items.forEach(function(n) {
+                        var type = n.notif_type || 'info';
+                        var icon = iconMap[type] || iconMap.info;
+                        var color = colorMap[type] || colorMap.info;
+                        var unreadDot = n.is_read ? '' : '<span style="display:inline-block;width:7px;height:7px;background:#667eea;border-radius:50%;margin-left:4px;flex-shrink:0;margin-top:3px;"></span>';
+                        var bg = n.is_read ? 'white' : '#f8f9ff';
+                        html += '<div onclick="notifItemClick(' + n.id + ',\'' + (n.link || '') + '\')" '
+                              + 'style="padding:0.75rem 1rem;border-bottom:1px solid #edf2f7;cursor:pointer;background:' + bg + ';transition:background 0.15s;" '
+                              + 'onmouseover="this.style.background=\'#f7fafc\'" onmouseout="this.style.background=\'' + bg + '\'">'
+                              + '<div style="display:flex;align-items:flex-start;gap:0.6rem;">'
+                              + '<i class="' + icon + '" style="color:' + color + ';margin-top:2px;font-size:0.9rem;flex-shrink:0;"></i>'
+                              + '<div style="flex:1;min-width:0;">'
+                              + '<div style="display:flex;align-items:center;gap:0.25rem;flex-wrap:wrap;">'
+                              + '<span style="font-weight:600;font-size:0.875rem;color:#2d3748;">' + (n.title || '') + '</span>'
+                              + unreadDot
+                              + '</div>'
+                              + '<div style="font-size:0.8rem;color:#718096;margin-top:0.15rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (n.content || '') + '</div>'
+                              + '<div style="font-size:0.75rem;color:#a0aec0;margin-top:0.2rem;">' + (n.created_at || '') + '</div>'
+                              + '</div></div></div>';
+                    });
+                    dropList.innerHTML = html;
+                }).catch(function() {
+                    dropList.innerHTML = '<div style="text-align:center;padding:1rem;color:#a0aec0;font-size:0.82rem;">加载失败</div>';
+                });
+        }
+
+        // 点击通知项
+        window.notifItemClick = function(id, link) {
+            fetch('/archive/api/notifications/read', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id: id})
+            }).then(function() {
+                if (link) window.location.href = link;
+                else window.location.href = '/archive/notifications';
+            }).catch(function() {
+                if (link) window.location.href = link;
+            });
+        };
+
+        // 下拉打开时加载
+        var bellBtn = document.getElementById('notifBellBtn');
+        if (bellBtn) {
+            bellBtn.addEventListener('show.bs.dropdown', function() {
+                loadRecentNotifs();
+            });
+        }
+
+        // 初始轮询
+        pollUnread();
+        setInterval(pollUnread, POLL_INTERVAL);
+    })();
+    </script>
+    {% endif %}
+</body>
+</html>

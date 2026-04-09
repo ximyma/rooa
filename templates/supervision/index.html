@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% block title %}督查督办{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div>
+      <h3 class="mb-1"><i class="fas fa-tasks me-2 text-warning"></i>督查督办</h3>
+      <div class="text-muted">围绕重点任务形成“下发—办理—反馈—办结”闭环，并自动催办逾期风险</div>
+    </div>
+    <a href="{{ url_for('supervision_new') }}" class="btn btn-primary"><i class="fas fa-plus me-1"></i>新建任务</a>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-xl col-md-4 col-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">已下发</div><div class="fs-3 fw-bold">{{ stats.issued }}</div></div></div></div>
+    <div class="col-xl col-md-4 col-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">办理中</div><div class="fs-3 fw-bold text-primary">{{ stats.processing }}</div></div></div></div>
+    <div class="col-xl col-md-4 col-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">待复核</div><div class="fs-3 fw-bold text-info">{{ stats.review }}</div></div></div></div>
+    <div class="col-xl col-md-6 col-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">临期提醒（24h）</div><div class="fs-3 fw-bold text-warning">{{ stats.due_soon }}</div></div></div></div>
+    <div class="col-xl col-md-6 col-12"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">逾期预警</div><div class="fs-3 fw-bold text-danger">{{ stats.overdue }}</div></div></div></div>
+  </div>
+
+  {% if leader_board %}
+  <div class="row g-4 mb-4">
+    <div class="col-lg-8">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+          <span class="fw-semibold">领导视角：部门督办看板</span>
+          <span class="small text-muted">按风险优先排序</span>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr><th>部门</th><th style="width:90px">总数</th><th style="width:90px">办结</th><th style="width:90px">在办</th><th style="width:90px">逾期</th><th style="width:90px">临期</th><th style="width:120px">平均进度</th></tr>
+              </thead>
+              <tbody>
+                {% for item in leader_board %}
+                <tr>
+                  <td class="fw-semibold">{{ item.department }}</td>
+                  <td>{{ item.total }}</td>
+                  <td class="text-success">{{ item.completed }}</td>
+                  <td class="text-primary">{{ item.processing }}</td>
+                  <td class="text-danger">{{ item.overdue }}</td>
+                  <td class="text-warning">{{ item.due_soon }}</td>
+                  <td>
+                    <div class="progress" style="height:8px"><div class="progress-bar bg-success" style="width:{{ item.avg_progress }}%"></div></div>
+                    <div class="small text-muted mt-1">{{ item.avg_progress }}%</div>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-4">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-white fw-semibold">风险任务速览</div>
+        <div class="card-body">
+          {% if risk_tasks %}
+            {% for task in risk_tasks %}
+            {% set alert = task_alerts.get(task.id) or {'badge_class':'secondary', 'deadline_text':'未设置时限'} %}
+            <div class="border rounded p-3 mb-3 {% if alert.badge_class == 'danger' %}border-danger-subtle{% elif alert.badge_class == 'warning' %}border-warning-subtle{% endif %}">
+              <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+                <a href="{{ url_for('supervision_detail', task_id=task.id) }}" class="fw-semibold text-decoration-none">{{ task.title }}</a>
+                <span class="badge bg-{{ alert.badge_class }}">{{ '已逾期' if alert.is_overdue else '临期' if alert.is_due_soon else '正常' }}</span>
+              </div>
+              <div class="small text-muted">{{ task.owner.name if task.owner else '-' }} · {{ alert.deadline_text }}</div>
+              <div class="small text-muted mt-1">{{ task.task_no }}</div>
+            </div>
+            {% endfor %}
+          {% else %}
+          <div class="text-muted">当前无高风险任务</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <div class="d-flex flex-wrap gap-2 mb-3">
+        <a href="{{ url_for('supervision_index', quick='my_due_soon', keyword=keyword, status=status_filter, scope=scope) }}" class="btn btn-sm {{ 'btn-warning' if quick_filter == 'my_due_soon' else 'btn-outline-warning' }}">我负责的临期</a>
+        <a href="{{ url_for('supervision_index', quick='my_overdue', keyword=keyword, status=status_filter, scope=scope) }}" class="btn btn-sm {{ 'btn-danger' if quick_filter == 'my_overdue' else 'btn-outline-danger' }}">我负责的逾期</a>
+        <a href="{{ url_for('supervision_index', quick='high_priority', keyword=keyword, status=status_filter, scope=scope) }}" class="btn btn-sm {{ 'btn-primary' if quick_filter == 'high_priority' else 'btn-outline-primary' }}">高优先级</a>
+        <a href="{{ url_for('supervision_index', quick='waiting_review', keyword=keyword, status=status_filter, scope=scope) }}" class="btn btn-sm {{ 'btn-info' if quick_filter == 'waiting_review' else 'btn-outline-info' }}">待复核</a>
+        <a href="{{ url_for('supervision_index', quick='drafts', keyword=keyword, status=status_filter, scope=scope) }}" class="btn btn-sm {{ 'btn-secondary' if quick_filter == 'drafts' else 'btn-outline-secondary' }}">草稿箱</a>
+        {% if quick_filter %}
+        <a href="{{ url_for('supervision_index', keyword=keyword, status=status_filter, scope=scope) }}" class="btn btn-sm btn-outline-dark">清除快捷筛选</a>
+        {% endif %}
+      </div>
+      <form class="row g-3">
+
+        <div class="col-lg-4"><input type="text" name="keyword" value="{{ keyword }}" class="form-control" placeholder="搜索任务标题或内容"></div>
+        <div class="col-lg-2">
+          <select name="status" class="form-select">
+            <option value="">全部状态</option>
+            {% for val, label in [('draft','草稿'),('issued','已下发'),('processing','办理中'),('review','待复核'),('completed','已完成'),('cancelled','已取消'),('due_soon','临期提醒'),('overdue','逾期预警')] %}
+            <option value="{{ val }}" {{ 'selected' if status_filter == val else '' }}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-lg-2">
+          <select name="scope" class="form-select">
+            <option value="all" {{ 'selected' if scope == 'all' else '' }}>全部任务</option>
+            <option value="mine" {{ 'selected' if scope == 'mine' else '' }}>我负责的</option>
+            <option value="created" {{ 'selected' if scope == 'created' else '' }}>我下发的</option>
+          </select>
+        </div>
+        <div class="col-lg-2 d-grid"><button class="btn btn-primary">筛选</button></div>
+        <div class="col-lg-2 d-grid"><a href="{{ url_for('supervision_index') }}" class="btn btn-outline-secondary">重置</a></div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <span class="fw-semibold">督办任务台账</span>
+      <span class="small text-muted">支持批量催办、任务编辑和直接关闭</span>
+    </div>
+    <div class="card-body p-0">
+      {% if tasks %}
+      <form method="post" action="{{ url_for('supervision_batch_remind') }}">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 p-3 border-bottom bg-light">
+          <div class="small text-muted">勾选由你下发或你有管理权限的任务后，可批量发送催办提醒。</div>
+          <div class="d-flex gap-2 flex-wrap align-items-center">
+            <input type="text" name="note" class="form-control form-control-sm" style="min-width: 280px;" placeholder="可选：统一催办说明，留空则按任务标题自动生成">
+            <button type="submit" class="btn btn-sm btn-warning"><i class="fas fa-bell me-1"></i>批量催办</button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr><th style="width:52px">催办</th><th>任务标题</th><th style="width:110px">负责人</th><th style="width:90px">优先级</th><th style="width:110px">状态</th><th style="width:180px">时限/提醒</th><th style="width:120px">进度</th><th style="width:150px">操作</th></tr>
+            </thead>
+            <tbody>
+              {% for task in tasks %}
+              {% set alert = task_alerts.get(task.id) or {'badge_class':'secondary', 'row_class':'', 'deadline_text':'未设置时限', 'latest_reminder_text':''} %}
+              <tr class="{{ alert.row_class }}">
+                <td class="text-center">
+                  {% if task.id in task_manage_ids and task.status not in ('completed', 'cancelled') %}
+                  <input class="form-check-input" type="checkbox" name="task_ids" value="{{ task.id }}">
+                  {% else %}
+                  <span class="text-muted small">-</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <a href="{{ url_for('supervision_detail', task_id=task.id) }}" class="fw-semibold text-decoration-none">{{ task.title }}</a>
+                  <div class="small text-muted">{{ task.task_no }} · {{ task.category }} · 来源：{{ task.source }}</div>
+                </td>
+                <td>{{ task.owner.name if task.owner else '-' }}</td>
+                <td><span class="badge bg-{{ 'danger' if task.priority == '高' else 'warning' if task.priority == '中' else 'secondary' }}">{{ task.priority }}</span></td>
+                <td><span class="badge bg-{{ 'secondary' if task.status == 'draft' else 'warning' if task.status == 'issued' else 'primary' if task.status == 'processing' else 'info' if task.status == 'review' else 'success' if task.status == 'completed' else 'dark' }}">{{ {'draft':'草稿','issued':'已下发','processing':'办理中','review':'待复核','completed':'已完成','cancelled':'已取消'}.get(task.status, task.status) }}</span></td>
+                <td>
+                  <div class="small">{{ task.due_date.strftime('%Y-%m-%d %H:%M') if task.due_date else '-' }}</div>
+                  <div class="d-flex flex-wrap gap-1 mt-1">
+                    <span class="badge bg-{{ alert.badge_class }}">{{ alert.deadline_text }}</span>
+                    {% if alert.latest_reminder_text %}<span class="badge bg-light text-dark border">最近催办 {{ alert.latest_reminder_text }}</span>{% endif %}
+                  </div>
+                </td>
+                <td>
+                  <div class="progress" style="height:8px"><div class="progress-bar {% if alert.is_overdue %}bg-danger{% elif alert.is_due_soon %}bg-warning{% endif %}" style="width:{{ task.progress_percent or 0 }}%"></div></div>
+                  <div class="small text-muted mt-1">{{ task.progress_percent or 0 }}%</div>
+                </td>
+                <td>
+                  <div class="d-grid gap-1">
+                    <a href="{{ url_for('supervision_detail', task_id=task.id) }}" class="btn btn-sm btn-outline-primary">跟踪</a>
+                    {% if task.id in task_manage_ids and task.status not in ('completed', 'cancelled') %}
+                    <a href="{{ url_for('supervision_edit', task_id=task.id) }}" class="btn btn-sm btn-outline-secondary">编辑</a>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </form>
+      {% else %}
+      <div class="text-center text-muted py-5">暂无督办任务</div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+

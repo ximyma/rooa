@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}会议日历{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div>
+      <h3 class="mb-1"><i class="fas fa-calendar-alt me-2 text-info"></i>会议日历</h3>
+      <div class="text-muted">查看 {{ start_date.strftime('%Y-%m-%d') }} 至 {{ end_date.strftime('%Y-%m-%d') }} 的会议安排</div>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{{ url_for('meeting_index') }}" class="btn btn-outline-secondary">返回列表</a>
+      <a href="{{ url_for('meeting_new') }}" class="btn btn-primary">发起会议</a>
+    </div>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <form class="row g-3 align-items-end">
+        <div class="col-md-4">
+          <label class="form-label">开始日期</label>
+          <input type="date" name="start_date" value="{{ start_date.strftime('%Y-%m-%d') }}" class="form-control">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">结束日期</label>
+          <input type="date" name="end_date" value="{{ end_date.strftime('%Y-%m-%d') }}" class="form-control">
+        </div>
+        <div class="col-md-4 d-grid"><button class="btn btn-primary">刷新日历</button></div>
+      </form>
+    </div>
+  </div>
+
+  {% if grouped %}
+  <div class="row g-4">
+    {% for day, meetings in grouped.items() %}
+    <div class="col-lg-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-white fw-semibold">{{ day }}</div>
+        <div class="card-body">
+          {% for meeting in meetings %}
+          <div class="border rounded p-3 mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <a href="{{ url_for('meeting_detail', meeting_id=meeting.id) }}" class="fw-semibold text-decoration-none">{{ meeting.subject }}</a>
+              <span class="badge bg-{{ 'warning' if meeting.status == 'pending' else 'info' if meeting.status == 'confirmed' else 'success' if meeting.status == 'completed' else 'secondary' }}">{{ {'pending':'待确认','confirmed':'已确认','completed':'已结束','draft':'草稿','in_progress':'进行中','cancelled':'已取消'}.get(meeting.status, meeting.status) }}</span>
+            </div>
+            <div class="small text-muted">{{ meeting.start_time.strftime('%H:%M') if meeting.start_time else '-' }} - {{ meeting.end_time.strftime('%H:%M') if meeting.end_time else '-' }}</div>
+            <div class="small text-muted">{{ meeting.room.name if meeting.room else '待定会议室' }} · 主持人：{{ meeting.host.name if meeting.host else '-' }}</div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card shadow-sm"><div class="card-body text-center text-muted py-5">所选时间范围内暂无会议安排</div></div>
+  {% endif %}
+</div>
+{% endblock %}

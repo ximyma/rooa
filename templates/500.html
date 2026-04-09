@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="text-center">
+    <h1>500</h1>
+    <p>系统处理请求时发生异常，请稍后重试。</p>
+    <a href="{{ url_for('index') }}" class="btn btn-primary">返回首页</a>
+</div>
+{% endblock %}

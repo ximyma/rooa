@@ -1,0 +1,391 @@
+{% extends "base.html" %}
+{% block title %}全宗管理 - 档案系统{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1"><i class="fas fa-building me-2 text-primary"></i>全宗管理</h2>
+            <p class="text-muted mb-0 small">管理档案全宗，每个全宗代表一个独立的档案管理单位</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#catalogQuickModal">
+                <i class="fas fa-folder-plus me-1"></i>快速新建目录
+            </button>
+            <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createModal">
+                <i class="fas fa-plus me-1"></i>新建全宗
+            </button>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- 全宗列表 -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-list me-1"></i>全宗列表</span>
+                    <span class="badge bg-primary">共 {{ fonds_list|length }} 个全宗</span>
+                </div>
+                <div class="card-body p-0">
+                    {% if fonds_list %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="ps-3">全宗号</th>
+                                    <th>全宗名称</th>
+                                    <th>类型</th>
+                                    <th>档案数量</th>
+                                    <th>建立时间</th>
+                                    <th class="text-center">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for fonds in fonds_list %}
+                                <tr>
+                                    <td class="ps-3">
+                                        <span class="badge bg-primary font-monospace">{{ fonds.fonds_code }}</span>
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('archive.catalog_list', fonds_id=fonds.id) }}" class="fw-semibold text-decoration-none">
+                                            {{ fonds.fonds_name }}
+                                        </a>
+                                        {% if fonds.description %}
+                                        <div class="text-muted small text-truncate" style="max-width:200px;">{{ fonds.description }}</div>
+                                        {% endif %}
+                                    </td>
+                                    <td><span class="badge bg-light text-dark">{{ fonds.fonds_type or '机关' }}</span></td>
+                                    <td><span class="text-muted small">{{ fonds.file_count or 0 }} 件</span></td>
+                                    <td class="text-muted small">{{ fonds.created_at.strftime('%Y-%m-%d') if fonds.created_at else '-' }}</td>
+                                    <td class="text-center">
+                                        <div class="d-flex gap-1 justify-content-center">
+                                            <a href="{{ url_for('archive.catalog_list', fonds_id=fonds.id) }}"
+                                               class="btn btn-sm btn-outline-primary" title="查看目录">
+                                                <i class="fas fa-folder-open"></i>
+                                            </a>
+                                            <button class="btn btn-sm btn-outline-success" title="新建目录"
+                                                    onclick="quickNewCatalog({{ fonds.id }}, '{{ fonds.fonds_name }}')">
+                                                <i class="fas fa-folder-plus"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-warning" title="新建案卷"
+                                                    onclick="quickNewVolume({{ fonds.id }}, '{{ fonds.fonds_name }}')">
+                                                <i class="fas fa-book-open"></i>
+                                            </button>
+                                            <a href="{{ url_for('archive.fonds_edit', fonds_id=fonds.id) }}"
+                                               class="btn btn-sm btn-outline-secondary" title="编辑全宗">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <form action="{{ url_for('archive.fonds_delete', fonds_id=fonds.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('确定要删除全宗「{{ fonds.fonds_name }}」吗？');">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="删除全宗">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="fas fa-folder-open fa-3x mb-3 opacity-25"></i>
+                        <p class="mb-2">暂无全宗数据</p>
+                        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createModal">
+                            <i class="fas fa-plus me-1"></i>创建第一个全宗
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 侧边栏 -->
+        <div class="col-lg-4">
+            <!-- 快速操作 -->
+            <div class="card shadow-sm mb-3">
+                <div class="card-header"><i class="fas fa-bolt me-1 text-warning"></i>快速操作</div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary btn-sm text-start" 
+                                data-bs-toggle="modal" data-bs-target="#createModal">
+                            <i class="fas fa-building me-2"></i>新建全宗
+                        </button>
+                        <button class="btn btn-outline-success btn-sm text-start"
+                                data-bs-toggle="modal" data-bs-target="#catalogQuickModal">
+                            <i class="fas fa-folder-plus me-2"></i>快速新建目录
+                        </button>
+                        <button class="btn btn-outline-warning btn-sm text-start"
+                                data-bs-toggle="modal" data-bs-target="#volumeQuickModal">
+                            <i class="fas fa-book-open me-2"></i>快速新建案卷
+                        </button>
+                        <a href="{{ url_for('archive.file_upload') }}" class="btn btn-outline-info btn-sm text-start">
+                            <i class="fas fa-upload me-2"></i>上传档案文件
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 说明 -->
+            <div class="card shadow-sm mb-3">
+                <div class="card-header"><i class="fas fa-info-circle me-1"></i>层级结构</div>
+                <div class="card-body small">
+                    <div class="d-flex align-items-start mb-2">
+                        <span class="badge bg-primary me-2 mt-1">全宗</span>
+                        <div>档案管理的基本单位，对应一个机关、组织或个人</div>
+                    </div>
+                    <div class="d-flex align-items-start mb-2">
+                        <span class="badge bg-success me-2 mt-1">目录</span>
+                        <div>全宗内的分类目录，如文书档案、科技档案等</div>
+                    </div>
+                    <div class="d-flex align-items-start">
+                        <span class="badge bg-warning me-2 mt-1">案卷</span>
+                        <div>目录内的物理卷宗，包含若干相关档案文件</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 统计 -->
+            <div class="card shadow-sm">
+                <div class="card-header"><i class="fas fa-chart-pie me-1"></i>档案统计</div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="small text-muted">全宗总数</span>
+                        <strong class="text-primary">{{ fonds_list|length }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="small text-muted">档案总数</span>
+                        <strong class="text-success">{{ total_files or 0 }} 件</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ====== 新建全宗 模态框 ====== -->
+<div class="modal fade" id="createModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="fas fa-building me-1"></i>新建全宗</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('archive.fonds_create') }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">全宗号 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="fonds_code" required placeholder="如：DATIAN 或 001">
+                        <div class="form-text">通常使用大写字母或数字，如 DATIAN、001</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">全宗名称 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="fonds_name" required placeholder="如：大田县人民政府办公室">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">全宗类型</label>
+                        <select class="form-select" name="fonds_type">
+                            <option value="机关">机关</option>
+                            <option value="企业">企业</option>
+                            <option value="事业单位">事业单位</option>
+                            <option value="个人">个人</option>
+                            <option value="其他">其他</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">全宗说明</label>
+                        <textarea class="form-control" name="description" rows="3" placeholder="档案形成单位简介"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-check me-1"></i>创建全宗</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ====== 快速新建目录 模态框 ====== -->
+<div class="modal fade" id="catalogQuickModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="fas fa-folder-plus me-1"></i>快速新建目录</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('archive.catalog_create') }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">所属全宗 <span class="text-danger">*</span></label>
+                        <select class="form-select" name="fonds_id" id="catalogFondsSelect" required>
+                            <option value="">请选择全宗</option>
+                            {% for fonds in fonds_list %}
+                            <option value="{{ fonds.id }}">{{ fonds.fonds_code }} - {{ fonds.fonds_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">目录号/分类号 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="catalog_code" required placeholder="如：WS（文书）、KJ（科技）">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">目录名称 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="catalog_name" required placeholder="如：文书档案、科技档案">
+                    </div>
+                    <div class="row">
+                        <div class="col-6">
+                            <label class="form-label fw-semibold">目录类型</label>
+                            <select class="form-select" name="catalog_type">
+                                <option value="文书">文书档案</option>
+                                <option value="科技">科技档案</option>
+                                <option value="会计">会计档案</option>
+                                <option value="声像">声像档案</option>
+                                <option value="实物">实物档案</option>
+                                <option value="其他">其他</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-semibold">保管期限</label>
+                            <select class="form-select" name="retention_period">
+                                <option value="永久">永久</option>
+                                <option value="30年" selected>30年</option>
+                                <option value="10年">10年</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3 mt-3">
+                        <label class="form-label fw-semibold">目录说明</label>
+                        <textarea class="form-control" name="description" rows="2" placeholder="目录简要说明（可选）"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-success"><i class="fas fa-check me-1"></i>创建目录</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ====== 快速新建案卷 模态框 ====== -->
+<div class="modal fade" id="volumeQuickModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#f6ad55;">
+                <h5 class="modal-title text-white"><i class="fas fa-book-open me-1"></i>快速新建案卷</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('archive.volume_create') }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label class="form-label fw-semibold">所属全宗 <span class="text-danger">*</span></label>
+                            <select class="form-select" name="fonds_id" id="volumeFondsSelect" required onchange="loadVolumeModalCatalogs()">
+                                <option value="">请选择全宗</option>
+                                {% for fonds in fonds_list %}
+                                <option value="{{ fonds.id }}">{{ fonds.fonds_code }} - {{ fonds.fonds_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-semibold">所属目录 <span class="text-danger">*</span></label>
+                            <select class="form-select" name="catalog_id" id="volumeModalCatalogSelect" required>
+                                <option value="">请先选择全宗</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label class="form-label fw-semibold">案卷号 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="volume_code" required placeholder="如：001 或 2024-001">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-semibold">年度</label>
+                            <input type="number" class="form-control" name="volume_year" placeholder="如：2024" value="{{ now().year if now else '' }}">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">案卷题名 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="volume_title" required placeholder="如：2024年度文书档案 第1卷">
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-4">
+                            <label class="form-label fw-semibold">保管期限</label>
+                            <select class="form-select" name="retention_period">
+                                <option value="永久">永久</option>
+                                <option value="30年" selected>30年</option>
+                                <option value="10年">10年</option>
+                            </select>
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label fw-semibold">密级</label>
+                            <select class="form-select" name="security_level">
+                                <option value="公开" selected>公开</option>
+                                <option value="内部">内部</option>
+                                <option value="机密">机密</option>
+                                <option value="绝密">绝密</option>
+                            </select>
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label fw-semibold">责任者</label>
+                            <input type="text" class="form-control" name="responsibility" placeholder="形成单位">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">存放位置</label>
+                        <input type="text" class="form-control" name="storage_location" placeholder="如：二楼档案室 A-01-03">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">案卷说明</label>
+                        <textarea class="form-control" name="description" rows="2" placeholder="案卷简介（可选）"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-warning text-white"><i class="fas fa-check me-1"></i>创建案卷</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// 根据全宗动态加载目录（案卷新建弹窗）
+function loadVolumeModalCatalogs() {
+    const fondsId = document.getElementById('volumeFondsSelect').value;
+    const catSelect = document.getElementById('volumeModalCatalogSelect');
+    catSelect.innerHTML = '<option value="">加载中...</option>';
+    if (!fondsId) { catSelect.innerHTML = '<option value="">请先选择全宗</option>'; return; }
+    fetch('/archive/api/catalogs?fonds_id=' + fondsId)
+        .then(r => r.json())
+        .then(data => {
+            catSelect.innerHTML = '<option value="">请选择目录</option>';
+            data.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = c.catalog_code + ' - ' + c.catalog_name;
+                catSelect.appendChild(opt);
+            });
+        }).catch(() => catSelect.innerHTML = '<option value="">加载失败</option>');
+}
+
+// 行内快速按钮：预填全宗
+function quickNewCatalog(fondsId, fondsName) {
+    const sel = document.getElementById('catalogFondsSelect');
+    if (sel) sel.value = fondsId;
+    new bootstrap.Modal(document.getElementById('catalogQuickModal')).show();
+}
+
+function quickNewVolume(fondsId, fondsName) {
+    const sel = document.getElementById('volumeFondsSelect');
+    if (sel) { sel.value = fondsId; loadVolumeModalCatalogs(); }
+    new bootstrap.Modal(document.getElementById('volumeQuickModal')).show();
+}
+</script>
+{% endblock %}

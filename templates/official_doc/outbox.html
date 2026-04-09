@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}我的发件箱 - 电子公文{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div>
+      <h4 class="mb-1"><i class="fas fa-paper-plane me-2 text-primary"></i>我的发件箱</h4>
+      <div class="text-muted">查看草稿、审批进度和已发公文</div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <a href="{{ url_for('doc_dashboard') }}" class="btn btn-outline-secondary">
+        <i class="fas fa-briefcase me-1"></i>公文工作台
+      </a>
+      <a href="{{ url_for('doc_compose') }}" class="btn btn-primary">
+        <i class="fas fa-pen me-1"></i>起草公文
+      </a>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-md-3 col-6"><div class="card border-0 shadow-sm"><div class="card-body"><div class="text-muted small">草稿</div><div class="fs-4 fw-bold">{{ stats.draft }}</div></div></div></div>
+    <div class="col-md-3 col-6"><div class="card border-0 shadow-sm"><div class="card-body"><div class="text-muted small">待审批</div><div class="fs-4 fw-bold text-warning">{{ stats.pending }}</div></div></div></div>
+    <div class="col-md-3 col-6"><div class="card border-0 shadow-sm"><div class="card-body"><div class="text-muted small">已审批</div><div class="fs-4 fw-bold text-info">{{ stats.approved }}</div></div></div></div>
+    <div class="col-md-3 col-6"><div class="card border-0 shadow-sm"><div class="card-body"><div class="text-muted small">已发送/归档</div><div class="fs-4 fw-bold text-success">{{ stats.sent + stats.archived }}</div></div></div></div>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <form class="row g-3 align-items-center">
+        <div class="col-lg-4">
+          <input type="text" name="keyword" value="{{ keyword }}" class="form-control" placeholder="搜索标题或公文编号">
+        </div>
+        <div class="col-lg-8">
+          <div class="d-flex flex-wrap gap-2 align-items-center">
+            <span class="text-muted me-2">状态筛选：</span>
+            {% set status_labels = [
+              ('', '全部', 'secondary'),
+              ('draft', '草稿', 'secondary'),
+              ('pending_approve', '待审批', 'warning'),
+              ('approved', '审批通过', 'info'),
+              ('sent', '已发送', 'success'),
+              ('recalled', '已撤回', 'danger'),
+              ('archived', '已归档', 'dark')
+            ] %}
+            {% for val, label, color in status_labels %}
+            <a href="{{ url_for('doc_outbox', status=val, keyword=keyword) }}"
+               class="btn btn-sm btn-{{ 'outline-' + color if status_filter != val else color }}">{{ label }}</a>
+            {% endfor %}
+            <button class="btn btn-sm btn-primary">搜索</button>
+            <a href="{{ url_for('doc_outbox') }}" class="btn btn-sm btn-outline-secondary">重置</a>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- 公文列表 -->
+  <div class="card shadow-sm">
+    <div class="card-body p-0">
+      {% if docs %}
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th style="width:130px">公文编号</th>
+              <th>标题</th>
+              <th style="width:80px">种类</th>
+              <th style="width:70px">紧急度</th>
+              <th style="width:90px">状态</th>
+              <th style="width:140px">更新时间</th>
+              <th style="width:180px">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for doc in docs %}
+            <tr>
+              <td><code class="text-muted small">{{ doc.doc_no }}</code></td>
+              <td>
+                <a href="{{ url_for('doc_detail', doc_id=doc.id) }}" class="text-decoration-none fw-semibold">
+                  {{ doc.title }}
+                </a>
+                {% if doc.secrecy != '普通' %}
+                <span class="badge bg-danger ms-1 small">{{ doc.secrecy }}</span>
+                {% endif %}
+              </td>
+              <td><span class="badge bg-light text-dark border">{{ doc.doc_type }}</span></td>
+              <td>
+                {% if doc.urgency == '特急' %}
+                <span class="badge bg-danger">特急</span>
+                {% elif doc.urgency == '紧急' %}
+                <span class="badge bg-warning text-dark">紧急</span>
+                {% else %}
+                <span class="text-muted small">普通</span>
+                {% endif %}
+              </td>
+              <td>
+                {% set status_map = {
+                  'draft': ('secondary', '草稿'),
+                  'pending_approve': ('warning', '待审批'),
+                  'approved': ('info', '已审批'),
+                  'sent': ('success', '已发送'),
+                  'recalled': ('danger', '已撤回'),
+                  'archived': ('dark', '已归档')
+                } %}
+                {% set sc, sl = status_map.get(doc.status, ('secondary', doc.status)) %}
+                <span class="badge bg-{{ sc }}">{{ sl }}</span>
+              </td>
+              <td class="text-muted small">{{ doc.updated_at.strftime('%Y-%m-%d %H:%M') }}</td>
+              <td>
+                <a href="{{ url_for('doc_detail', doc_id=doc.id) }}" class="btn btn-sm btn-outline-primary me-1">查看</a>
+                {% if doc.status in ('draft', 'recalled') %}
+                <a href="{{ url_for('doc_compose', id=doc.id) }}" class="btn btn-sm btn-outline-secondary me-1">编辑</a>
+                {% endif %}
+                {% if doc.status == 'approved' %}
+                <form method="post" action="{{ url_for('doc_send', doc_id=doc.id) }}" class="d-inline">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-sm btn-success me-1">发送</button>
+                </form>
+                {% endif %}
+                {% if doc.status in ('sent', 'pending_approve') %}
+                <form method="post" action="{{ url_for('doc_recall', doc_id=doc.id) }}" class="d-inline"
+                      onsubmit="return confirm('确认撤回该公文？')">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-sm btn-outline-danger me-1">撤回</button>
+                </form>
+                {% endif %}
+                {% if doc.status == 'sent' %}
+                <form method="post" action="{{ url_for('doc_archive', doc_id=doc.id) }}" class="d-inline">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-sm btn-outline-dark">归档</button>
+                </form>
+                {% endif %}
+                {% if doc.status in ('draft', 'recalled') %}
+                <form method="post" action="{{ url_for('doc_delete', doc_id=doc.id) }}" class="d-inline"
+                      onsubmit="return confirm('确认删除该草稿？')">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-sm btn-outline-danger">删除</button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="text-center text-muted py-5">
+        <i class="fas fa-inbox fa-3x mb-3 opacity-25"></i>
+        <p>暂无公文记录</p>
+        <a href="{{ url_for('doc_compose') }}" class="btn btn-primary mt-2">
+          <i class="fas fa-pen me-1"></i>起草第一份公文
+        </a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

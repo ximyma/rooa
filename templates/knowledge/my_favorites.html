@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h4>⭐ 我的收藏</h4>
+        <a href="{{ url_for('personal_knowledge_base') }}" class="btn btn-outline-secondary btn-sm mb-3">← 返回知识库</a>
+
+        {% if favorites %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>文件名</th>
+                        <th>所属知识库</th>
+                        <th>类型</th>
+                        <th>收藏时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fav in favorites %}
+                    <tr>
+                        <td>
+                            <strong>{{ fav.file.original_name if fav.file else '(文件已删除)' }}</strong>
+                            {% if fav.file and fav.file.summary %}
+                            <br><small class="text-muted">{{ fav.file.summary[:60] }}</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if fav.file %}
+                            {% set kb = knowledge_bases_map[fav.file.knowledge_base_id] if knowledge_bases_map else {} %}
+                            {{ kb.name if kb else '未知知识库' }}
+                            {% else %}-{% endif %}
+                        </td>
+                        <td>{% if fav.file %}<span class="badge bg-info">{{ fav.file.file_type|upper }}</span>{% endif %}</td>
+                        <td>{{ fav.created_at.strftime('%Y-%m-%d %H:%M') if fav.created_at else '-' }}</td>
+                        <td>
+                            {% if fav.file %}
+                            {% if fav.file.file_type in ['txt','md'] %}
+                            <a href="{{ url_for('knowledge_preview', file_id=fav.file.id) }}" class="btn btn-sm btn-primary" target="_blank">预览</a>
+                            {% elif fav.file.file_type == 'docx' %}
+                            <a href="{{ url_for('knowledge_preview', file_id=fav.file.id) }}" class="btn btn-sm btn-primary" target="_blank">预览</a>
+                            {% endif %}
+                            <a href="{{ url_for('download_file', filepath=fav.file.file_path.replace('\\','/')) }}" class="btn btn-sm btn-secondary">下载</a>
+                            {% endif %}
+                            <button class="btn btn-sm btn-outline-danger" onclick="removeFav({{ fav.id }})">取消收藏</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-5">
+            <p class="mb-2">暂无收藏文件</p>
+            <a href="{{ url_for('personal_knowledge_base') }}" class="btn btn-primary btn-sm">去上传文件</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function removeFav(favId) {
+    if (!confirm('确认取消收藏？')) return;
+    fetch(`/knowledge/favorite/by_fav_id/${favId}`, {
+        method: 'POST',
+        headers: {'X-CSRFToken': '{{ csrf_token() }}'}
+    })
+    .then(r => r.json())
+    .then(data => {
+        location.reload();
+    });
+}
+</script>
+{% endblock %}

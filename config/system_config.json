@@ -1,0 +1,39 @@
+{
+  "knowledge_base": {
+    "embedding_model_path": "models/all-MiniLM-L6-v2",
+    "use_local_model": true,
+    "max_file_size_mb": 500,
+    "batch_size": 100,
+    "auto_extract_keywords": true,
+    "auto_generate_summary": true,
+    "auto_tag": true
+  },
+  "ocr": {
+    "enabled": true,
+    "tesseract_cmd": "C:\\Program Files\\Tesseract-OCR\\tesseract.exe",
+    "tessdata_dir": "C:\\Users\\Administrator\\TesseractData",
+    "languages": [
+      "chi_sim",
+      "eng"
+    ],
+    "dpi": 300,
+    "psm_mode": 6
+  },
+  "ai": {
+    "default_model": "deepseek",
+    "temperature": 0.7,
+    "max_tokens": 2000
+  },
+  "monitoring": {
+    "auto_run": true,
+    "check_interval_hours": 24,
+    "notify_on_overdue": true
+  },
+  "document": {
+    "max_extracted_length": -1,
+    "max_preview_length": 20000,
+    "max_ai_sample_length": 3000,
+    "max_file_preview_length": 50000,
+    "max_upload_size_mb": 1024
+  }
+}

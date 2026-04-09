@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}{{ '编辑督办任务' if task_form else '新建督办任务' }}{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex align-items-center mb-4">
+    <a href="{{ url_for('supervision_detail', task_id=task_form.id) if task_form else url_for('supervision_index') }}" class="btn btn-outline-secondary me-3"><i class="fas fa-arrow-left me-1"></i>返回</a>
+    <div>
+      <h3 class="mb-1"><i class="fas fa-bolt me-2 text-warning"></i>{{ '编辑督办任务' if task_form else '新建督办任务' }}</h3>
+      <div class="text-muted">{{ '继续调整责任人、时限和协办范围，确保督办事项闭环推进。' if task_form else '按照责任到人、限时办结的思路下发任务' }}</div>
+    </div>
+  </div>
+
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="row g-4">
+      <div class="col-lg-8">
+        <div class="card shadow-sm">
+          <div class="card-header bg-white fw-semibold">任务信息</div>
+          <div class="card-body row g-3">
+            <div class="col-md-8">
+              <label class="form-label">任务标题 <span class="text-danger">*</span></label>
+              <input type="text" name="title" class="form-control" required value="{{ task_form.title if task_form else (('督办：' ~ source_doc.title) if source_doc else '') }}" placeholder="如：推进项目资料归档整改">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">任务来源</label>
+              <select name="source" class="form-select">
+                {% set source_value = task_form.source if task_form else ('公文转办' if source_doc else '领导交办') %}
+                {% for item in ['领导交办','会议决定','公文转办','专项督查','部门协同'] %}
+                <option value="{{ item }}" {{ 'selected' if source_value == item else '' }}>{{ item }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">任务分类</label>
+              <select name="category" class="form-select">
+                {% set category_value = task_form.category if task_form else '重点工作' %}
+                {% for item in ['重点工作','专项整改','日常督办','领导批示','项目推进'] %}
+                <option value="{{ item }}" {{ 'selected' if category_value == item else '' }}>{{ item }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">负责人 <span class="text-danger">*</span></label>
+              <select name="owner_id" class="form-select" required>
+                <option value="">请选择负责人</option>
+                {% for user in users %}
+                <option value="{{ user.id }}" {{ 'selected' if task_form and task_form.owner_id == user.id else '' }}>{{ user.name }}{% if user.department %}（{{ user.department }}）{% endif %}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">截止时间 <span class="text-danger">*</span></label>
+              <input type="datetime-local" name="due_date" class="form-control" required value="{{ task_form.due_date.strftime('%Y-%m-%dT%H:%M') if task_form and task_form.due_date else '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">优先级</label>
+              <select name="priority" class="form-select">
+                {% set priority_value = task_form.priority if task_form else '中' %}
+                {% for item in ['低','中','高'] %}
+                <option value="{{ item }}" {{ 'selected' if priority_value == item else '' }}>{{ item }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">任务内容</label>
+              <textarea name="content" rows="8" class="form-control" placeholder="请写清任务要求、完成标准和协同要求">{{ task_form.content if task_form else ('请围绕《' ~ source_doc.title ~ '》要求抓好落实，明确责任人、时间节点和反馈机制。' if source_doc else '') }}</textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label">协办人员</label>
+              {% set helper_ids = task_form.get_helper_ids() if task_form else [] %}
+              <div class="row row-cols-1 row-cols-md-2 g-2">
+                {% for user in users %}
+                <div class="col">
+                  <div class="form-check border rounded p-2 h-100">
+                    <input class="form-check-input" type="checkbox" name="helper_ids" value="{{ user.id }}" id="helper_{{ user.id }}" {{ 'checked' if user.id in helper_ids else '' }}>
+                    <label class="form-check-label" for="helper_{{ user.id }}">{{ user.name }} <span class="small text-muted">{{ user.department or '未设置部门' }}</span></label>
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+            <div class="col-12">
+              <label class="form-label">办理结果（可选）</label>
+              <textarea name="result_summary" rows="4" class="form-control" placeholder="用于记录预期成果、验收标准或阶段性结果">{{ task_form.result_summary if task_form else '' }}</textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-4">
+        <div class="card shadow-sm mb-4">
+          <div class="card-header bg-white fw-semibold">关联信息</div>
+          <div class="card-body">
+            {% set current_doc = task_form.source_doc if task_form else source_doc %}
+            {% if current_doc %}
+            <input type="hidden" name="source_doc_id" value="{{ current_doc.id }}">
+            <div class="alert alert-light border mb-0">
+              <div class="small text-muted mb-1">来源公文</div>
+              <a href="{{ url_for('doc_detail', doc_id=current_doc.id) }}" target="_blank" class="text-decoration-none fw-semibold">{{ current_doc.title }}</a>
+              <div class="small text-muted mt-1">{{ current_doc.doc_no }}</div>
+            </div>
+            {% else %}
+            <div class="text-muted">当前未关联来源公文，可直接发起督办。</div>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="card shadow-sm">
+          <div class="card-body d-grid gap-2">
+            {% if task_form and task_form.status != 'draft' %}
+            <button type="submit" name="action" value="save" class="btn btn-primary"><i class="fas fa-save me-1"></i>保存修改</button>
+            {% else %}
+            <button type="submit" name="action" value="save" class="btn btn-outline-secondary"><i class="fas fa-save me-1"></i>保存草稿</button>
+            <button type="submit" name="action" value="issue" class="btn btn-primary"><i class="fas fa-paper-plane me-1"></i>{{ '立即下发' if not task_form or task_form.status == 'draft' else '确认更新' }}</button>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

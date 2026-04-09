@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2>AI模型配置</h2>
+        <a href="{{ url_for('ai_config_add') }}" class="btn btn-primary mb-3">新增配置</a>
+        <table class="table table-bordered">
+            <thead>
+                <tr><th>名称</th><th>提供商</th><th>模型名称</th><th>温度</th><th>最大输出</th><th>上下文长度</th><th>延时(ms)</th><th>启用</th><th>操作</th>
+            </thead>
+            <tbody>
+                {% for cfg in configs %}
+                <tr>
+                    <td>{{ cfg.name }}</td>
+                    <td>{{ cfg.provider }}</td>
+                    <td>{{ cfg.model_name }}</td>
+                    <td>{{ cfg.temperature }}</td>
+                    <td>{{ cfg.max_tokens }}</td>
+                    <td>{{ cfg.context_length }}</td>
+                    <td>{{ cfg.delay }}</td>
+                    <td>{{ '是' if cfg.is_active else '否' }}</td>
+                    <td>
+                        <a href="{{ url_for('ai_config_edit', config_id=cfg.id) }}" class="btn btn-sm btn-secondary">编辑</a>
+                        <a href="{{ url_for('ai_config_delete', config_id=cfg.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('确认删除？')">删除</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

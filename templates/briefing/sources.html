@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+
+{% block title %}数据源管理 - 简报系统{% endblock %}
+
+{% block content %}
+<!-- CSRF Token -->
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4><i class="fas fa-database me-2"></i>数据源管理</h4>
+    <button class="btn btn-primary" onclick="showSourceModal()">
+        <i class="fas fa-plus me-1"></i>添加数据源
+    </button>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" id="sourceTable">
+                <thead class="table-light">
+                    <tr>
+                        <th width="50">#</th>
+                        <th>名称</th>
+                        <th>URL</th>
+                        <th>类型</th>
+                        <th>分类</th>
+                        <th>状态</th>
+                        <th width="150">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for source in sources %}
+                    <tr data-id="{{ source.id }}">
+                        <td>{{ source.id }}</td>
+                        <td>
+                            <i class="fas fa-{% if source.source_type == 'api' %}cloud{% else %}globe{% endif %} me-1 text-muted"></i>
+                            {{ source.name }}
+                        </td>
+                        <td>
+                            <a href="{{ source.url }}" target="_blank" class="text-decoration-none" title="{{ source.url }}">
+                                {{ source.url|truncate(35) }}
+                            </a>
+                        </td>
+                        <td>
+                            <span class="badge bg-{% if source.source_type == 'api' %}info{% else %}secondary{% endif %}">
+                                {{ 'API' if source.source_type == 'api' else '网站' }}
+                            </span>
+                        </td>
+                        <td>{{ source.category or '-' }}</td>
+                        <td>
+                            <span class="form-check form-switch d-inline-block">
+                                <input class="form-check-input" type="checkbox" 
+                                       {% if source.is_active %}checked{% endif %}
+                                       onchange="toggleSource({{ source.id }})">
+                            </span>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary me-1" onclick="editSource({{ source.id }})" title="编辑">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteSource({{ source.id }}, '{{ source.name }}')" title="删除">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">
+                            <i class="fas fa-inbox fa-2x mb-2 d-block"></i>
+                            暂无数据源，请点击"添加数据源"按钮
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 数据源编辑弹窗 -->
+<div class="modal fade" id="sourceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="sourceModalTitle">添加数据源</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="sourceForm">
+                    <input type="hidden" id="sourceId">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">数据源名称 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="sourceName" required placeholder="例如：人民日报">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">网站URL <span class="text-danger">*</span></label>
+                        <input type="url" class="form-control" id="sourceUrl" required placeholder="https://example.com">
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label class="form-label">类型</label>
+                            <select class="form-select" id="sourceType">
+                                <option value="website">新闻网站</option>
+                                <option value="api">搜索API</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">分类</label>
+                            <input type="text" class="form-control" id="sourceCategory" placeholder="例如：中央媒体">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveSource()">
+                    <i class="fas fa-save me-1"></i>保存
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function showSourceModal() {
+    document.getElementById('sourceForm').reset();
+    document.getElementById('sourceId').value = '';
+    document.getElementById('sourceModalTitle').textContent = '添加数据源';
+    new bootstrap.Modal(document.getElementById('sourceModal')).show();
+}
+
+async function editSource(id) {
+    try {
+        const response = await fetch(`/briefing/api/sources/${id}`);
+        const data = await response.json();
+        
+        document.getElementById('sourceId').value = data.id;
+        document.getElementById('sourceName').value = data.name;
+        document.getElementById('sourceUrl').value = data.url;
+        document.getElementById('sourceType').value = data.type;
+        document.getElementById('sourceCategory').value = data.category || '';
+        
+        document.getElementById('sourceModalTitle').textContent = '编辑数据源';
+        new bootstrap.Modal(document.getElementById('sourceModal')).show();
+    } catch (error) {
+        alert('加载数据失败: ' + error.message);
+    }
+}
+
+async function saveSource() {
+    const id = document.getElementById('sourceId').value;
+    const formData = {
+        name: document.getElementById('sourceName').value,
+        url: document.getElementById('sourceUrl').value,
+        type: document.getElementById('sourceType').value,
+        category: document.getElementById('sourceCategory').value
+    };
+    
+    const url = id ? `/briefing/api/sources/${id}` : '/briefing/api/sources';
+    const method = id ? 'PUT' : 'POST';
+    
+    try {
+        const response = await fetch(url, {
+            method: method,
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(formData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            location.reload();
+        } else {
+            alert('保存失败: ' + result.error);
+        }
+    } catch (error) {
+        alert('请求失败: ' + error.message);
+    }
+}
+
+async function deleteSource(id, name) {
+    if (!confirm(`确定要删除数据源【${name}】吗？此操作不可恢复。`)) return;
+    
+    try {
+        const response = await fetch(`/briefing/api/sources/${id}`, { method: 'DELETE' });
+        const result = await response.json();
+        
+        if (result.success) {
+            document.querySelector(`tr[data-id="${id}"]`)?.remove();
+        } else {
+            alert('删除失败: ' + result.error);
+        }
+    } catch (error) {
+        alert('请求失败: ' + error.message);
+    }
+}
+
+async function toggleSource(id) {
+    try {
+        const csrfToken = document.querySelector('input[name="csrf_token"]')?.value || '';
+        const response = await fetch(`/briefing/api/sources/toggle/${id}`, { 
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken }
+        });
+        const result = await response.json();
+        
+        if (!result.success) {
+            alert('操作失败');
+            location.reload();
+        }
+    } catch (error) {
+        alert('请求失败');
+    }
+}
+</script>
+{% endblock %}

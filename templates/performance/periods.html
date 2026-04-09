@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}考核周期管理{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div>
+      <h3 class="mb-1"><i class="fas fa-calendar me-2 text-secondary"></i>考核周期管理</h3>
+      <div class="text-muted">设置月度、季度或年度考核周期，统一绩效口径</div>
+    </div>
+    <a href="{{ url_for('performance_index') }}" class="btn btn-outline-secondary">返回绩效台账</a>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-7">
+      <div class="card shadow-sm">
+        <div class="card-header bg-white fw-semibold">周期列表</div>
+        <div class="card-body p-0">
+          {% if periods %}
+          <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+              <thead class="table-light"><tr><th>名称</th><th>类型</th><th>时间范围</th><th>状态</th><th>备注</th><th style="width:140px">操作</th></tr></thead>
+
+              <tbody>
+                {% set period_type_map = {'monthly':'月度','quarterly':'季度','yearly':'年度','special':'专项'} %}
+                {% for period in periods %}
+                <tr>
+                  <td class="fw-semibold">{{ period.name }}</td>
+                  <td>{{ period_type_map.get(period.period_type, period.period_type) }}</td>
+                  <td>{{ period.start_date.strftime('%Y-%m-%d') if period.start_date else '-' }} ~ {{ period.end_date.strftime('%Y-%m-%d') if period.end_date else '-' }}</td>
+                  <td><span class="badge bg-{{ 'success' if period.status == 'active' else 'secondary' }}">{{ '启用' if period.status == 'active' else '已关闭' }}</span></td>
+                  <td class="small text-muted">{{ period.remark or '-' }}</td>
+                  <td>
+                    <form method="post" action="{{ url_for('performance_period_toggle', period_id=period.id) }}">
+                      <input type="hidden" name="status" value="{{ 'closed' if period.status == 'active' else 'active' }}">
+                      <button class="btn btn-sm {{ 'btn-outline-secondary' if period.status == 'active' else 'btn-outline-success' }} w-100" onclick="return confirm('{{ '确认关闭该考核周期吗？' if period.status == 'active' else '确认启用该考核周期吗？' }}');">{{ '关闭周期' if period.status == 'active' else '启用周期' }}</button>
+                    </form>
+                  </td>
+                </tr>
+
+                {% endfor %}
+
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="text-center text-muted py-5">暂无考核周期</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-5">
+      <div class="card shadow-sm">
+        <div class="card-header bg-white fw-semibold">新增周期</div>
+        <div class="card-body">
+          <form method="post" class="row g-3">
+            <div class="col-12"><label class="form-label">周期名称</label><input type="text" name="name" class="form-control" required placeholder="如：2026年4月月度考核"></div>
+
+            <div class="col-md-6">
+              <label class="form-label">周期类型</label>
+              <select name="period_type" class="form-select">
+                <option value="monthly">月度</option>
+                <option value="quarterly">季度</option>
+                <option value="yearly">年度</option>
+                <option value="special">专项</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">状态</label>
+              <select name="status" class="form-select">
+                <option value="active">启用</option>
+                <option value="closed">关闭</option>
+              </select>
+            </div>
+            <div class="col-md-6"><label class="form-label">开始日期</label><input type="date" name="start_date" class="form-control" required></div>
+            <div class="col-md-6"><label class="form-label">结束日期</label><input type="date" name="end_date" class="form-control" required></div>
+            <div class="col-12"><div class="form-text">启用中的同类型周期不能时间重叠；结束日期也不能早于开始日期。</div></div>
+            <div class="col-12"><label class="form-label">备注</label><textarea name="remark" class="form-control" rows="3" placeholder="例如：面向综合部和办公室"></textarea></div>
+
+            <div class="col-12 d-grid"><button class="btn btn-primary">保存周期</button></div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

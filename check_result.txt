@@ -1,0 +1,16 @@
+[OK] app 导入成功
+[OK] POST /login: 302
+[OK] GET / (首页): 200
+[OK] GET /official_doc/inbox (电子公文收件箱): 200
+[OK] GET /official_doc/outbox (电子公文发件箱): 200
+[OK] GET /official_doc/compose (起草公文): 200
+[OK] GET /briefing (简报生成): 200
+[OK] GET /crawler (网站爬虫): 200
+[OK] GET /monitor (栏目监测): 200
+[OK] GET /knowledge (知识库): 302
+[OK] GET /smart_office/document_writing (AI写作): 200
+[OK] GET /smart_office/document_polish (文档润色): 200
+[OK] GET /smart_office/document_proofread (文档校对): 200
+[OK] GET /qa/ai_chat (AI对话): 200
+[OK] GET /smart_office/pdf_convert (文档转换): 200
+[OK] GET /admin/users (用户管理): 200

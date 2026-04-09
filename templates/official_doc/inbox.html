@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}收件箱 - 电子公文{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div>
+      <h4 class="mb-1">
+        <i class="fas fa-inbox me-2 text-success"></i>公文收件箱
+        {% if unread_count > 0 %}
+        <span class="badge bg-danger ms-2">{{ unread_count }} 未读</span>
+        {% endif %}
+      </h4>
+      <div class="text-muted">集中处理待阅公文和已办记录</div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <a href="{{ url_for('doc_dashboard') }}" class="btn btn-outline-secondary"><i class="fas fa-briefcase me-1"></i>公文工作台</a>
+      <a href="{{ url_for('doc_compose') }}" class="btn btn-primary"><i class="fas fa-pen me-1"></i>起草公文</a>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-md-3 col-6"><div class="card border-0 shadow-sm"><div class="card-body"><div class="text-muted small">未读</div><div class="fs-4 fw-bold text-danger">{{ stats.unread }}</div></div></div></div>
+    <div class="col-md-3 col-6"><div class="card border-0 shadow-sm"><div class="card-body"><div class="text-muted small">已读</div><div class="fs-4 fw-bold">{{ stats.read }}</div></div></div></div>
+    <div class="col-md-3 col-6"><div class="card border-0 shadow-sm"><div class="card-body"><div class="text-muted small">已办理</div><div class="fs-4 fw-bold text-success">{{ stats.handled }}</div></div></div></div>
+    <div class="col-md-3 col-6"><div class="card border-0 shadow-sm"><div class="card-body"><div class="text-muted small">已退回</div><div class="fs-4 fw-bold text-warning">{{ stats.returned }}</div></div></div></div>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <form class="row g-3 align-items-center">
+        <div class="col-lg-4"><input type="text" name="keyword" value="{{ keyword }}" class="form-control" placeholder="搜索标题或公文编号"></div>
+        <div class="col-lg-8 d-flex flex-wrap gap-2 align-items-center">
+          <span class="text-muted me-2">处理状态：</span>
+          {% for val, label in [('','全部'),('unread','未读'),('read','已读'),('handled','已办理'),('returned','已退回')] %}
+          <a href="{{ url_for('doc_inbox', handle=val, keyword=keyword) }}"
+             class="btn btn-sm {{ 'btn-primary' if handle_filter == val else 'btn-outline-secondary' }}">{{ label }}</a>
+          {% endfor %}
+          <button class="btn btn-sm btn-primary">搜索</button>
+          <a href="{{ url_for('doc_inbox') }}" class="btn btn-sm btn-outline-secondary">重置</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- 收件列表 -->
+  <div class="card shadow-sm">
+    <div class="card-body p-0">
+      {% if records %}
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th style="width:130px">公文编号</th>
+              <th>标题</th>
+              <th style="width:80px">种类</th>
+              <th style="width:70px">紧急度</th>
+              <th style="width:120px">发文部门</th>
+              <th style="width:90px">处理状态</th>
+              <th style="width:140px">收到时间</th>
+              <th style="width:80px">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for record in records %}
+            {% set doc = docs_map.get(record.doc_id) %}
+            {% if doc %}
+            <tr class="{{ 'table-warning' if record.handle_status == 'unread' else '' }}">
+              <td>
+                <code class="text-muted small">{{ doc.doc_no }}</code>
+                {% if record.handle_status == 'unread' %}
+                <span class="badge bg-danger ms-1 small">新</span>
+                {% endif %}
+              </td>
+              <td>
+                <a href="{{ url_for('doc_detail', doc_id=doc.id) }}" class="text-decoration-none fw-semibold">
+                  {{ doc.title }}
+                </a>
+                {% if doc.secrecy != '普通' %}
+                <span class="badge bg-danger ms-1 small">{{ doc.secrecy }}</span>
+                {% endif %}
+              </td>
+              <td><span class="badge bg-light text-dark border">{{ doc.doc_type }}</span></td>
+              <td>
+                {% if doc.urgency == '特急' %}
+                <span class="badge bg-danger">特急</span>
+                {% elif doc.urgency == '紧急' %}
+                <span class="badge bg-warning text-dark">紧急</span>
+                {% else %}
+                <span class="text-muted small">普通</span>
+                {% endif %}
+              </td>
+              <td class="text-muted small">{{ doc.sender_dept or doc.sender.department or '-' }}</td>
+              <td>
+                {% set hmap = {'unread':('danger','未读'),'read':('secondary','已读'),'handled':('success','已办理'),'returned':('warning','已退回')} %}
+                {% set hc, hl = hmap.get(record.handle_status, ('secondary',record.handle_status)) %}
+                <span class="badge bg-{{ hc }}">{{ hl }}</span>
+              </td>
+              <td class="text-muted small">{{ record.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+              <td>
+                <a href="{{ url_for('doc_detail', doc_id=doc.id) }}" class="btn btn-sm btn-outline-primary">查看</a>
+              </td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="text-center text-muted py-5">
+        <i class="fas fa-envelope-open fa-3x mb-3 opacity-25"></i>
+        <p>暂无公文</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

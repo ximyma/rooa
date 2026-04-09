@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="mb-0"><i class="fas fa-file-alt me-2 text-primary"></i>信息详情</h4>
+            <a href="{{ url_for('info_pool') }}" class="btn btn-outline-secondary btn-sm">← 返回信息池</a>
+        </div>
+
+        <!-- 状态与操作栏 -->
+        <div class="card mb-3">
+            <div class="card-body py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    {% if report.status == 'pending' %}
+                    <span class="badge bg-warning text-dark fs-6">待审核</span>
+                    {% elif report.status == 'adopted' %}
+                    <span class="badge bg-success fs-6">已采用</span>
+                    {% elif report.status == 'rejected' %}
+                    <span class="badge bg-danger fs-6">已退回</span>
+                    {% endif %}
+                    <small class="text-muted">报送时间：{{ report.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{{ url_for('edit_info', report_id=report.id) }}" class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-edit me-1"></i>编辑
+                    </a>
+                    <a href="{{ url_for('refine_report', report_id=report.id) }}" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-magic me-1"></i>精编
+                    </a>
+                    {% if report.status == 'pending' %}
+                    <a href="{{ url_for('adopt_report', report_id=report.id) }}" class="btn btn-sm btn-success"
+                       onclick="return confirm('确认采用该信息？')">
+                        <i class="fas fa-check me-1"></i>采用
+                    </a>
+                    <a href="{{ url_for('return_report', report_id=report.id) }}" class="btn btn-sm btn-warning">
+                        <i class="fas fa-undo me-1"></i>退回
+                    </a>
+                    {% elif report.status == 'adopted' %}
+                    <a href="{{ url_for('cancel_adopt', report_id=report.id) }}" class="btn btn-sm btn-outline-secondary"
+                       onclick="return confirm('确认取消采用？')">取消采用</a>
+                    {% elif report.status == 'rejected' %}
+                    <a href="{{ url_for('cancel_return', report_id=report.id) }}" class="btn btn-sm btn-outline-secondary"
+                       onclick="return confirm('确认取消退回？')">取消退回</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {% if report.status == 'rejected' and report.feedback %}
+        <div class="alert alert-warning d-flex gap-2 align-items-start">
+            <i class="fas fa-comment-dots mt-1"></i>
+            <div><strong>退回意见：</strong>{{ report.feedback }}</div>
+        </div>
+        {% endif %}
+
+        <!-- 基本信息 -->
+        <div class="card mb-3">
+            <div class="card-header fw-bold">基本信息</div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p class="mb-2"><strong>标题：</strong>{{ report.title }}</p>
+                        <p class="mb-2"><strong>信息类别：</strong>{{ report.category }}</p>
+                        <p class="mb-0"><strong>报送单位：</strong>{{ report.target_department or '-' }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p class="mb-2"><strong>撰稿人：</strong>{{ report.reporter_name }}</p>
+                        <p class="mb-2"><strong>联系方式：</strong>{{ report.reporter_phone or '未填写' }}</p>
+                        <p class="mb-0"><strong>附件：</strong>{{ report.attachments or '无' }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 正文内容 -->
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center fw-bold">
+                <span>正文内容</span>
+                <button class="btn btn-sm btn-outline-secondary" onclick="copyContent()" id="copyBtn">
+                    <i class="fas fa-copy me-1"></i>复制
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="reportContent" style="white-space: pre-wrap; line-height: 1.9; font-size: 15px;">{{ report.content }}</div>
+            </div>
+        </div>
+
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('info_pool') }}" class="btn btn-outline-secondary">← 返回信息池</a>
+        </div>
+    </div>
+</div>
+<script>
+function copyContent() {
+    const text = document.getElementById('reportContent').innerText;
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = document.getElementById('copyBtn');
+        btn.innerHTML = '<i class="fas fa-check me-1"></i>已复制';
+        btn.classList.replace('btn-outline-secondary', 'btn-success');
+        setTimeout(() => {
+            btn.innerHTML = '<i class="fas fa-copy me-1"></i>复制';
+            btn.classList.replace('btn-success', 'btn-outline-secondary');
+        }, 2000);
+    });
+}
+</script>
+{% endblock %}

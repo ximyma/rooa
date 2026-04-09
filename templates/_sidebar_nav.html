@@ -1,0 +1,512 @@
+{% macro sidebar(active='') %}
+<style>
+/* ===== 折叠侧边栏样式 ===== */
+.sidebar {
+    background: linear-gradient(180deg, #1a2332 0%, #243447 100%);
+    min-height: 100vh;
+    color: #cfd8dc;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+}
+.sidebar-brand {
+    padding: 18px 20px 16px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.sidebar-brand i { color: #4fc3f7; }
+.sidebar-scroll {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-bottom: 70px;
+}
+.sidebar-scroll::-webkit-scrollbar { width: 4px; }
+.sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+.sidebar-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+
+/* 分组标题 */
+.nav-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px 8px;
+    cursor: pointer;
+    color: #90a4ae;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    user-select: none;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    margin-top: 4px;
+    transition: color 0.2s;
+}
+.nav-group-header:hover { color: #b0bec5; }
+.nav-group-header .toggle-icon {
+    font-size: 0.65rem;
+    transition: transform 0.25s;
+    opacity: 0.6;
+}
+.nav-group-header.collapsed .toggle-icon { transform: rotate(-90deg); }
+
+/* 子菜单链接 */
+.sidebar-nav-link {
+    display: flex;
+    align-items: center;
+    padding: 9px 16px 9px 20px;
+    color: #b0bec5;
+    text-decoration: none;
+    font-size: 0.875rem;
+    border-left: 3px solid transparent;
+    transition: all 0.2s;
+    white-space: nowrap;
+    overflow: hidden;
+}
+.sidebar-nav-link i {
+    width: 18px;
+    font-size: 0.85rem;
+    margin-right: 10px;
+    color: #78909c;
+    flex-shrink: 0;
+    transition: color 0.2s;
+}
+.sidebar-nav-link:hover {
+    color: #fff;
+    background: rgba(255,255,255,0.06);
+    border-left-color: #4fc3f7;
+}
+.sidebar-nav-link:hover i { color: #4fc3f7; }
+.sidebar-nav-link.active {
+    color: #fff;
+    background: rgba(79, 195, 247, 0.12);
+    border-left-color: #4fc3f7;
+    font-weight: 500;
+}
+.sidebar-nav-link.active i { color: #4fc3f7; }
+
+/* badge 角标 */
+.sidebar-nav-link .nav-badge {
+    margin-left: auto;
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    border-radius: 10px;
+    background: #e53935;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+/* 首页链接（无分组） */
+.sidebar-home-link {
+    display: flex;
+    align-items: center;
+    padding: 11px 16px;
+    color: #cfd8dc;
+    text-decoration: none;
+    font-size: 0.9rem;
+    border-left: 3px solid transparent;
+    transition: all 0.2s;
+}
+.sidebar-home-link i { width: 18px; margin-right: 10px; color: #78909c; }
+.sidebar-home-link:hover, .sidebar-home-link.active {
+    color: #fff;
+    background: rgba(255,255,255,0.06);
+    border-left-color: #4fc3f7;
+}
+.sidebar-home-link:hover i, .sidebar-home-link.active i { color: #4fc3f7; }
+
+/* 底部用户信息 */
+.sidebar-footer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 12px 16px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    background: rgba(0,0,0,0.2);
+    font-size: 0.8rem;
+    color: #90a4ae;
+    flex-shrink: 0;
+}
+.sidebar-footer a { color: #78909c; }
+.sidebar-footer a:hover { color: #fff; }
+</style>
+
+<div class="sidebar-brand">
+    <i class="fas fa-building me-2"></i>智能OA
+</div>
+
+<div class="sidebar-scroll">
+    <!-- 首页 -->
+    <a class="sidebar-home-link {% if active=='index' %}active{% endif %}" href="{{ url_for('index') }}">
+        <i class="fas fa-home"></i> 首页工作台
+    </a>
+
+    <!-- 智能办公 -->
+    <div class="nav-group-header" data-bs-toggle="collapse" data-bs-target="#nav-office"
+         id="hdr-office" aria-expanded="{% if active in ('document_writing','document_polish','document_proofread','suggestion','template_library_v2','meeting_minutes','pdf_convert') %}true{% else %}true{% endif %}">
+        <span><i class="fas fa-pen-nib me-2"></i>智能办公</span>
+        <i class="fas fa-chevron-down toggle-icon"></i>
+    </div>
+    <div class="collapse show" id="nav-office">
+        <a class="sidebar-nav-link {% if active=='document_writing' %}active{% endif %}" href="{{ url_for('document_writing') }}">
+            <i class="fas fa-file-signature"></i>公文写作
+        </a>
+        <a class="sidebar-nav-link {% if active=='document_polish' %}active{% endif %}" href="{{ url_for('document_polish') }}">
+            <i class="fas fa-magic"></i>稿件润色
+        </a>
+        <a class="sidebar-nav-link {% if active=='document_proofread' %}active{% endif %}" href="{{ url_for('document_proofread') }}">
+            <i class="fas fa-check-double"></i>稿件校对
+        </a>
+        <a class="sidebar-nav-link {% if active=='suggestion' %}active{% endif %}" href="{{ url_for('suggestion') }}">
+            <i class="fas fa-comment-dots"></i>拟办意见
+        </a>
+        <a class="sidebar-nav-link {% if active=='template_library_v2' %}active{% endif %}" href="{{ url_for('template_library_v2') }}">
+            <i class="fas fa-file-alt"></i>公文模板库
+        </a>
+        <a class="sidebar-nav-link {% if active=='meeting_minutes' %}active{% endif %}" href="{{ url_for('meeting_minutes') }}">
+            <i class="fas fa-calendar-check"></i>会议纪要
+        </a>
+        <a class="sidebar-nav-link {% if active=='pdf_convert' %}active{% endif %}" href="{{ url_for('pdf_convert') }}">
+            <i class="fas fa-exchange-alt"></i>文档转换
+        </a>
+    </div>
+
+    <!-- 知识管理 -->
+    <div class="nav-group-header collapsed" data-bs-toggle="collapse" data-bs-target="#nav-knowledge"
+         id="hdr-knowledge">
+        <span><i class="fas fa-database me-2"></i>知识管理</span>
+        <i class="fas fa-chevron-down toggle-icon"></i>
+    </div>
+    <div class="collapse" id="nav-knowledge">
+        <a class="sidebar-nav-link {% if active=='personal_knowledge_base' %}active{% endif %}" href="{{ url_for('personal_knowledge_base') }}">
+            <i class="fas fa-user-lock"></i>个人知识库
+        </a>
+        <a class="sidebar-nav-link {% if active=='personal_kb_management' %}active{% endif %}" href="{{ url_for('personal_kb_management') }}">
+            <i class="fas fa-cog"></i>个人知识库管理
+        </a>
+        <a class="sidebar-nav-link {% if active=='shared_knowledge_base' %}active{% endif %}" href="{{ url_for('shared_knowledge_base') }}">
+            <i class="fas fa-share-alt"></i>共享知识库
+        </a>
+        <a class="sidebar-nav-link {% if active=='policy_library' %}active{% endif %}" href="{{ url_for('policy_library') }}">
+            <i class="fas fa-landmark"></i>政策文件库
+        </a>
+        <a class="sidebar-nav-link" href="{{ url_for('knowledge_search') }}">
+            <i class="fas fa-search"></i>知识库搜索
+        </a>
+    </div>
+
+    <!-- AI 智能 -->
+    <div class="nav-group-header collapsed" data-bs-toggle="collapse" data-bs-target="#nav-ai"
+         id="hdr-ai">
+        <span><i class="fas fa-robot me-2"></i>AI 智能</span>
+        <i class="fas fa-chevron-down toggle-icon"></i>
+    </div>
+    <div class="collapse" id="nav-ai">
+        <a class="sidebar-nav-link {% if active=='ai_chat' %}active{% endif %}" href="{{ url_for('ai_chat') }}">
+            <i class="fas fa-comments"></i>AI对话
+        </a>
+        <a class="sidebar-nav-link {% if active=='briefing_index' %}active{% endif %}" href="{{ url_for('briefing_index') }}">
+            <i class="fas fa-newspaper"></i>简报生成
+        </a>
+        <a class="sidebar-nav-link {% if active=='briefing_sources' %}active{% endif %}" href="{{ url_for('briefing_sources') }}">
+            <i class="fas fa-rss"></i>数据源管理
+        </a>
+        <a class="sidebar-nav-link {% if active=='briefing_keywords' %}active{% endif %}" href="{{ url_for('briefing_keywords') }}">
+            <i class="fas fa-tags"></i>关键词管理
+        </a>
+        <a class="sidebar-nav-link {% if active=='briefing_history' %}active{% endif %}" href="{{ url_for('briefing_history') }}">
+            <i class="fas fa-history"></i>简报历史
+        </a>
+    </div>
+
+    <!-- 网站采集 & 监测 -->
+    <div class="nav-group-header collapsed" data-bs-toggle="collapse" data-bs-target="#nav-crawler"
+         id="hdr-crawler">
+        <span><i class="fas fa-spider me-2"></i>网站采集 & 监测</span>
+        <i class="fas fa-chevron-down toggle-icon"></i>
+    </div>
+    <div class="collapse" id="nav-crawler">
+        <a class="sidebar-nav-link {% if active=='crawler_index' %}active{% endif %}" href="{{ url_for('crawler_index') }}">
+            <i class="fas fa-spider"></i>网站爬虫
+        </a>
+        <a class="sidebar-nav-link {% if active=='crawler_search' %}active{% endif %}" href="{{ url_for('crawler_search') }}">
+            <i class="fas fa-search"></i>内容检索
+        </a>
+        <a class="sidebar-nav-link {% if active=='crawler_advanced_search' %}active{% endif %}" href="{{ url_for('crawler_advanced_search') }}">
+            <i class="fas fa-stream"></i>高级检索
+        </a>
+        <a class="sidebar-nav-link {% if active=='monitor_index' %}active{% endif %}" href="{{ url_for('monitor_index') }}">
+            <i class="fas fa-broadcast-tower"></i>栏目监测
+        </a>
+    </div>
+
+    <!-- 档案管理 -->
+    <div class="nav-group-header {% if active not in ('archive_index','archive_fonds','archive_files','archive_search','archive_tasks','archive_my_borrows','archive_borrow_manage','archive_statistics','archive_digitize','archive_digitization_tasks') %}collapsed{% endif %}" data-bs-toggle="collapse" data-bs-target="#nav-archive"
+         id="hdr-archive">
+        <span><i class="fas fa-archive me-2"></i>档案管理</span>
+        <i class="fas fa-chevron-down toggle-icon"></i>
+    </div>
+    <div class="collapse {% if active in ('archive_index','archive_fonds','archive_files','archive_search','archive_tasks','archive_my_borrows','archive_borrow_manage','archive_statistics','archive_digitize','archive_digitization_tasks') %}show{% endif %}" id="nav-archive">
+        <a class="sidebar-nav-link {% if active=='archive_index' %}active{% endif %}" href="{{ url_for('archive.index') }}">
+            <i class="fas fa-tachometer-alt"></i>档案总览
+        </a>
+        <a class="sidebar-nav-link {% if active=='archive_fonds' %}active{% endif %}" href="{{ url_for('archive.fonds_list') }}">
+            <i class="fas fa-layer-group"></i>全宗管理
+        </a>
+        <a class="sidebar-nav-link {% if active=='archive_files' %}active{% endif %}" href="{{ url_for('archive.file_list') }}">
+            <i class="fas fa-folder-open"></i>案卷文件
+        </a>
+        <a class="sidebar-nav-link {% if active=='archive_search' %}active{% endif %}" href="{{ url_for('archive.search') }}">
+            <i class="fas fa-search"></i>档案检索
+        </a>
+        <a class="sidebar-nav-link {% if active=='archive_my_borrows' %}active{% endif %}" href="{{ url_for('archive.my_borrows') }}">
+            <i class="fas fa-hand-holding"></i>我的借阅
+        </a>
+        {% if current_user.role in ('admin', 'manager') %}
+        <a class="sidebar-nav-link {% if active=='archive_borrow_manage' %}active{% endif %}" href="{{ url_for('archive.borrow_manage') }}">
+            <i class="fas fa-clipboard-check"></i>借阅审批
+        </a>
+        <a class="sidebar-nav-link {% if active=='archive_statistics' %}active{% endif %}" href="{{ url_for('archive.statistics') }}">
+            <i class="fas fa-chart-bar"></i>统计分析
+        </a>
+        <a class="sidebar-nav-link {% if active=='archive_digitize' %}active{% endif %}" href="{{ url_for('archive.digitize_manage') }}">
+            <i class="fas fa-scanner"></i>数字化管理
+        </a>
+        <a class="sidebar-nav-link {% if active=='archive_digitization_tasks' %}active{% endif %}" href="{{ url_for('archive.digitization_tasks') }}">
+            <i class="fas fa-tasks"></i>数字化任务
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- 电子公文 -->
+    <div class="nav-group-header collapsed" data-bs-toggle="collapse" data-bs-target="#nav-doc"
+         id="hdr-doc">
+        <span><i class="fas fa-envelope-open-text me-2"></i>电子公文</span>
+        <i class="fas fa-chevron-down toggle-icon"></i>
+    </div>
+    <div class="collapse" id="nav-doc">
+        <a class="sidebar-nav-link {% if active=='doc_dashboard' %}active{% endif %}" href="{{ url_for('doc_dashboard') }}">
+            <i class="fas fa-briefcase"></i>公文工作台
+        </a>
+        <a class="sidebar-nav-link {% if active=='doc_inbox' %}active{% endif %}" href="{{ url_for('doc_inbox') }}">
+            <i class="fas fa-inbox"></i>公文收件箱
+        </a>
+        <a class="sidebar-nav-link {% if active=='doc_outbox' %}active{% endif %}" href="{{ url_for('doc_outbox') }}">
+            <i class="fas fa-paper-plane"></i>公文发件箱
+        </a>
+        <a class="sidebar-nav-link {% if active=='doc_compose' %}active{% endif %}" href="{{ url_for('doc_compose') }}">
+            <i class="fas fa-pen-alt"></i>起草公文
+        </a>
+        {% if current_user.role in ('admin', 'manager') %}
+        <a class="sidebar-nav-link {% if active=='doc_pending' %}active{% endif %}" href="{{ url_for('doc_pending') }}">
+            <i class="fas fa-clock"></i>待审批公文
+        </a>
+        <a class="sidebar-nav-link {% if active=='doc_archive_list' %}active{% endif %}" href="{{ url_for('doc_archive_list') }}">
+            <i class="fas fa-archive"></i>公文归档库
+        </a>
+        {% endif %}
+    </div>
+
+
+    <!-- 会议管理 -->
+    <div class="nav-group-header collapsed" data-bs-toggle="collapse" data-bs-target="#nav-meeting"
+         id="hdr-meeting">
+        <span><i class="fas fa-calendar-check me-2"></i>会议管理</span>
+        <i class="fas fa-chevron-down toggle-icon"></i>
+    </div>
+    <div class="collapse" id="nav-meeting">
+        <a class="sidebar-nav-link {% if active=='meeting_index' %}active{% endif %}" href="{{ url_for('meeting_index') }}">
+            <i class="fas fa-list"></i>会议首页
+        </a>
+        <a class="sidebar-nav-link {% if active=='meeting_new' %}active{% endif %}" href="{{ url_for('meeting_new') }}">
+            <i class="fas fa-plus"></i>发起会议
+        </a>
+        <a class="sidebar-nav-link {% if active=='meeting_calendar' %}active{% endif %}" href="{{ url_for('meeting_calendar') }}">
+            <i class="fas fa-calendar-alt"></i>会议日历
+        </a>
+        <a class="sidebar-nav-link {% if active=='meeting_rooms' %}active{% endif %}" href="{{ url_for('meeting_rooms') }}">
+            <i class="fas fa-door-open"></i>会议室管理
+        </a>
+    </div>
+
+    <!-- 督查督办 -->
+    <div class="nav-group-header collapsed" data-bs-toggle="collapse" data-bs-target="#nav-supervision"
+         id="hdr-supervision">
+        <span><i class="fas fa-tasks me-2"></i>督查督办</span>
+        <i class="fas fa-chevron-down toggle-icon"></i>
+    </div>
+    <div class="collapse" id="nav-supervision">
+        <a class="sidebar-nav-link {% if active=='supervision_index' %}active{% endif %}" href="{{ url_for('supervision_index') }}">
+            <i class="fas fa-list-check"></i>任务督办
+        </a>
+        <a class="sidebar-nav-link {% if active=='supervision_new' %}active{% endif %}" href="{{ url_for('supervision_new') }}">
+            <i class="fas fa-plus"></i>新建任务
+        </a>
+    </div>
+
+    <!-- 绩效考核 -->
+    <div class="nav-group-header collapsed" data-bs-toggle="collapse" data-bs-target="#nav-performance"
+         id="hdr-performance">
+        <span><i class="fas fa-chart-line me-2"></i>绩效考核</span>
+        <i class="fas fa-chevron-down toggle-icon"></i>
+    </div>
+    <div class="collapse" id="nav-performance">
+        <a class="sidebar-nav-link {% if active=='performance_index' %}active{% endif %}" href="{{ url_for('performance_index') }}">
+            <i class="fas fa-chart-bar"></i>绩效台账
+        </a>
+        <a class="sidebar-nav-link {% if active=='performance_periods' %}active{% endif %}" href="{{ url_for('performance_periods') }}">
+            <i class="fas fa-calendar"></i>考核周期
+        </a>
+        {% if current_user.role in ('admin', 'manager') %}
+        <a class="sidebar-nav-link {% if active=='performance_new' %}active{% endif %}" href="{{ url_for('performance_new') }}">
+            <i class="fas fa-plus"></i>新增绩效记录
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- 工作日志 -->
+    <div class="nav-group-header collapsed" data-bs-toggle="collapse" data-bs-target="#nav-worklog"
+         id="hdr-worklog">
+        <span><i class="fas fa-book me-2"></i>工作日志</span>
+        <i class="fas fa-chevron-down toggle-icon"></i>
+    </div>
+    <div class="collapse" id="nav-worklog">
+        <a class="sidebar-nav-link {% if active=='worklog_index' %}active{% endif %}" href="{{ url_for('worklog_index') }}">
+            <i class="fas fa-list"></i>日志列表
+        </a>
+        <a class="sidebar-nav-link {% if active=='worklog_new' %}active{% endif %}" href="{{ url_for('worklog_new') }}">
+            <i class="fas fa-plus"></i>新建日志
+        </a>
+    </div>
+
+    <!-- 信息上报 -->
+    <div class="nav-group-header collapsed" data-bs-toggle="collapse" data-bs-target="#nav-report"
+         id="hdr-report">
+
+        <span><i class="fas fa-upload me-2"></i>信息上报</span>
+        <i class="fas fa-chevron-down toggle-icon"></i>
+    </div>
+    <div class="collapse" id="nav-report">
+        <a class="sidebar-nav-link {% if active=='report_list' %}active{% endif %}" href="{{ url_for('report_list') }}">
+            <i class="fas fa-list-alt"></i>我的上报
+        </a>
+        <a class="sidebar-nav-link {% if active=='task_todo' %}active{% endif %}" href="{{ url_for('task_todo') }}">
+            <i class="fas fa-clipboard-list"></i>约稿任务(待办)
+        </a>
+        <a class="sidebar-nav-link {% if active=='task_done' %}active{% endif %}" href="{{ url_for('task_done') }}">
+            <i class="fas fa-clipboard-check"></i>约稿任务(已办)
+        </a>
+        {% if current_user.is_receiver %}
+        <a class="sidebar-nav-link {% if active=='info_pool' %}active{% endif %}" href="{{ url_for('info_pool') }}">
+            <i class="fas fa-layer-group"></i>专项信息池
+        </a>
+        <a class="sidebar-nav-link {% if active=='task_manage' %}active{% endif %}" href="{{ url_for('task_manage') }}">
+            <i class="fas fa-tasks"></i>约稿管理
+        </a>
+        <a class="sidebar-nav-link {% if active=='statistics' %}active{% endif %}" href="{{ url_for('statistics') }}">
+            <i class="fas fa-chart-pie"></i>报送统计
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- 系统管理（管理员/经理） -->
+    {% if current_user.role in ('admin', 'manager') %}
+    <div class="nav-group-header collapsed" data-bs-toggle="collapse" data-bs-target="#nav-admin"
+         id="hdr-admin">
+        <span><i class="fas fa-cogs me-2"></i>系统管理</span>
+        <i class="fas fa-chevron-down toggle-icon"></i>
+    </div>
+    <div class="collapse" id="nav-admin">
+        {% if current_user.role == 'admin' %}
+        <!-- 组织架构 -->
+        <div class="px-3 py-1 mt-1">
+          <small class="text-uppercase text-muted" style="font-size:.68rem;letter-spacing:.05em">组织架构</small>
+        </div>
+        <a class="sidebar-nav-link {% if active=='admin_org_tree' %}active{% endif %}" href="{{ url_for('admin_org_tree') }}">
+            <i class="fas fa-sitemap"></i>架构总览
+        </a>
+        <a class="sidebar-nav-link {% if active=='admin_org_list' %}active{% endif %}" href="{{ url_for('admin_org_list') }}">
+            <i class="fas fa-building"></i>机构管理
+        </a>
+        <a class="sidebar-nav-link {% if active=='admin_dept_list' %}active{% endif %}" href="{{ url_for('admin_dept_list') }}">
+            <i class="fas fa-layer-group"></i>部门管理
+        </a>
+        <a class="sidebar-nav-link {% if active=='admin_position_list' %}active{% endif %}" href="{{ url_for('admin_position_list') }}">
+            <i class="fas fa-id-badge"></i>岗位管理
+        </a>
+        <!-- 用户与权限 -->
+        <div class="px-3 py-1 mt-1">
+          <small class="text-uppercase text-muted" style="font-size:.68rem;letter-spacing:.05em">用户与权限</small>
+        </div>
+        <a class="sidebar-nav-link {% if active=='admin_users' %}active{% endif %}" href="{{ url_for('admin_users') }}">
+            <i class="fas fa-users-cog"></i>用户管理
+        </a>
+        <a class="sidebar-nav-link {% if active=='admin_roles' %}active{% endif %}" href="{{ url_for('admin_roles') }}">
+            <i class="fas fa-shield-alt"></i>角色权限
+        </a>
+        <a class="sidebar-nav-link {% if active=='admin_operation_logs' %}active{% endif %}" href="{{ url_for('admin_operation_logs') }}">
+            <i class="fas fa-history"></i>操作日志
+        </a>
+        <a class="sidebar-nav-link {% if active=='system_config' %}active{% endif %}" href="{{ url_for('system_config') }}">
+            <i class="fas fa-sliders-h"></i>系统配置
+        </a>
+        <a class="sidebar-nav-link {% if active=='ai_config_list' %}active{% endif %}" href="{{ url_for('ai_config_list') }}">
+            <i class="fas fa-brain"></i>AI模型配置
+        </a>
+        {% endif %}
+        <!-- 通用管理（管理员+经理可见） -->
+        <div class="px-3 py-1 mt-1">
+          <small class="text-uppercase text-muted" style="font-size:.68rem;letter-spacing:.05em">内容管理</small>
+        </div>
+        <a class="sidebar-nav-link {% if active=='admin_doc_templates' %}active{% endif %}" href="{{ url_for('admin_doc_templates') }}">
+            <i class="fas fa-copy"></i>模板管理
+        </a>
+        <a class="sidebar-nav-link {% if active=='admin_stats' %}active{% endif %}" href="{{ url_for('admin_stats') }}">
+            <i class="fas fa-chart-bar"></i>报表统计
+        </a>
+    </div>
+    {% endif %}
+</div><!-- /sidebar-scroll -->
+
+<div class="sidebar-footer">
+    <div class="d-flex align-items-center justify-content-between">
+        <div>
+            <i class="fas fa-user-circle me-1"></i>
+            <span class="fw-semibold text-white">{{ current_user.name }}</span><br>
+            <small>{{ current_user.department or '未设置部门' }}</small>
+        </div>
+        <a href="{{ url_for('logout') }}" title="退出登录">
+            <i class="fas fa-sign-out-alt"></i>
+        </a>
+    </div>
+</div>
+
+<script>
+// 折叠状态：点击后更新header的collapsed class
+document.querySelectorAll('.nav-group-header').forEach(function(hdr) {
+    var target = hdr.getAttribute('data-bs-target');
+    var pane = document.querySelector(target);
+    if (!pane) return;
+    // 监听折叠/展开事件
+    pane.addEventListener('show.bs.collapse', function() {
+        hdr.classList.remove('collapsed');
+    });
+    pane.addEventListener('hide.bs.collapse', function() {
+        hdr.classList.add('collapsed');
+    });
+    // 根据活动链接自动展开对应分组
+    if (pane.querySelector('.sidebar-nav-link.active')) {
+        pane.classList.add('show');
+        hdr.classList.remove('collapsed');
+    }
+});
+</script>
+{% endmacro %}

@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% block title %}督办任务详情{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div>
+      <a href="{{ url_for('supervision_index') }}" class="btn btn-outline-secondary mb-3"><i class="fas fa-arrow-left me-1"></i>返回</a>
+      <h3 class="mb-1">{{ task.title }}</h3>
+      <div class="text-muted">{{ task.task_no }} · {{ task.category }} · 来源：{{ task.source }}</div>
+    </div>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <div class="badge bg-{{ 'secondary' if task.status == 'draft' else 'warning' if task.status == 'issued' else 'primary' if task.status == 'processing' else 'info' if task.status == 'review' else 'success' if task.status == 'completed' else 'dark' }} fs-6">{{ {'draft':'草稿','issued':'已下发','processing':'办理中','review':'待复核','completed':'已完成','cancelled':'已取消'}.get(task.status, task.status) }}</div>
+      {% if can_manage and task.status not in ('completed', 'cancelled') %}
+      <a href="{{ url_for('supervision_edit', task_id=task.id) }}" class="btn btn-outline-secondary"><i class="fas fa-pen me-1"></i>编辑任务</a>
+      <button class="btn btn-outline-dark" data-bs-toggle="modal" data-bs-target="#closeModal"><i class="fas fa-check-double me-1"></i>关闭任务</button>
+      {% endif %}
+      {% if can_remind and task.status not in ('completed', 'cancelled') %}
+      <button class="btn btn-outline-warning" data-bs-toggle="modal" data-bs-target="#remindModal"><i class="fas fa-bell me-1"></i>催办提醒</button>
+      {% endif %}
+    </div>
+
+  </div>
+
+  {% if alert_meta.is_overdue or alert_meta.is_due_soon %}
+  <div class="alert alert-{{ 'danger' if alert_meta.is_overdue else 'warning' }} d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div>
+      <div class="fw-semibold">{{ '该任务已逾期，请立即督办处理。' if alert_meta.is_overdue else '该任务将在 24 小时内到期，请尽快反馈办理进展。' }}</div>
+      <div class="small">{{ alert_meta.deadline_text }}{% if alert_meta.latest_reminder_text %} · 最近提醒：{{ alert_meta.latest_reminder_text }}{% endif %}</div>
+    </div>
+    <span class="badge bg-{{ alert_meta.badge_class }} fs-6">{{ '逾期预警' if alert_meta.is_overdue else '临期提醒' }}</span>
+  </div>
+  {% endif %}
+
+  <div class="row g-3 mb-4">
+    <div class="col-md-3 col-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">负责人</div><div class="fw-bold">{{ task.owner.name if task.owner else '-' }}</div></div></div></div>
+    <div class="col-md-3 col-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">办结时限</div><div class="fw-bold">{{ task.due_date.strftime('%m-%d %H:%M') if task.due_date else '-' }}</div></div></div></div>
+    <div class="col-md-3 col-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">剩余情况</div><div class="fw-bold text-{{ 'danger' if alert_meta.is_overdue else 'warning' if alert_meta.is_due_soon else 'secondary' }}">{{ alert_meta.deadline_text }}</div></div></div></div>
+    <div class="col-md-3 col-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">完成进度</div><div class="fw-bold">{{ task.progress_percent or 0 }}%</div></div></div></div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white fw-semibold">任务说明</div>
+        <div class="card-body">
+          <div class="row g-3 mb-3">
+            <div class="col-md-4"><div class="text-muted small">下达人</div><div class="fw-semibold">{{ task.creator.name if task.creator else '-' }}</div></div>
+            <div class="col-md-4"><div class="text-muted small">优先级</div><div class="fw-semibold">{{ task.priority }}</div></div>
+            <div class="col-md-4"><div class="text-muted small">完成时间</div><div class="fw-semibold">{{ task.completed_at.strftime('%Y-%m-%d %H:%M') if task.completed_at else '-' }}</div></div>
+          </div>
+          <div class="progress mb-3" style="height:10px"><div class="progress-bar {% if alert_meta.is_overdue %}bg-danger{% elif alert_meta.is_due_soon %}bg-warning{% endif %}" style="width:{{ task.progress_percent or 0 }}%"></div></div>
+          <div class="mb-3">
+            <div class="text-muted small mb-1">任务内容</div>
+            <div class="bg-light rounded p-3" style="white-space:pre-wrap;line-height:1.8;">{{ task.content or '暂无任务内容' }}</div>
+          </div>
+          <div>
+            <div class="text-muted small mb-1">办理结果</div>
+            <div class="bg-light rounded p-3" style="white-space:pre-wrap;line-height:1.8;">{{ task.result_summary or '暂未填写办理结果' }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card shadow-sm">
+        <div class="card-header bg-white fw-semibold">任务跟踪</div>
+        <div class="card-body">
+          <form method="post" action="{{ url_for('supervision_progress', task_id=task.id) }}" class="row g-3 mb-4">
+            <div class="col-md-4">
+              <label class="form-label">更新状态</label>
+              <select name="status" class="form-select">
+                {% for val, label in [('issued','已下发'),('processing','办理中'),('review','待复核'),('completed','已完成'),('cancelled','已取消')] %}
+                <option value="{{ val }}" {{ 'selected' if task.status == val else '' }}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">进度（%）</label>
+              <input type="number" name="progress_percent" class="form-control" min="0" max="100" value="{{ task.progress_percent or 0 }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">阶段成果</label>
+              <input type="text" name="result_summary" class="form-control" value="{{ task.result_summary or '' }}" placeholder="可概括阶段结果">
+            </div>
+            <div class="col-12">
+              <label class="form-label">办理说明</label>
+              <textarea name="note" rows="4" class="form-control" placeholder="填写已完成工作、存在问题和下一步计划"></textarea>
+            </div>
+            <div class="col-12 d-grid"><button class="btn btn-primary">保存跟踪记录</button></div>
+          </form>
+
+          {% if logs %}
+          <div class="timeline">
+            {% for log in logs %}
+            {% set action_label = {'create':'创建草稿','issue':'任务下发','edit':'编辑任务','update':'进度更新','close':'任务关闭','manual_remind':'人工催办','auto_remind':'系统催办','overdue_warn':'逾期预警'}.get(log.action, log.action) %}
+            {% set action_color = 'warning' if log.action in ['manual_remind','auto_remind'] else 'danger' if log.action in ['overdue_warn', 'close'] else 'primary' %}
+
+            <div class="border-start ps-3 mb-3 position-relative">
+              <span class="position-absolute top-0 start-0 translate-middle badge rounded-pill bg-{{ action_color }}">{{ log.progress_percent }}%</span>
+              <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                <div class="fw-semibold">{{ log.operator.name if log.operator else '-' }}</div>
+                <div class="small text-muted">{{ log.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+              </div>
+              <div class="small text-muted mb-1">动作：{{ action_label }}</div>
+              <div style="white-space:pre-wrap;line-height:1.8;">{{ log.note }}</div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="text-muted">暂无办理记录</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white fw-semibold">协同信息</div>
+        <div class="card-body">
+          <div class="small text-muted mb-2">协办人员</div>
+          {% if helpers %}
+          <ul class="list-group list-group-flush border rounded mb-3">
+            {% for helper in helpers %}
+            <li class="list-group-item d-flex justify-content-between align-items-center"><span>{{ helper.name }}</span><span class="small text-muted">{{ helper.department or '未设置部门' }}</span></li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <div class="text-muted mb-3">暂无协办人员</div>
+          {% endif %}
+
+          <div class="small text-muted mb-2">来源公文</div>
+          {% if task.source_doc %}
+          <a href="{{ url_for('doc_detail', doc_id=task.source_doc.id) }}" class="text-decoration-none fw-semibold">{{ task.source_doc.title }}</a>
+          <div class="small text-muted mb-3">{{ task.source_doc.doc_no }}</div>
+          {% else %}
+          <div class="text-muted mb-3">未关联来源公文</div>
+          {% endif %}
+
+          <div class="small text-muted mb-2">催办说明</div>
+          <div class="small text-muted" style="line-height:1.8;">系统会对临期 24 小时内和已逾期任务自动写入催办/预警日志，人工催办也会同步留痕。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if can_remind and task.status not in ('completed', 'cancelled') %}
+<div class="modal fade" id="remindModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" action="{{ url_for('supervision_remind', task_id=task.id) }}">
+        <div class="modal-header">
+          <h5 class="modal-title">发送催办提醒</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <label class="form-label">催办内容</label>
+          <textarea name="note" rows="5" class="form-control" placeholder="请填写需要同步给负责人的催办信息">督办催办：请负责人尽快反馈办理进度，确保按期办结。</textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+          <button type="submit" class="btn btn-warning">发送催办</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if can_manage and task.status not in ('completed', 'cancelled') %}
+<div class="modal fade" id="closeModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" action="{{ url_for('supervision_close', task_id=task.id) }}">
+        <div class="modal-header">
+          <h5 class="modal-title">关闭督办任务</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">关闭方式</label>
+            <select name="close_type" class="form-select">
+              <option value="completed">办结归档</option>
+              <option value="cancelled">直接关闭</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">办理结果</label>
+            <textarea name="result_summary" rows="4" class="form-control" placeholder="请补充任务结论、成果或关闭原因">{{ task.result_summary or '' }}</textarea>
+          </div>
+          <div>
+            <label class="form-label">留痕说明</label>
+            <textarea name="note" rows="3" class="form-control" placeholder="例如：已完成验收并归档，关闭任务">任务关闭后将不再继续催办，请确认结论准确。</textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+          <button type="submit" class="btn btn-dark">确认关闭</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+

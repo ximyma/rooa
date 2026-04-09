@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>内容检索 - 网站爬虫</title>
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/css/fontawesome.all.min.css" rel="stylesheet">
+    <style>
+        :root { --bg-primary: #0a0e1a; --bg-secondary: #111827; --bg-card: #1a2235; --accent-cyan: #00d4ff; --accent-green: #00ff9d; --accent-orange: #ff9f43; --accent-red: #ff4757; --text-primary: #e8edf5; --text-secondary: #8892a4; --border-color: #2a3550; }
+        * { box-sizing: border-box; }
+        body { background: var(--bg-primary); color: var(--text-primary); font-family: 'Microsoft YaHei', sans-serif; min-height: 100vh; }
+        .sidebar { background: var(--bg-secondary); min-height: 100vh; border-right: 1px solid var(--border-color); }
+        .nav-link-custom { color: var(--text-secondary); padding: 12px 20px; border-radius: 8px; transition: all 0.3s; display: flex; align-items: center; gap: 10px; text-decoration: none; }
+        .nav-link-custom:hover, .nav-link-custom.active { background: rgba(0,212,255,0.1); color: var(--accent-cyan); }
+        .card-dark { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; }
+        .form-control-dark { background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 8px; }
+        .form-control-dark:focus { border-color: var(--accent-cyan); box-shadow: 0 0 0 2px rgba(0,212,255,0.15); }
+        .btn-cyber { border: 1px solid var(--accent-cyan); color: var(--accent-cyan); border-radius: 8px; padding: 8px 20px; font-weight: 600; transition: all 0.3s; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-cyber:hover { background: var(--accent-cyan); color: #000; box-shadow: 0 0 20px rgba(0,212,255,0.4); }
+        .btn-cyber-green { border-color: var(--accent-green); color: var(--accent-green); }
+        .btn-cyber-green:hover { background: var(--accent-green); color: #000; }
+        .glow-title { color: var(--accent-cyan); text-shadow: 0 0 20px rgba(0,212,255,0.5); }
+        .table-dark-custom thead th { background: rgba(0,212,255,0.08); border-color: var(--border-color); color: var(--accent-cyan); padding: 12px; }
+        .table-dark-custom tbody td { border-color: var(--border-color); padding: 12px; }
+        .table-dark-custom tbody tr:hover { background: rgba(0,212,255,0.04); }
+        .keyword-highlight { background: rgba(0,212,255,0.3); color: var(--accent-cyan); padding: 0 2px; border-radius: 3px; }
+        .search-result { background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; margin-bottom: 12px; transition: all 0.2s; }
+        .search-result:hover { border-color: var(--accent-cyan); }
+        .search-result .result-title { color: var(--accent-cyan); font-weight: 600; margin-bottom: 6px; }
+        .search-result .result-url { color: var(--text-secondary); font-size: 0.75rem; margin-bottom: 8px; word-break: break-all; }
+        .search-result .result-snippet { color: var(--text-secondary); font-size: 0.85rem; line-height: 1.6; }
+        .result-meta { display: flex; gap: 12px; margin-top: 8px; }
+        .result-meta span { font-size: 0.75rem; color: var(--text-secondary); }
+    </style>
+</head>
+<body>
+<div class="d-flex">
+    <!-- 侧边栏 -->
+    <div class="sidebar p-3" style="width: 240px; flex-shrink: 0;">
+        <div class="mb-4 px-2">
+            <h5 class="glow-title mb-1">🕷️ 网站爬虫</h5>
+            <small style="color: var(--text-secondary);">Website Crawler</small>
+        </div>
+        <nav class="nav flex-column">
+            <a href="{{ url_for('crawler_index') }}" class="nav-link-custom">
+                <i class="fas fa-desktop"></i> 爬虫控制台
+            </a>
+            <a href="{{ url_for('crawler_search') }}" class="nav-link-custom active">
+                <i class="fas fa-search"></i> 内容检索
+            </a>
+            <a href="{{ url_for('crawler_advanced_search') }}" class="nav-link-custom">
+                <i class="fas fa-stream"></i> 高级检索
+            </a>
+            <hr style="border-color: var(--border-color);">
+            <a href="{{ url_for('monitor_index') }}" class="nav-link-custom">
+                <i class="fas fa-broadcast-tower"></i> 栏目监测
+            </a>
+            <a href="{{ url_for('index') }}" class="nav-link-custom">
+                <i class="fas fa-home"></i> 返回首页
+            </a>
+        </nav>
+    </div>
+
+    <!-- 主内容 -->
+    <div class="flex-fill p-4">
+        <h4 class="mb-1"><i class="fas fa-search me-2" style="color:var(--accent-cyan);"></i>内容检索</h4>
+        <p style="color: var(--text-secondary); font-size: 0.85rem;" class="mb-4">在已爬取的网页文本中搜索关键词</p>
+
+        <form method="post" class="mb-4">
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <input type="text" name="keyword" class="form-control form-control-dark"
+                           placeholder="输入搜索关键词..." value="{{ keyword }}"
+                           autofocus>
+                </div>
+                <div class="col-md-3">
+                    <select name="task_id" class="form-select form-control-dark">
+                        <option value="all">全部任务</option>
+                        {% for t in tasks %}
+                        <option value="{{ t.id }}" {% if selected_task == t.id %}selected{% endif %}>{{ t.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn-cyber w-100">
+                        <i class="fas fa-search"></i> 搜索
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        {% if results %}
+        <div class="mb-2" style="color: var(--text-secondary); font-size: 0.85rem;">
+            找到 <strong style="color: var(--accent-cyan);">{{ results|length }}</strong> 条结果
+        </div>
+
+        {% for r in results %}
+        <div class="search-result">
+            <div class="result-title">{{ (r.title or '无标题')|highlight(keyword)|safe if keyword else (r.title or '无标题') }}</div>
+            <div class="result-url"><i class="fas fa-link me-1"></i>{{ r.url }}</div>
+            <div class="result-snippet">
+                {% if r.text_content %}
+                    {{ r.text_content|highlight_excerpt(keyword, 100)|safe }}
+                {% else %}
+                    无内容
+                {% endif %}
+            </div>
+            <div class="result-meta">
+                <span><i class="fas fa-calendar me-1"></i>{{ r.updated_at.strftime('%Y-%m-%d %H:%M') if r.updated_at else '-' }}</span>
+                <span><i class="fas fa-circle me-1" style="color: var(--accent-green); font-size: 0.5rem;"></i>{{ r.status }}</span>
+            </div>
+        </div>
+        {% endfor %}
+        {% elif keyword %}
+        <div class="text-center py-5" style="color: var(--text-secondary);">
+            <i class="fas fa-search fa-3x mb-3 opacity-25"></i>
+            <p>未找到包含「{{ keyword }}」的结果</p>
+        </div>
+        {% else %}
+        <div class="text-center py-5" style="color: var(--text-secondary);">
+            <i class="fas fa-keyboard fa-3x mb-3 opacity-25"></i>
+            <p>输入关键词开始检索</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+<script src="/static/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

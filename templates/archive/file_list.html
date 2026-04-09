@@ -1,0 +1,582 @@
+{% extends "base.html" %}
+{% block title %}档案列表 - 档案管理系统{% endblock %}
+
+{% block content %}
+<style>
+.file-list-page {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.page-title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #2d3748;
+    margin: 0;
+}
+
+.page-title i {
+    margin-right: 0.5rem;
+    color: #667eea;
+}
+
+/* 筛选卡片 */
+.filter-card {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.filter-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: flex-end;
+}
+
+.filter-group {
+    flex: 1;
+    min-width: 180px;
+}
+
+.filter-group label {
+    display: block;
+    font-weight: 500;
+    color: #4a5568;
+    margin-bottom: 0.4rem;
+    font-size: 0.9rem;
+}
+
+.filter-group input,
+.filter-group select {
+    width: 100%;
+    padding: 0.6rem 0.9rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+}
+
+.filter-group input:focus,
+.filter-group select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.filter-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* 统计行 */
+.stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.stat-mini {
+    background: white;
+    border-radius: 12px;
+    padding: 1rem;
+    text-align: center;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+
+.stat-mini .number {
+    font-size: 1.75rem;
+    font-weight: 700;
+}
+
+.stat-mini .label {
+    font-size: 0.85rem;
+    color: #718096;
+}
+
+.stat-mini.total .number { color: #667eea; }
+.stat-mini.digitized .number { color: #38a169; }
+.stat-mini.permanent .number { color: #805ad5; }
+.stat-mini.borrowed .number { color: #dd6b20; }
+
+/* 档案卡片 */
+.archive-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 2rem;
+}
+
+.archive-card {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    padding: 1.5rem;
+    transition: all 0.3s;
+    border: 2px solid transparent;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+}
+
+.archive-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+    border-color: #667eea;
+    text-decoration: none;
+    color: inherit;
+}
+
+.archive-card-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.archive-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.archive-icon.pdf { background: #fee2e2; }
+.archive-icon.doc { background: #dbeafe; }
+.archive-icon.xls { background: #d1fae5; }
+.archive-icon.img { background: #fef3c7; }
+.archive-icon.other { background: #f3f4f6; }
+
+.archive-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.archive-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 0.35rem;
+    line-height: 1.4;
+}
+
+.archive-meta {
+    font-size: 0.85rem;
+    color: #718096;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.archive-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.archive-badges {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin: 0.75rem 0;
+}
+
+.badge-custom {
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.badge-permanent { background: #f3e8ff; color: #805ad5; }
+.badge-30year { background: #dbeafe; color: #2563eb; }
+.badge-10year { background: #d1fae5; color: #059669; }
+.badge-secret { background: #fee2e2; color: #dc2626; }
+.badge-internal { background: #fef3c7; color: #d97706; }
+.badge-digitized { background: #d1fae5; color: #059669; }
+
+.archive-keywords {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 1rem;
+}
+
+.keyword-tag {
+    background: #f7fafc;
+    color: #4a5568;
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+}
+
+.archive-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 1rem;
+    border-top: 1px solid #edf2f7;
+}
+
+.archive-code {
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    color: #667eea;
+    font-weight: 600;
+}
+
+.archive-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-sm-custom {
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.btn-sm-custom.view {
+    background: #ebf8ff;
+    color: #3182ce;
+}
+
+.btn-sm-custom.view:hover {
+    background: #3182ce;
+    color: white;
+    text-decoration: none;
+}
+
+.btn-sm-custom.borrow {
+    background: #f0fff4;
+    color: #38a169;
+}
+
+.btn-sm-custom.borrow:hover {
+    background: #38a169;
+    color: white;
+    text-decoration: none;
+}
+
+/* 空状态 */
+.empty-state {
+    text-align: center;
+    padding: 5rem 2rem;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+}
+
+.empty-state i {
+    font-size: 5rem;
+    color: #cbd5e0;
+    margin-bottom: 1.5rem;
+}
+
+.empty-state h4 {
+    color: #4a5568;
+    margin-bottom: 0.5rem;
+}
+
+.empty-state p {
+    color: #718096;
+    margin-bottom: 1.5rem;
+}
+
+/* 分页 */
+.pagination-wrapper {
+    display: flex;
+    justify-content: center;
+    margin-top: 2rem;
+}
+
+.pagination-wrapper .pagination {
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.pagination-wrapper .page-link {
+    border: none;
+    color: #4a5568;
+    padding: 0.6rem 1rem;
+}
+
+.pagination-wrapper .page-item.active .page-link {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.pagination-wrapper .page-link:hover {
+    background: #f7fafc;
+    color: #667eea;
+}
+
+/* 快速添加按钮 */
+.btn-add {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-decoration: none;
+}
+
+.btn-add:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+    color: white;
+    text-decoration: none;
+}
+
+.btn-reset {
+    background: white;
+    color: #4a5568;
+    border: 1px solid #e2e8f0;
+    padding: 0.75rem 1.25rem;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+}
+
+.btn-reset:hover {
+    background: #f7fafc;
+    color: #4a5568;
+    text-decoration: none;
+}
+
+@media (max-width: 768px) {
+    .archive-cards {
+        grid-template-columns: 1fr;
+    }
+    
+    .stats-row {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+</style>
+
+<div class="file-list-page">
+    <!-- 页面标题 -->
+    <div class="page-header">
+        <h1 class="page-title">
+            <i class="fas fa-file-alt"></i>
+            档案列表
+        </h1>
+        <a href="{{ url_for('archive.batch_upload') }}" class="btn-add">
+            <i class="fas fa-plus"></i> 上传档案
+        </a>
+    </div>
+
+    <!-- 筛选卡片 -->
+    <div class="filter-card">
+        <form method="GET" class="filter-form">
+            <div class="filter-group">
+                <label>关键词搜索</label>
+                <input type="text" name="keyword" value="{{ request.args.get('keyword', '') }}" placeholder="题名/责任者/关键词">
+            </div>
+            <div class="filter-group">
+                <label>全宗</label>
+                <select name="fonds_id">
+                    <option value="">全部全宗</option>
+                    {% for f in fonds_list %}
+                    <option value="{{ f.id }}" {% if filters.fonds_id == f.id %}selected{% endif %}>
+                        {{ f.fonds_code }} - {{ f.fonds_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>档案类型</label>
+                <select name="type">
+                    <option value="">全部类型</option>
+                    <option value="通知" {% if filters.type == '通知' %}selected{% endif %}>通知</option>
+                    <option value="请示" {% if filters.type == '请示' %}selected{% endif %}>请示</option>
+                    <option value="报告" {% if filters.type == '报告' %}selected{% endif %}>报告</option>
+                    <option value="函" {% if filters.type == '函' %}selected{% endif %}>函</option>
+                    <option value="决定" {% if filters.type == '决定' %}selected{% endif %}>决定</option>
+                    <option value="批复" {% if filters.type == '批复' %}selected{% endif %}>批复</option>
+                    <option value="意见" {% if filters.type == '意见' %}selected{% endif %}>意见</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>年度</label>
+                <select name="year">
+                    <option value="">全部年度</option>
+                    {% for y in range(2020, 2031) %}
+                    <option value="{{ y }}" {% if filters.year == y %}selected{% endif %}>{{ y }}年</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-actions">
+                <button type="submit" class="btn-add">
+                    <i class="fas fa-search"></i> 搜索
+                </button>
+                <a href="{{ url_for('archive.file_list') }}" class="btn-reset">
+                    <i class="fas fa-redo"></i> 重置
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- 统计信息 -->
+    <div class="stats-row">
+        <div class="stat-mini total">
+            <div class="number">{{ pagination.total }}</div>
+            <div class="label">档案总数</div>
+        </div>
+        <div class="stat-mini digitized">
+            <div class="number">{{ stats.digitized if stats else 0 }}</div>
+            <div class="label">已数字化</div>
+        </div>
+        <div class="stat-mini permanent">
+            <div class="number">{{ stats.permanent if stats else 0 }}</div>
+            <div class="label">永久保管</div>
+        </div>
+        <div class="stat-mini borrowed">
+            <div class="number">{{ stats.borrowed if stats else 0 }}</div>
+            <div class="label">借阅中</div>
+        </div>
+    </div>
+
+    <!-- 档案列表 -->
+    {% if files %}
+    <div class="archive-cards">
+        {% for file in files %}
+        <a href="{{ url_for('archive.file_detail', file_id=file.id) }}" class="archive-card">
+            <div class="archive-card-header">
+                <div class="archive-icon {% if file.file_type %}{{ file.file_type }}{% else %}other{% endif %}">
+                    {% if file.file_type == 'pdf' %}📄
+                    {% elif file.file_type in ['doc','docx'] %}📝
+                    {% elif file.file_type in ['xls','xlsx'] %}📊
+                    {% elif file.file_type in ['jpg','png','tif','tiff'] %}🖼️
+                    {% else %}📁{% endif %}
+                </div>
+                <div class="archive-main">
+                    <h5 class="archive-title">{{ file.title }}</h5>
+                    <div class="archive-meta">
+                        <span><i class="fas fa-user"></i> {{ file.responsibility or '-' }}</span>
+                        <span><i class="fas fa-calendar"></i> {{ file.file_date.strftime('%Y-%m-%d') if file.file_date else '-' }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="archive-badges">
+                {% if file.retention_period == '永久' %}
+                <span class="badge-custom badge-permanent">🗂️ 永久</span>
+                {% elif file.retention_period == '30年' %}
+                <span class="badge-custom badge-30year">🗂️ 30年</span>
+                {% elif file.retention_period == '10年' %}
+                <span class="badge-custom badge-10year">🗂️ 10年</span>
+                {% endif %}
+                
+                {% if file.security_level and file.security_level != '公开' %}
+                <span class="badge-custom badge-secret">🔒 {{ file.security_level }}</span>
+                {% endif %}
+                
+                {% if file.is_digitized %}
+                <span class="badge-custom badge-digitized">✅ 已数字化</span>
+                {% endif %}
+            </div>
+
+            {% if file.keywords %}
+            <div class="archive-keywords">
+                {% for kw in (file.keywords.split(',') if file.keywords else [])[:4] %}
+                <span class="keyword-tag">{{ kw.strip() }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="archive-footer">
+                <span class="archive-code">{{ file.get_archive_code() or '待编档号' }}</span>
+                <div class="archive-actions">
+                    <a href="{{ url_for('archive.file_detail', file_id=file.id) }}" class="btn-sm-custom view">
+                        <i class="fas fa-eye"></i> 查看
+                    </a>
+                    <a href="{{ url_for('archive.file_edit', file_id=file.id) }}" class="btn-sm-custom edit" style="background:#f0fff4; color:#38a169;">
+                        <i class="fas fa-edit"></i> 编辑
+                    </a>
+                    <form action="{{ url_for('archive.file_delete', file_id=file.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('确定要删除《{{ file.title[:20] }}》吗？此操作不可恢复。');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn-sm-custom delete" style="background:#fff5f5; color:#e53e3e; border:none; cursor:pointer;">
+                            <i class="fas fa-trash"></i> 删除
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+
+    <!-- 分页 -->
+    {% if pagination.pages > 1 %}
+    <div class="pagination-wrapper">
+        <nav>
+            <ul class="pagination">
+                {% if pagination.has_prev %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('archive.file_list', page=pagination.prev_num, fonds_id=filters.fonds_id, catalog_id=filters.catalog_id, year=filters.year, type=filters.type, keyword=filters.keyword) }}">上一页</a>
+                </li>
+                {% endif %}
+
+                {% for p in pagination.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
+                    {% if p %}
+                        {% if p == pagination.page %}
+                        <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+                        {% else %}
+                        <li class="page-item"><a class="page-link" href="{{ url_for('archive.file_list', page=p, fonds_id=filters.fonds_id, catalog_id=filters.catalog_id, year=filters.year, type=filters.type, keyword=filters.keyword) }}">{{ p }}</a></li>
+                        {% endif %}
+                    {% else %}
+                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                    {% endif %}
+                {% endfor %}
+
+                {% if pagination.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('archive.file_list', page=pagination.next_num, fonds_id=filters.fonds_id, catalog_id=filters.catalog_id, year=filters.year, type=filters.type, keyword=filters.keyword) }}">下一页</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-folder-open"></i>
+        <h4>暂无档案数据</h4>
+        <p>系统还没有档案记录，请先上传档案</p>
+        <a href="{{ url_for('archive.batch_upload') }}" class="btn-add">
+            <i class="fas fa-cloud-upload-alt"></i> 批量上传
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

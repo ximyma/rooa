@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ '编辑任务' if task else '新建任务' }} - 网站爬虫</title>
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/css/fontawesome.all.min.css" rel="stylesheet">
+    <style>
+        :root { --bg-primary: #0a0e1a; --bg-secondary: #111827; --bg-card: #1a2235; --accent-cyan: #00d4ff; --accent-green: #00ff9d; --accent-orange: #ff9f43; --accent-red: #ff4757; --text-primary: #e8edf5; --text-secondary: #8892a4; --border-color: #2a3550; }
+        * { box-sizing: border-box; }
+        body { background: var(--bg-primary); color: var(--text-primary); font-family: 'Microsoft YaHei', sans-serif; min-height: 100vh; }
+        .card-dark { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; }
+        .form-control-dark { background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 8px; }
+        .form-control-dark:focus { border-color: var(--accent-cyan); background: var(--bg-primary); color: var(--text-primary); box-shadow: 0 0 0 2px rgba(0,212,255,0.15); }
+        .form-label { color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 6px; }
+        .btn-cyber { background: linear-gradient(135deg, rgba(0,212,255,0.2), rgba(0,255,157,0.1)); border: 1px solid var(--accent-cyan); color: var(--accent-cyan); border-radius: 8px; padding: 8px 24px; font-weight: 600; transition: all 0.3s; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-cyber:hover { background: var(--accent-cyan); color: #000; box-shadow: 0 0 20px rgba(0,212,255,0.4); }
+        .btn-cyber-green { border-color: var(--accent-green); color: var(--accent-green); }
+        .btn-cyber-green:hover { background: var(--accent-green); color: #000; }
+        .input-group-dark { position: relative; }
+        .input-group-dark .input-prefix { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--accent-cyan); z-index: 3; }
+        .input-group-dark .form-control { padding-left: 38px; }
+        .glow-title { color: var(--accent-cyan); text-shadow: 0 0 20px rgba(0,212,255,0.5); font-size: 1.5rem; font-weight: 700; }
+        .cyber-border::before { content: ''; position: absolute; top: -1px; left: -1px; right: -1px; bottom: -1px; border-radius: 12px; padding: 1px; background: linear-gradient(135deg, var(--accent-cyan), transparent, var(--accent-green)); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
+    </style>
+</head>
+<body>
+<div class="container py-5" style="max-width: 800px;">
+    <div class="d-flex align-items-center mb-4">
+        <a href="{{ url_for('crawler_index') }}" class="btn btn-sm me-3" style="border:1px solid var(--border-color); color: var(--text-secondary);">
+            <i class="fas fa-arrow-left"></i>
+        </a>
+        <h4 class="mb-0 glow-title">{{ '编辑爬虫任务' if task else '🕷️ 新建爬虫任务' }}</h4>
+    </div>
+
+    <form method="post" class="card-dark p-4" style="position:relative;">
+        <div class="mb-4">
+            <label class="form-label"><i class="fas fa-tag me-1" style="color:var(--accent-cyan);"></i>任务名称</label>
+            <input type="text" name="name" class="form-control form-control-dark" required
+                   placeholder="例如：石城县政府网站" value="{{ task.name if task else '' }}">
+        </div>
+
+        <div class="mb-4">
+            <label class="form-label"><i class="fas fa-link me-1" style="color:var(--accent-cyan);"></i>起始网址</label>
+            <input type="url" name="base_url" class="form-control form-control-dark" required
+                   placeholder="https://www.example.com" value="{{ task.base_url if task else '' }}">
+            <small style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 4px; display: block;">
+                爬虫将从该网址开始，按你设置的最大层级抓取同一域名下的页面
+            </small>
+
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <label class="form-label"><i class="fas fa-cogs me-1" style="color:var(--accent-cyan);"></i>线程数</label>
+                <select name="max_threads" class="form-select form-control-dark">
+                    {% for n in [1,3,5,8,10,15,20] %}
+                    <option value="{{ n }}" {% if task and task.max_threads == n %}selected{% endif %}>{{ n }} 线程</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label"><i class="fas fa-sitemap me-1" style="color:var(--accent-green);"></i>最大下级页面层级</label>
+                <select name="max_depth" class="form-select form-control-dark">
+                    {% set current_depth = task.max_depth if task and task.max_depth is not none else 3 %}
+                    {% for depth in [0,1,2,3,4,5,6,8,10] %}
+                    <option value="{{ depth }}" {% if current_depth == depth %}selected{% endif %}>
+                        {% if depth == 0 %}仅起始页
+                        {% elif depth == 1 %}1 级下级页
+                        {% else %}{{ depth }} 级下级页
+                        {% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+                <small style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 4px; display: block;">
+                    0 = 只抓当前网址；1 = 再抓一级下级页面；2 = 抓到二级下级页面，以此类推。
+                </small>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label"><i class="fas fa-paperclip me-1" style="color:var(--accent-cyan);"></i>附件处理</label>
+                <select name="attachment_handling" class="form-select form-control-dark">
+                    <option value="skip" {% if not task or task.attachment_handling=='skip' %}selected{% endif %}>跳过（不处理）</option>
+                    <option value="log" {% if task and task.attachment_handling=='log' %}selected{% endif %}>记录到日志</option>
+                    <option value="db" {% if task and task.attachment_handling=='db' %}selected{% endif %}>保存到数据库</option>
+                    <option value="download" {% if task and task.attachment_handling=='download' %}selected{% endif %}>下载到本地</option>
+                </select>
+            </div>
+        </div>
+
+
+        <div class="mb-4">
+            <label class="form-label">
+                <i class="fas fa-clock me-1" style="color:var(--accent-orange);"></i>定时任务
+            </label>
+            <div class="form-check form-switch mb-2">
+                <input class="form-check-input" type="checkbox" role="switch" id="scheduleSwitch"
+                       name="schedule_enabled" value="1" {% if task and task.schedule_enabled %}checked{% endif %}
+                       onchange="document.getElementById('scheduleOpts').style.display = this.checked ? '' : 'none';">
+                <label class="form-check-label" for="scheduleSwitch" style="color: var(--text-secondary);">启用定时爬取</label>
+            </div>
+            <div id="scheduleOpts" style="{{ 'display:none' if not task or not task.schedule_enabled else '' }};">
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="form-label" style="font-size:0.75rem;">间隔（小时）</label>
+                        <input type="number" name="schedule_interval" class="form-control form-control-dark"
+                               min="1" max="720" value="{{ task.schedule_interval if task else 24 }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" style="font-size:0.75rem;">每日执行时间</label>
+                        <input type="time" name="schedule_time" class="form-control form-control-dark"
+                               value="{{ task.schedule_time if task else '00:00' }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex gap-2 justify-content-end">
+            <a href="{{ url_for('crawler_index') }}" class="btn" style="border:1px solid var(--border-color); color: var(--text-secondary);">取消</a>
+            <button type="submit" class="btn-cyber btn-cyber-green">
+                <i class="fas fa-save"></i> {{ '保存修改' if task else '创建任务' }}
+            </button>
+        </div>
+    </form>
+</div>
+<script src="/static/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

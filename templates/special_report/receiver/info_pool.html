@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="mb-0"><i class="fas fa-inbox me-2 text-primary"></i>专项信息池</h4>
+        </div>
+
+        <!-- 状态筛选标签 -->
+        <div class="mb-3 d-flex gap-2 flex-wrap">
+            <a href="{{ url_for('info_pool') }}"
+               class="btn btn-sm {{ 'btn-primary' if status_filter == 'all' else 'btn-outline-secondary' }}">
+                全部 <span class="badge bg-light text-dark ms-1">{{ total }}</span>
+            </a>
+            <a href="{{ url_for('info_pool', status='pending') }}"
+               class="btn btn-sm {{ 'btn-warning text-dark' if status_filter == 'pending' else 'btn-outline-warning' }}">
+                待审核 <span class="badge bg-warning text-dark ms-1">{{ pending_count }}</span>
+            </a>
+            <a href="{{ url_for('info_pool', status='adopted') }}"
+               class="btn btn-sm {{ 'btn-success' if status_filter == 'adopted' else 'btn-outline-success' }}">
+                已采用 <span class="badge bg-success ms-1">{{ adopted_count }}</span>
+            </a>
+            <a href="{{ url_for('info_pool', status='rejected') }}"
+               class="btn btn-sm {{ 'btn-danger' if status_filter == 'rejected' else 'btn-outline-danger' }}">
+                已退回 <span class="badge bg-danger ms-1">{{ rejected_count }}</span>
+            </a>
+        </div>
+
+        {% if not reports %}
+        <div class="card">
+            <div class="card-body text-center py-5 text-muted">
+                <i class="fas fa-inbox fa-3x mb-3 d-block" style="opacity:.3"></i>
+                <h6>暂无{{ {'all':'', 'pending':'待审核', 'adopted':'已采用', 'rejected':'已退回'}[status_filter] }}信息</h6>
+            </div>
+        </div>
+        {% else %}
+        <div class="card">
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>标题</th>
+                            <th>报送单位</th>
+                            <th>报送人</th>
+                            <th>报送时间</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for report in reports %}
+                        <tr>
+                            <td>
+                                <a href="{{ url_for('info_detail', report_id=report.id) }}" class="fw-semibold text-decoration-none">
+                                    {{ report.title }}
+                                </a>
+                                {% if report.status == 'rejected' and report.feedback %}
+                                <br><small class="text-danger"><i class="fas fa-comment-dots"></i> {{ report.feedback[:30] }}{% if report.feedback|length > 30 %}...{% endif %}</small>
+                                {% endif %}
+                            </td>
+                            <td>{{ report.target_department or '-' }}</td>
+                            <td>{{ report.reporter_name }}</td>
+                            <td><small class="text-muted">{{ report.created_at.strftime('%m-%d %H:%M') }}</small></td>
+                            <td>
+                                {% if report.status == 'pending' %}
+                                <span class="badge bg-warning text-dark">待审核</span>
+                                {% elif report.status == 'adopted' %}
+                                <span class="badge bg-success">已采用</span>
+                                {% elif report.status == 'rejected' %}
+                                <span class="badge bg-danger">已退回</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="d-flex gap-1 flex-wrap">
+                                    <a href="{{ url_for('info_detail', report_id=report.id) }}" class="btn btn-xs btn-outline-info" style="padding:2px 8px;font-size:12px;">查看</a>
+                                    <a href="{{ url_for('edit_info', report_id=report.id) }}" class="btn btn-xs btn-outline-secondary" style="padding:2px 8px;font-size:12px;">编辑</a>
+                                    <a href="{{ url_for('refine_report', report_id=report.id) }}" class="btn btn-xs btn-outline-primary" style="padding:2px 8px;font-size:12px;">精编</a>
+                                    {% if report.status == 'pending' %}
+                                    <a href="{{ url_for('adopt_report', report_id=report.id) }}" class="btn btn-xs btn-success" style="padding:2px 8px;font-size:12px;" onclick="return confirm('确认采用该信息？')">采用</a>
+                                    <a href="{{ url_for('return_report', report_id=report.id) }}" class="btn btn-xs btn-warning" style="padding:2px 8px;font-size:12px;">退回</a>
+                                    {% elif report.status == 'adopted' %}
+                                    <a href="{{ url_for('cancel_adopt', report_id=report.id) }}" class="btn btn-xs btn-outline-secondary" style="padding:2px 8px;font-size:12px;" onclick="return confirm('确认取消采用？')">取消采用</a>
+                                    {% elif report.status == 'rejected' %}
+                                    <a href="{{ url_for('cancel_return', report_id=report.id) }}" class="btn btn-xs btn-outline-secondary" style="padding:2px 8px;font-size:12px;" onclick="return confirm('确认取消退回？')">取消退回</a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

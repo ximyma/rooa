@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+{% block title %}统计报表 - 档案系统{% endblock %}
+
+{% block content %}
+<style>
+.stat-card {
+    border-radius: 16px;
+    padding: 1.5rem;
+    color: white;
+    margin-bottom: 1rem;
+}
+.stat-card h2 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+.stat-card small {
+    opacity: 0.9;
+}
+.bg-gradient-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+.bg-gradient-success { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+.bg-gradient-info { background: linear-gradient(135deg, #2193b0 0%, #6dd5ed 100%); }
+.bg-gradient-warning { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+
+.chart-container {
+    background: white;
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+.chart-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: #374151;
+}
+</style>
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <h2><i class="fas fa-chart-bar me-2"></i>统计报表</h2>
+            <div>
+                <button class="btn btn-outline-primary me-2" onclick="exportExcel()">
+                    <i class="fas fa-file-excel me-1"></i>导出Excel
+                </button>
+                <button class="btn btn-outline-secondary" onclick="window.print()">
+                    <i class="fas fa-print me-1"></i>打印
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 核心指标 -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stat-card bg-gradient-primary">
+                <h2>{{ stats.total_files or 0 }}</h2>
+                <small><i class="fas fa-file-alt me-1"></i>档案总数</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card bg-gradient-success">
+                <h2>{{ stats.digitized or 0 }}</h2>
+                <small><i class="fas fa-digital-tachograph me-1"></i>已数字化</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card bg-gradient-info">
+                <h2>{{ stats.total_fonds or 0 }}</h2>
+                <small><i class="fas fa-building me-1"></i>全宗数量</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card bg-gradient-warning">
+                <h2>{{ stats.total_borrows or 0 }}</h2>
+                <small><i class="fas fa-hand-holding me-1"></i>借阅次数</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- 图表区域 -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="chart-container">
+                <div class="chart-title"><i class="fas fa-chart-pie me-1"></i>保管期限分布</div>
+                <canvas id="retentionChart" height="250"></canvas>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="chart-container">
+                <div class="chart-title"><i class="fas fa-chart-bar me-1"></i>年度档案数量</div>
+                <canvas id="yearChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="chart-container">
+                <div class="chart-title"><i class="fas fa-chart-line me-1"></i>档案类型分布</div>
+                <canvas id="typeChart" height="250"></canvas>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="chart-container">
+                <div class="chart-title"><i class="fas fa-chart-area me-1"></i>密级分布</div>
+                <canvas id="securityChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- 详细统计表 -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="chart-container">
+                <div class="chart-title"><i class="fas fa-table me-1"></i>各全宗档案统计</div>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>全宗号</th>
+                                <th>全宗名称</th>
+                                <th>档案数量</th>
+                                <th>已数字化</th>
+                                <th>永久保管</th>
+                                <th>借阅次数</th>
+                                <th>最近更新</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in fonds_stats %}
+                            <tr>
+                                <td><span class="badge bg-primary">{{ item.fonds_code }}</span></td>
+                                <td>{{ item.fonds_name }}</td>
+                                <td>{{ item.file_count or 0 }}</td>
+                                <td>{{ item.digitized or 0 }}</td>
+                                <td>{{ item.permanent or 0 }}</td>
+                                <td>{{ item.borrow_count or 0 }}</td>
+                                <td>{{ item.last_update or '-' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 借阅统计 -->
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="chart-container">
+                <div class="chart-title"><i class="fas fa-users me-1"></i>热门借阅档案 TOP 10</div>
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>排名</th>
+                            <th>档案名称</th>
+                            <th>借阅次数</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in hot_files %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td>{{ item.title }}</td>
+                            <td><span class="badge bg-info">{{ item.borrow_count }}</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="chart-container">
+                <div class="chart-title"><i class="fas fa-user-clock me-1"></i>借阅活跃用户 TOP 10</div>
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>排名</th>
+                            <th>用户</th>
+                            <th>借阅次数</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in active_users %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td>{{ item.user_name }}</td>
+                            <td><span class="badge bg-success">{{ item.borrow_count }}</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// 保管期限分布
+new Chart(document.getElementById('retentionChart'), {
+    type: 'doughnut',
+    data: {
+        labels: ['永久', '30年', '10年', '未指定'],
+        datasets: [{
+            data: [
+                {{ retention_data.permanent or 0 }},
+                {{ retention_data.y30 or 0 }},
+                {{ retention_data.y10 or 0 }},
+                {{ retention_data.unknown or 0 }}
+            ],
+            backgroundColor: ['#8b5cf6', '#3b82f6', '#10b981', '#6b7280']
+        }]
+    }
+});
+
+// 年度档案数量
+new Chart(document.getElementById('yearChart'), {
+    type: 'bar',
+    data: {
+        labels: [{% for y in year_data %}'{{ y.year }}'{% if not loop.last %},{% endif %}{% endfor %}],
+        datasets: [{
+            label: '档案数量',
+            data: [{% for y in year_data %}{{ y.count }}{% if not loop.last %},{% endif %}{% endfor %}],
+            backgroundColor: '#667eea'
+        }]
+    },
+    options: {
+        scales: { y: { beginAtZero: true } }
+    }
+});
+
+// 档案类型分布
+new Chart(document.getElementById('typeChart'), {
+    type: 'bar',
+    data: {
+        labels: [{% for t in type_data %}'{{ t.type }}'{% if not loop.last %},{% endif %}{% endfor %}],
+        datasets: [{
+            label: '数量',
+            data: [{% for t in type_data %}{{ t.count }}{% if not loop.last %},{% endif %}{% endfor %}],
+            backgroundColor: '#11998e'
+        }]
+    },
+    options: { indexAxis: 'y' }
+});
+
+// 密级分布
+new Chart(document.getElementById('securityChart'), {
+    type: 'pie',
+    data: {
+        labels: ['公开', '内部', '秘密', '机密'],
+        datasets: [{
+            data: [
+                {{ security_data.public or 0 }},
+                {{ security_data.internal or 0 }},
+                {{ security_data.secret or 0 }},
+                {{ security_data.confidential or 0 }}
+            ],
+            backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444']
+        }]
+    }
+});
+
+function exportExcel() {
+    window.location.href = '{{ url_for('archive.statistics') }}';
+}
+</script>
+{% endblock %}

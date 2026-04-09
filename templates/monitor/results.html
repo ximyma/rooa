@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>监测结果 - {{ lib.name }} - 栏目监测</title>
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/css/fontawesome.all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0e1a;
+            --bg-secondary: #111827;
+            --bg-card: #1a2235;
+            --bg-card-hover: #1e293b;
+            --accent-cyan: #00d4ff;
+            --accent-green: #00ff9d;
+            --accent-orange: #ff9f43;
+            --accent-red: #ff4757;
+            --text-primary: #e8edf5;
+            --text-secondary: #8892a4;
+            --border-color: #2a3550;
+        }
+        * { box-sizing: border-box; }
+        body { background: var(--bg-primary); color: var(--text-primary); font-family: 'Microsoft YaHei', sans-serif; min-height: 100vh; }
+
+        /* 侧边栏 */
+        .sidebar { background: var(--bg-secondary); min-height: 100vh; border-right: 1px solid var(--border-color); }
+        .nav-link-custom { color: var(--text-secondary); padding: 10px 16px; border-radius: 8px; transition: all 0.2s; display: flex; align-items: center; gap: 10px; text-decoration: none; font-size: .88rem; }
+        .nav-link-custom:hover, .nav-link-custom.active { background: rgba(0,212,255,0.1); color: var(--accent-cyan); }
+        .glow-title { color: var(--accent-cyan); text-shadow: 0 0 20px rgba(0,212,255,0.5); }
+
+        /* 按钮 */
+        .btn-cyber { border: 1px solid var(--accent-cyan); color: var(--accent-cyan); border-radius: 8px; padding: 6px 14px; font-weight: 600; transition: all 0.2s; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; font-size: 0.82rem; background: transparent; cursor: pointer; }
+        .btn-cyber:hover { background: var(--accent-cyan); color: #000; }
+        .btn-cyber-green { border-color: var(--accent-green); color: var(--accent-green); }
+        .btn-cyber-green:hover { background: var(--accent-green); color: #000; }
+        .btn-cyber-orange { border-color: var(--accent-orange); color: var(--accent-orange); }
+        .btn-cyber-orange:hover { background: var(--accent-orange); color: #000; }
+
+        /* 统计卡片 */
+        .stat-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 14px; padding: 18px 20px; text-align: center; }
+        .stat-value { font-size: 2.2rem; font-weight: 700; line-height: 1; }
+        .stat-label { color: var(--text-secondary); font-size: 0.8rem; margin-top: 6px; }
+
+        /* 筛选 tab */
+        .filter-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+        .filter-tab { padding: 5px 14px; border-radius: 8px; border: 1px solid var(--border-color); color: var(--text-secondary); cursor: pointer; font-size: 0.83rem; transition: all 0.2s; user-select: none; }
+        .filter-tab:hover { border-color: var(--accent-cyan); color: var(--accent-cyan); }
+        .filter-tab.active { background: rgba(0,212,255,0.12); border-color: var(--accent-cyan); color: var(--accent-cyan); }
+
+        /* ===== 监测结果卡片网格 ===== */
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 14px;
+        }
+
+        .result-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            cursor: default;
+        }
+        .result-card:hover {
+            border-color: rgba(0,212,255,0.35);
+            background: var(--bg-card-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        .result-card.card-overdue  { border-left: 3px solid var(--accent-red); }
+        .result-card.card-expiring { border-left: 3px solid var(--accent-orange); }
+        .result-card.card-normal   { border-left: 3px solid var(--accent-green); }
+        .result-card.card-error    { border-left: 3px solid #666; }
+
+        /* 卡片头部：名称 + 状态标签 */
+        .card-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .card-name {
+            font-size: .92rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            flex: 1;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            line-height: 1.4;
+        }
+
+        /* 状态徽标 */
+        .badge-overdue  { background: rgba(255,71,87,.18);  color: var(--accent-red);    padding: 3px 10px; border-radius: 20px; font-size: .72rem; white-space: nowrap; }
+        .badge-expiring { background: rgba(255,159,67,.18); color: var(--accent-orange); padding: 3px 10px; border-radius: 20px; font-size: .72rem; white-space: nowrap; }
+        .badge-normal   { background: rgba(0,255,157,.18);  color: var(--accent-green);  padding: 3px 10px; border-radius: 20px; font-size: .72rem; white-space: nowrap; }
+        .badge-error    { background: rgba(255,71,87,.1);   color: #aaa;                 padding: 3px 10px; border-radius: 20px; font-size: .72rem; white-space: nowrap; }
+
+        /* 网址行 */
+        .card-url {
+            font-size: .73rem;
+            color: var(--accent-cyan);
+            text-decoration: none;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            display: block;
+            opacity: .85;
+        }
+        .card-url:hover { opacity: 1; text-decoration: underline; }
+
+        /* 信息行网格：2列 */
+        .card-meta {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px 12px;
+        }
+        .meta-item { display: flex; flex-direction: column; gap: 2px; }
+        .meta-label { font-size: .68rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .04em; }
+        .meta-value { font-size: .82rem; color: var(--text-primary); font-weight: 500; }
+
+        /* 底部进度条（逾期程度可视化）*/
+        .overdue-bar-wrap { margin-top: 2px; }
+        .overdue-bar-bg { height: 4px; background: rgba(255,255,255,.07); border-radius: 4px; overflow: hidden; }
+        .overdue-bar-fill { height: 100%; border-radius: 4px; transition: width .4s; }
+
+        /* 空状态 */
+        .empty-state { text-align: center; padding: 60px 20px; color: var(--text-secondary); }
+        .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+
+        /* 布局切换 */
+        .view-toggle .btn-cyber { padding: 5px 10px; }
+        .view-toggle .btn-cyber.active { background: rgba(0,212,255,.15); }
+
+        /* 表格视图（备用） */
+        .table-dark-custom thead th { background: rgba(0,212,255,.08); border-color: var(--border-color); color: var(--accent-cyan); padding: 10px; font-size: .8rem; white-space: nowrap; }
+        .table-dark-custom tbody td { border-color: var(--border-color); padding: 8px 10px; font-size: .8rem; vertical-align: middle; }
+        .table-dark-custom tbody tr:hover { background: rgba(0,212,255,.04); }
+        .row-overdue  { background: rgba(255,71,87,.06)  !important; }
+        .row-expiring { background: rgba(255,159,67,.06) !important; }
+        #tableView { display: none; }
+    </style>
+</head>
+<body>
+<div class="d-flex">
+    <!-- 侧边栏 -->
+    <div class="sidebar p-3" style="width:220px; flex-shrink:0;">
+        <div class="mb-4 px-2">
+            <h5 class="glow-title mb-1">📡 栏目监测</h5>
+            <small style="color:var(--text-secondary)">Column Monitor</small>
+        </div>
+        <nav class="nav flex-column gap-1">
+            <a href="{{ url_for('monitor_index') }}" class="nav-link-custom"><i class="fas fa-broadcast-tower"></i> 监测中心</a>
+            <a href="{{ url_for('crawler_index') }}" class="nav-link-custom"><i class="fas fa-spider"></i> 网站爬虫</a>
+            <a href="{{ url_for('crawler_search') }}" class="nav-link-custom"><i class="fas fa-search"></i> 内容检索</a>
+            <a href="{{ url_for('crawler_advanced_search') }}" class="nav-link-custom"><i class="fas fa-stream"></i> 高级检索</a>
+            <hr style="border-color:var(--border-color); margin:8px 0;">
+            <a href="{{ url_for('index') }}" class="nav-link-custom"><i class="fas fa-home"></i> 返回首页</a>
+        </nav>
+    </div>
+
+    <!-- 主内容 -->
+    <div class="flex-fill p-4" style="min-width:0; overflow-x:hidden;">
+
+        <!-- 页面标题 -->
+        <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-2">
+            <div>
+                <h4 class="mb-1 glow-title"><i class="fas fa-chart-bar me-2"></i>{{ lib.name }}</h4>
+                <small style="color:var(--text-secondary)">自动识别逾期和即将逾期的更新栏目 · 共 {{ results|length }} 条记录</small>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+                <a href="{{ url_for('monitor_library_edit', lib_id=lib.id) }}" class="btn-cyber"><i class="fas fa-edit"></i> 编辑库</a>
+                <a href="{{ url_for('monitor_logs', lib_id=lib.id) }}" class="btn-cyber"><i class="fas fa-file-alt"></i> 日志</a>
+                <a href="{{ url_for('monitor_export', lib_id=lib.id) }}" class="btn-cyber btn-cyber-green"><i class="fas fa-download"></i> 导出 CSV</a>
+                <!-- 视图切换 -->
+                <div class="view-toggle d-flex gap-1">
+                    <button class="btn-cyber active" id="btnGrid" onclick="switchView('grid')" title="卡片视图"><i class="fas fa-th-large"></i></button>
+                    <button class="btn-cyber" id="btnTable" onclick="switchView('table')" title="表格视图"><i class="fas fa-table"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 统计概览 -->
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-md-3">
+                <div class="stat-card">
+                    <div class="stat-value" style="color:var(--accent-cyan)">{{ results|length }}</div>
+                    <div class="stat-label">监测总数</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="stat-card" style="border-color:rgba(255,71,87,.3)">
+                    <div class="stat-value" style="color:var(--accent-red)">{{ overdue|length }}</div>
+                    <div class="stat-label">🔴 逾期栏目</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="stat-card" style="border-color:rgba(255,159,67,.3)">
+                    <div class="stat-value" style="color:var(--accent-orange)">{{ expiring|length }}</div>
+                    <div class="stat-label">🟡 即将逾期</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="stat-card" style="border-color:rgba(0,255,157,.3)">
+                    <div class="stat-value" style="color:var(--accent-green)">{{ normal|length }}</div>
+                    <div class="stat-label">🟢 正常栏目</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 筛选 Tab -->
+        <div class="filter-tabs mb-3" id="filterTabs">
+            <span class="filter-tab active" data-filter="all">全部 ({{ results|length }})</span>
+            <span class="filter-tab" data-filter="overdue"  style="border-color:rgba(255,71,87,.45)">🔴 逾期 ({{ overdue|length }})</span>
+            <span class="filter-tab" data-filter="expiring" style="border-color:rgba(255,159,67,.45)">🟡 即将逾期 ({{ expiring|length }})</span>
+            <span class="filter-tab" data-filter="normal"   style="border-color:rgba(0,255,157,.45)">🟢 正常 ({{ normal|length }})</span>
+        </div>
+
+        <!-- ===== 卡片网格视图 ===== -->
+        <div id="gridView">
+            {% if results %}
+            <div class="results-grid" id="resultsGrid">
+                {% for r in results %}
+                {% set status_key = 'overdue' if r.is_overdue else ('expiring' if r.is_expiring else ('error' if r.status=='error' else 'normal')) %}
+                {% set pct = [[(r.days_since_update / r.deadline_days * 100)|int, 0]|max, 100]|min if r.deadline_days and r.days_since_update >= 0 else 0 %}
+                <div class="result-card card-{{ status_key }} result-item" data-status="{{ status_key }}">
+
+                    <!-- 名称 + 状态 -->
+                    <div class="card-head">
+                        <span class="card-name" title="{{ r.column_name }}">{{ r.column_name or '未命名栏目' }}</span>
+                        {% if r.status == 'error' %}
+                            <span class="badge-error" title="{{ r.error_msg }}"><i class="fas fa-times-circle me-1"></i>失败</span>
+                        {% elif r.is_overdue %}
+                            <span class="badge-overdue"><i class="fas fa-exclamation-circle me-1"></i>逾期</span>
+                        {% elif r.is_expiring %}
+                            <span class="badge-expiring"><i class="fas fa-clock me-1"></i>即将逾期</span>
+                        {% else %}
+                            <span class="badge-normal"><i class="fas fa-check-circle me-1"></i>正常</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- 网址 -->
+                    <a href="{{ r.url }}" target="_blank" class="card-url" title="{{ r.url }}">
+                        <i class="fas fa-link me-1" style="font-size:.65rem;opacity:.7"></i>{{ r.url }}
+                    </a>
+
+                    <!-- 元信息 2 列 -->
+                    <div class="card-meta">
+                        <div class="meta-item">
+                            <span class="meta-label">栏目分类</span>
+                            <span class="meta-value" style="color:var(--text-secondary)">{{ r.column_category or '—' }}</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">更新期限</span>
+                            <span class="meta-value">{{ r.update_deadline or '—' }}
+                                {% if r.deadline_days %}
+                                <span style="color:var(--text-secondary);font-size:.72rem">({{ r.deadline_days }}天)</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">最新内容日期</span>
+                            <span class="meta-value">
+                                {% if r.last_max_date %}
+                                    <span style="color:var(--accent-green)">{{ r.last_max_date.strftime('%Y-%m-%d') }}</span>
+                                {% else %}
+                                    <span style="color:var(--accent-red)">未找到</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">距今天数</span>
+                            <span class="meta-value">
+                                {% if r.days_since_update >= 0 %}
+                                    <span style="{{ 'color:var(--accent-red);font-weight:700' if r.is_overdue else ('color:var(--accent-orange);font-weight:600' if r.is_expiring else 'color:var(--accent-green)') }}">
+                                        {{ r.days_since_update }} 天
+                                    </span>
+                                {% else %}—{% endif %}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- 逾期进度条 -->
+                    {% if r.deadline_days and r.days_since_update >= 0 %}
+                    <div class="overdue-bar-wrap">
+                        <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+                            <span style="font-size:.68rem;color:var(--text-secondary)">更新进度</span>
+                            <span style="font-size:.68rem;color:var(--text-secondary)">{{ pct }}%</span>
+                        </div>
+                        <div class="overdue-bar-bg">
+                            <div class="overdue-bar-fill" style="width:{{ pct }}%; background:{{ 'var(--accent-red)' if r.is_overdue else ('var(--accent-orange)' if r.is_expiring else 'var(--accent-green)') }}"></div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <div class="icon">📭</div>
+                <p>暂无监测结果，请先执行监测</p>
+                <a href="{{ url_for('monitor_index') }}" class="btn-cyber mt-2">返回监测中心</a>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- ===== 表格视图（备用） ===== -->
+        <div id="tableView">
+            <div class="card-dark" style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:12px;">
+                <div class="table-responsive">
+                    <table class="table table-dark-custom mb-0" id="resultsTable">
+                        <thead>
+                            <tr>
+                                <th style="min-width:140px">栏目名称</th>
+                                <th style="min-width:200px">网址</th>
+                                <th>分类</th>
+                                <th style="white-space:nowrap">更新期限</th>
+                                <th style="white-space:nowrap">最新日期</th>
+                                <th style="white-space:nowrap">距今</th>
+                                <th>状态</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for r in results %}
+                        {% set status_key = 'overdue' if r.is_overdue else ('expiring' if r.is_expiring else 'normal') %}
+                        <tr class="table-result-row row-{{ status_key }}" data-status="{{ status_key }}">
+                            <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ r.column_name }}">{{ r.column_name or '—' }}</td>
+                            <td>
+                                <a href="{{ r.url }}" target="_blank" style="color:var(--accent-cyan);font-size:.72rem;word-break:break-all;text-decoration:none;">
+                                    {{ r.url[:50] }}{% if r.url|length > 50 %}...{% endif %}
+                                </a>
+                            </td>
+                            <td style="color:var(--text-secondary);font-size:.78rem">{{ r.column_category or '—' }}</td>
+                            <td style="font-size:.78rem;white-space:nowrap">{{ r.update_deadline or '—' }} <span style="color:var(--text-secondary)">({{ r.deadline_days }}天)</span></td>
+                            <td style="white-space:nowrap">
+                                {% if r.last_max_date %}<span style="color:var(--accent-green)">{{ r.last_max_date.strftime('%Y-%m-%d') }}</span>
+                                {% else %}<span style="color:var(--accent-red)">未找到</span>{% endif %}
+                            </td>
+                            <td style="white-space:nowrap">
+                                {% if r.days_since_update >= 0 %}
+                                <span style="{{ 'color:var(--accent-red);font-weight:700' if r.is_overdue else ('color:var(--accent-orange)' if r.is_expiring else 'color:var(--accent-green)') }}">{{ r.days_since_update }}天</span>
+                                {% else %}—{% endif %}
+                            </td>
+                            <td>
+                                {% if r.status == 'error' %}<span class="badge-error" title="{{ r.error_msg }}"><i class="fas fa-times-circle me-1"></i>失败</span>
+                                {% elif r.is_overdue %}<span class="badge-overdue"><i class="fas fa-exclamation-circle me-1"></i>逾期</span>
+                                {% elif r.is_expiring %}<span class="badge-expiring"><i class="fas fa-clock me-1"></i>即将逾期</span>
+                                {% else %}<span class="badge-normal"><i class="fas fa-check-circle me-1"></i>正常</span>{% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /main -->
+</div><!-- /d-flex -->
+
+<script src="/static/js/bootstrap.bundle.min.js"></script>
+<script>
+/* ---- 视图切换 ---- */
+function switchView(mode) {
+    const grid  = document.getElementById('gridView');
+    const table = document.getElementById('tableView');
+    const btnG  = document.getElementById('btnGrid');
+    const btnT  = document.getElementById('btnTable');
+    if (mode === 'grid') {
+        grid.style.display  = '';
+        table.style.display = 'none';
+        btnG.classList.add('active');
+        btnT.classList.remove('active');
+        localStorage.setItem('monitorView', 'grid');
+    } else {
+        grid.style.display  = 'none';
+        table.style.display = '';
+        btnG.classList.remove('active');
+        btnT.classList.add('active');
+        localStorage.setItem('monitorView', 'table');
+    }
+    applyFilter(document.querySelector('.filter-tab.active')?.dataset?.filter || 'all');
+}
+
+/* ---- 筛选 ---- */
+function applyFilter(filter) {
+    // 卡片
+    document.querySelectorAll('.result-item').forEach(el => {
+        el.style.display = (filter === 'all' || el.dataset.status === filter) ? '' : 'none';
+    });
+    // 表格行
+    document.querySelectorAll('.table-result-row').forEach(el => {
+        el.style.display = (filter === 'all' || el.dataset.status === filter) ? '' : 'none';
+    });
+}
+
+document.querySelectorAll('.filter-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        applyFilter(tab.dataset.filter);
+    });
+});
+
+/* ---- 初始化：恢复上次视图偏好 ---- */
+(function() {
+    const saved = localStorage.getItem('monitorView') || 'grid';
+    switchView(saved);
+})();
+</script>
+</body>
+</html>

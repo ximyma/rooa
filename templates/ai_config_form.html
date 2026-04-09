@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <h2>{% if config %}编辑{% else %}新增{% endif %}AI模型配置</h2>
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="mb-3">
+                <label class="form-label">配置名称</label>
+                <input type="text" name="name" class="form-control" value="{{ config.name if config else '' }}" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">提供商</label>
+                <select name="provider" class="form-select" required>
+                    <option value="openai" {% if config and config.provider=='openai' %}selected{% endif %}>OpenAI</option>
+                    <option value="deepseek" {% if config and config.provider=='deepseek' %}selected{% endif %}>DeepSeek</option>
+                    <option value="siliconflow" {% if config and config.provider=='siliconflow' %}selected{% endif %}>硅基流动</option>
+                    <option value="local" {% if config and config.provider=='local' %}selected{% endif %}>本地模型</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">API Key</label>
+                <input type="password" name="api_key" class="form-control" value="{{ config.api_key if config else '' }}">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">API Base URL</label>
+                <input type="text" name="api_base" class="form-control" placeholder="https://api.openai.com" value="{{ config.api_base if config else '' }}">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">模型名称</label>
+                <input type="text" name="model_name" class="form-control" placeholder="gpt-4" value="{{ config.model_name if config else '' }}">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">温度 (0-2)</label>
+                <input type="number" step="0.1" name="temperature" class="form-control" value="{{ config.temperature if config else 0.7 }}">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">最大输出Token数</label>
+                <input type="number" name="max_tokens" class="form-control" value="{{ config.max_tokens if config else 2000 }}">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">上下文长度（输入Token限制）</label>
+                <input type="number" name="context_length" class="form-control" value="{{ config.context_length if config else 4000 }}">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">延时（毫秒，模拟）</label>
+                <input type="number" name="delay" class="form-control" value="{{ config.delay if config else 0 }}">
+            </div>
+            <div class="mb-3 form-check">
+                <input type="checkbox" name="is_active" class="form-check-input" {% if config and config.is_active %}checked{% endif %}>
+                <label class="form-check-label">启用</label>
+            </div>
+            <button type="submit" class="btn btn-primary">保存</button>
+            <a href="{{ url_for('ai_config_list') }}" class="btn btn-secondary">取消</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

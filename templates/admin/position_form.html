@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}{{ '编辑岗位' if action=='edit' else '新增岗位' }}{% endblock %}
+{% block content %}
+<div class="container py-3" style="max-width:700px">
+  <div class="mb-3">
+    <h4><i class="fas fa-id-badge text-warning me-2"></i>{{ '编辑岗位' if action=='edit' else '新增岗位' }}</h4>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb small mb-0">
+      <li class="breadcrumb-item"><a href="{{ url_for('admin_org_tree') }}">组织架构</a></li>
+      <li class="breadcrumb-item"><a href="{{ url_for('admin_position_list') }}">岗位管理</a></li>
+      <li class="breadcrumb-item active">{{ '编辑' if action=='edit' else '新增' }}</li>
+    </ol></nav>
+  </div>
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-4">
+      <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="row g-3">
+          <div class="col-md-8">
+            <label class="form-label fw-semibold">岗位名称 <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" name="name" value="{{ pos.name if pos else '' }}" required>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">岗位编码</label>
+            <input type="text" class="form-control" name="code" value="{{ pos.code if pos else '' }}">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">所属部门</label>
+            <select class="form-select" name="dept_id">
+              <option value="">— 未指定部门 —</option>
+              {% for d in depts %}
+              <option value="{{ d.id }}" {{ 'selected' if pos and pos.dept_id==d.id }}>{{ d.get_full_path() }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">对应系统角色
+              <span class="text-muted small">（用户分配此岗位时自动获得该角色）</span>
+            </label>
+            <select class="form-select" name="role_name">
+              <option value="">— 不自动授权 —</option>
+              {% for r in roles %}
+              <option value="{{ r.name }}" {{ 'selected' if pos and pos.role_name==r.name }}>
+                {{ r.display_name }}（{{ r.name }}）
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">岗位级别</label>
+            <select class="form-select" name="level">
+              {% for val, label in [('executive','高管'),('manager','经理'),('supervisor','主管'),('staff','员工')] %}
+              <option value="{{ val }}" {{ 'selected' if pos and pos.level==val }}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">核定人数</label>
+            <input type="number" class="form-control" name="headcount" value="{{ pos.headcount if pos else 1 }}" min="1">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">排序权重</label>
+            <input type="number" class="form-control" name="sort_order" value="{{ pos.sort_order if pos else 0 }}" min="0">
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-semibold">岗位职责</label>
+            <textarea class="form-control" name="description" rows="3">{{ pos.description if pos else '' }}</textarea>
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-semibold">任职要求</label>
+            <textarea class="form-control" name="requirements" rows="2">{{ pos.requirements if pos else '' }}</textarea>
+          </div>
+          {% if action == 'edit' %}
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">状态</label>
+            <select class="form-select" name="is_active">
+              <option value="1" {{ 'selected' if pos.is_active }}>启用</option>
+              <option value="0" {{ 'selected' if not pos.is_active }}>停用</option>
+            </select>
+          </div>
+          {% endif %}
+        </div>
+        <div class="d-flex gap-2 mt-4">
+          <button type="submit" class="btn btn-warning text-dark"><i class="fas fa-save me-1"></i>保存</button>
+          <a href="{{ url_for('admin_position_list') }}" class="btn btn-outline-secondary">取消</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

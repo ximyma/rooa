@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2>政策文件库搜索</h2>
+        <div class="card">
+            <div class="card-header">搜索政策</div>
+            <div class="card-body">
+                <form id="searchForm">
+                    <div class="mb-3">
+                        <label class="form-label">问题</label>
+                        <input type="text" name="question" id="question" class="form-control" required>
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="search()">搜索</button>
+                </form>
+            </div>
+        </div>
+        <div id="resultArea" class="mt-4" style="display:none;">
+            <div class="card">
+                <div class="card-header">搜索结果</div>
+                <div class="card-body">
+                    <pre id="searchResult"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+function search() {
+    const question = document.getElementById('question').value;
+    fetch('{{ url_for("policy_search") }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: `question=${encodeURIComponent(question)}`
+    })
+    .then(res => res.json())
+    .then(data => {
+        document.getElementById('searchResult').innerText = data.answer;
+        document.getElementById('resultArea').style.display = 'block';
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,379 @@
+{% extends "base.html" %}
+{% block title %}档案检索 - 档案管理系统{% endblock %}
+
+{% block content %}
+<style>
+.search-page {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.page-header {
+    margin-bottom: 2rem;
+}
+
+.page-title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #2d3748;
+    margin: 0;
+    text-align: center;
+}
+
+.page-title i {
+    margin-right: 0.5rem;
+    color: #667eea;
+}
+
+/* 搜索框 */
+.search-hero {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 20px;
+    padding: 2.5rem;
+    margin-bottom: 2rem;
+    color: white;
+}
+
+.search-hero h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 1.25rem;
+}
+
+.search-form {
+    max-width: 700px;
+    margin: 0 auto;
+}
+
+.search-input-group {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.search-input {
+    flex: 1;
+    padding: 1rem 1.25rem;
+    border: none;
+    border-radius: 12px;
+    font-size: 1.05rem;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.search-input:focus {
+    outline: none;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+}
+
+.search-btn {
+    padding: 1rem 2rem;
+    background: white;
+    color: #667eea;
+    border: none;
+    border-radius: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.search-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+}
+
+/* 搜索结果 */
+.results-section {
+    margin-top: 2rem;
+}
+
+.results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid #edf2f7;
+}
+
+.results-count {
+    font-size: 1.1rem;
+    color: #4a5568;
+}
+
+.results-count strong {
+    color: #667eea;
+}
+
+/* 结果卡片 */
+.result-card {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    transition: all 0.3s;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    border: 2px solid transparent;
+}
+
+.result-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+    border-color: #667eea;
+    text-decoration: none;
+    color: inherit;
+}
+
+.result-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.result-icon {
+    width: 45px;
+    height: 45px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.result-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 0.35rem;
+}
+
+.result-meta {
+    font-size: 0.85rem;
+    color: #718096;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.result-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.result-snippet {
+    color: #4a5568;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    margin: 0.75rem 0;
+    padding: 0.75rem;
+    background: #f7fafc;
+    border-radius: 8px;
+}
+
+.highlight {
+    background: #fef08a;
+    padding: 0 2px;
+    border-radius: 2px;
+    font-weight: 500;
+}
+
+.result-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 1rem;
+    border-top: 1px solid #edf2f7;
+}
+
+.result-code {
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    color: #667eea;
+    font-weight: 600;
+}
+
+.result-action {
+    padding: 0.4rem 1rem;
+    background: #ebf8ff;
+    color: #3182ce;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.result-card:hover .result-action {
+    background: #3182ce;
+    color: white;
+}
+
+/* 空状态 */
+.empty-state {
+    text-align: center;
+    padding: 5rem 2rem;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+}
+
+.empty-state i {
+    font-size: 5rem;
+    color: #cbd5e0;
+    margin-bottom: 1.5rem;
+}
+
+.empty-state h4 {
+    color: #4a5568;
+    margin-bottom: 0.5rem;
+}
+
+.empty-state p {
+    color: #718096;
+    margin-bottom: 1.5rem;
+}
+
+/* 分页 */
+.pagination-wrapper {
+    display: flex;
+    justify-content: center;
+    margin-top: 2rem;
+}
+
+.pagination-wrapper .page-link {
+    border: none;
+    color: #4a5568;
+    padding: 0.6rem 1rem;
+}
+
+.pagination-wrapper .page-item.active .page-link {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+/* 搜索提示 */
+.search-tips {
+    background: #ebf8ff;
+    border-radius: 12px;
+    padding: 1rem 1.5rem;
+    margin-top: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.search-tips i {
+    font-size: 1.25rem;
+    color: #3182ce;
+}
+
+.search-tips p {
+    margin: 0;
+    color: #2c5282;
+    font-size: 0.9rem;
+}
+</style>
+
+<div class="search-page">
+    <!-- 页面标题 -->
+    <div class="page-header">
+        <h1 class="page-title">
+            <i class="fas fa-search"></i>
+            档案智能检索
+        </h1>
+    </div>
+
+    <!-- 搜索框 -->
+    <div class="search-hero">
+        <h1>🔍 输入关键词，查找档案</h1>
+        <form method="GET" action="{{ url_for('archive.search') }}" class="search-form">
+            <div class="search-input-group">
+                <input type="text" name="q" class="search-input" 
+                       placeholder="输入关键词、档号、责任者或内容摘要..." 
+                       value="{{ query or '' }}">
+                <button type="submit" class="search-btn">
+                    <i class="fas fa-search me-1"></i>搜索
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- 搜索提示 -->
+    <div class="search-tips">
+        <i class="fas fa-lightbulb"></i>
+        <p>提示：支持多关键词搜索，如"乡村振兴 2024"，或使用档号精确查找，如"001-2024-001"</p>
+    </div>
+
+    <!-- 搜索结果 -->
+    {% if query %}
+    <div class="results-section">
+        <div class="results-header">
+            <div class="results-count">
+                {% if results %}
+                    找到 <strong>{{ results|length }}</strong> 条相关档案
+                {% else %}
+                    未找到相关档案
+                {% endif %}
+            </div>
+        </div>
+
+        {% if results %}
+            {% for result in results %}
+            {% set file = result.archive %}
+            <a href="{{ url_for('archive.file_detail', file_id=file.id) }}" class="result-card">
+                <div class="result-header">
+                    <div class="result-icon">📄</div>
+                    <div>
+                        <h5 class="result-title">{{ file.title }}</h5>
+                        <div class="result-meta">
+                            <span><i class="fas fa-user"></i> {{ file.responsibility or '-' }}</span>
+                            <span><i class="fas fa-calendar"></i> {{ file.file_date.strftime('%Y-%m-%d') if file.file_date else '-' }}</span>
+                            <span><i class="fas fa-folder"></i> {{ file.archive_type or '其他' }}</span>
+                            <span><i class="fas fa-bullseye"></i> {{ '智能匹配' if result.match_type == 'vector' else '关键词匹配' }}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                {% if result.snippet %}
+                <div class="result-snippet">
+                    {{ result.snippet }}
+                </div>
+                {% elif file.keywords %}
+                <div class="result-snippet">
+                    关键词：{{ file.keywords }}
+                </div>
+                {% endif %}
+
+                <div class="result-footer">
+                    <span class="result-code">{{ file.get_archive_code() or '待编档号' }}</span>
+                    <span class="result-action">
+                        <i class="fas fa-eye"></i> 查看详情
+                    </span>
+                </div>
+            </a>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-search"></i>
+                <h4>未找到匹配的档案</h4>
+                <p>请尝试使用其他关键词或调整搜索条件</p>
+            </div>
+        {% endif %}
+    </div>
+    {% else %}
+    <!-- 无搜索词时的空状态 -->
+    <div class="empty-state">
+        <i class="fas fa-search"></i>
+        <h4>开始检索</h4>
+        <p>在上方输入框中输入关键词开始搜索档案</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+{% block title %}会议详情{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div>
+      <a href="{{ url_for('meeting_index') }}" class="btn btn-outline-secondary mb-3"><i class="fas fa-arrow-left me-1"></i>返回</a>
+      <h3 class="mb-1">{{ meeting.subject }}</h3>
+      <div class="text-muted">{{ meeting.meeting_type }} · {{ meeting.level }} · 发起人：{{ meeting.creator.name if meeting.creator else '-' }}</div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      {% if current_user.role in ('admin', 'manager') or current_user.id in [meeting.creator_id, meeting.host_id] %}
+        {% if meeting.status in ('draft', 'pending', 'confirmed') %}
+        <a href="{{ url_for('meeting_edit', meeting_id=meeting.id) }}" class="btn btn-outline-secondary"><i class="fas fa-pen me-1"></i>编辑会议</a>
+        {% endif %}
+        {% if meeting.status in ('draft', 'pending') %}
+        <form method="post" action="{{ url_for('meeting_update_status', meeting_id=meeting.id) }}"><button class="btn btn-primary" name="action" value="confirm"><i class="fas fa-check me-1"></i>确认会议</button></form>
+        {% endif %}
+        {% if meeting.status == 'confirmed' %}
+        <form method="post" action="{{ url_for('meeting_update_status', meeting_id=meeting.id) }}"><button class="btn btn-outline-info" name="action" value="start"><i class="fas fa-play me-1"></i>开始会议</button></form>
+        {% endif %}
+        {% if meeting.status in ('confirmed', 'in_progress') %}
+        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#minutesModal"><i class="fas fa-clipboard-check me-1"></i>结束并归档</button>
+        {% endif %}
+        {% if meeting.status == 'completed' %}
+        <form method="post" action="{{ url_for('meeting_update_status', meeting_id=meeting.id) }}"><button class="btn btn-outline-primary" name="action" value="reopen"><i class="fas fa-rotate-left me-1"></i>重新打开</button></form>
+        {% endif %}
+        {% if meeting.status not in ('completed', 'cancelled') %}
+        <form method="post" action="{{ url_for('meeting_update_status', meeting_id=meeting.id) }}" onsubmit="return confirm('确认取消该会议吗？');"><button class="btn btn-outline-danger" name="action" value="cancel"><i class="fas fa-ban me-1"></i>取消会议</button></form>
+        {% endif %}
+      {% endif %}
+
+      <a href="{{ url_for('meeting_calendar') }}" class="btn btn-outline-secondary"><i class="fas fa-calendar-alt me-1"></i>日历视图</a>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-xl-2 col-md-4 col-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">应参会</div><div class="fs-4 fw-bold">{{ attendance_summary.total }}</div></div></div></div>
+    <div class="col-xl-2 col-md-4 col-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">已签到</div><div class="fs-4 fw-bold text-success">{{ attendance_summary.signed }}</div></div></div></div>
+    <div class="col-xl-2 col-md-4 col-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">请假</div><div class="fs-4 fw-bold text-warning">{{ attendance_summary.leave }}</div></div></div></div>
+    <div class="col-xl-2 col-md-4 col-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">缺席</div><div class="fs-4 fw-bold text-danger">{{ attendance_summary.absent }}</div></div></div></div>
+    <div class="col-xl-2 col-md-4 col-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">待反馈</div><div class="fs-4 fw-bold text-secondary">{{ attendance_summary.pending }}</div></div></div></div>
+    <div class="col-xl-2 col-md-4 col-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">反馈条数</div><div class="fs-4 fw-bold text-info">{{ attendance_summary.feedback_count }}</div></div></div></div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white fw-semibold">会议信息</div>
+        <div class="card-body row g-3">
+          <div class="col-md-4"><div class="text-muted small">开始时间</div><div class="fw-semibold">{{ meeting.start_time.strftime('%Y-%m-%d %H:%M') if meeting.start_time else '-' }}</div></div>
+          <div class="col-md-4"><div class="text-muted small">结束时间</div><div class="fw-semibold">{{ meeting.end_time.strftime('%Y-%m-%d %H:%M') if meeting.end_time else '-' }}</div></div>
+          <div class="col-md-4"><div class="text-muted small">会议室</div><div class="fw-semibold">{{ meeting.room.name if meeting.room else '待定' }}</div></div>
+          <div class="col-md-4"><div class="text-muted small">主持人</div><div class="fw-semibold">{{ meeting.host.name if meeting.host else '-' }}</div></div>
+          <div class="col-md-4"><div class="text-muted small">签到要求</div><div class="fw-semibold">{{ '启用签到' if meeting.require_signin else '无需签到' }}</div></div>
+          <div class="col-md-4"><div class="text-muted small">状态</div><span class="badge bg-{{ 'secondary' if meeting.status == 'draft' else 'warning' if meeting.status == 'pending' else 'info' if meeting.status == 'confirmed' else 'primary' if meeting.status == 'in_progress' else 'success' if meeting.status == 'completed' else 'dark' }}">{{ {'draft':'草稿','pending':'待确认','confirmed':'已确认','in_progress':'进行中','completed':'已结束','cancelled':'已取消'}.get(meeting.status, meeting.status) }}</span></div>
+          <div class="col-12">
+            <div class="text-muted small mb-1">会议议程</div>
+            <div class="bg-light rounded p-3" style="white-space:pre-wrap;line-height:1.8;">{{ meeting.agenda or '暂无议程' }}</div>
+          </div>
+          <div class="col-12">
+            <div class="text-muted small mb-1">会议纪要</div>
+            <div class="bg-light rounded p-3" style="white-space:pre-wrap;line-height:1.8;">{{ meeting.minutes or '会后可在此补充纪要、决议事项和责任分工。' }}</div>
+          </div>
+        </div>
+      </div>
+
+      {% if meeting.require_signin and my_attendance %}
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <span class="fw-semibold">我的参会反馈</span>
+          <span class="badge bg-{{ 'success' if my_attendance.attendance_status == 'signed' else 'warning' if my_attendance.attendance_status == 'leave' else 'danger' if my_attendance.attendance_status == 'absent' else 'secondary' }} fs-6">{{ {'pending':'待反馈','signed':'已签到','leave':'已请假','absent':'缺席'}.get(my_attendance.attendance_status or 'pending', '待反馈') }}</span>
+        </div>
+        <div class="card-body">
+          <div class="d-flex flex-wrap gap-2 mb-3">
+            <form method="post" action="{{ url_for('meeting_update_attendance', meeting_id=meeting.id) }}">
+              <button type="submit" name="action" value="sign_in" class="btn btn-success"><i class="fas fa-check-circle me-1"></i>我要签到</button>
+            </form>
+            <form method="post" action="{{ url_for('meeting_update_attendance', meeting_id=meeting.id) }}">
+              <button type="submit" name="action" value="leave" class="btn btn-outline-warning"><i class="fas fa-user-clock me-1"></i>我要请假</button>
+            </form>
+            <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#feedbackModal"><i class="fas fa-comment-dots me-1"></i>填写反馈</button>
+          </div>
+          <div class="row g-3">
+            <div class="col-md-4"><div class="text-muted small">签到时间</div><div class="fw-semibold">{{ my_attendance.signin_time.strftime('%Y-%m-%d %H:%M') if my_attendance.signin_time else '未签到' }}</div></div>
+            <div class="col-md-8"><div class="text-muted small">备注</div><div>{{ my_attendance.remark or '暂无备注' }}</div></div>
+            <div class="col-12"><div class="text-muted small mb-1">参会反馈</div><div class="bg-light rounded p-3" style="white-space:pre-wrap;line-height:1.8;">{{ my_attendance.feedback or '暂无反馈内容' }}</div></div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <span class="fw-semibold">参会人员签到台账</span>
+          <span class="small text-muted">支持签到、请假、缺席和反馈留痕</span>
+        </div>
+        <div class="card-body p-0">
+          {% if attendee_rows %}
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>参会人员</th>
+                  <th style="width:110px">参会状态</th>
+                  <th style="width:140px">签到时间</th>
+                  <th>反馈/备注</th>
+                  {% if can_manage_attendance %}<th style="width:220px">维护</th>{% endif %}
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in attendee_rows %}
+                {% set user = row.user %}
+                {% set record = row.record %}
+                {% set status = record.attendance_status if record else 'pending' %}
+                <tr>
+                  <td>
+                    <div class="fw-semibold">{{ user.name if user else '未知人员' }}</div>
+                    <div class="small text-muted">{{ user.department if user and user.department else '未设置部门' }}</div>
+                  </td>
+                  <td><span class="badge bg-{{ 'success' if status == 'signed' else 'warning text-dark' if status == 'leave' else 'danger' if status == 'absent' else 'secondary' }}">{{ {'pending':'待反馈','signed':'已签到','leave':'已请假','absent':'缺席'}.get(status, status) }}</span></td>
+                  <td class="small text-muted">{{ record.signin_time.strftime('%Y-%m-%d %H:%M') if record and record.signin_time else '-' }}</td>
+                  <td>
+                    <div class="small" style="white-space:pre-wrap;line-height:1.7;">{{ record.feedback if record and record.feedback else '暂无反馈' }}</div>
+                    {% if record and record.remark %}<div class="small text-muted mt-1">备注：{{ record.remark }}</div>{% endif %}
+                  </td>
+                  {% if can_manage_attendance %}
+                  <td>
+                    <form method="post" action="{{ url_for('meeting_update_attendance', meeting_id=meeting.id) }}" class="row g-2">
+                      <input type="hidden" name="action" value="update_status">
+                      <input type="hidden" name="user_id" value="{{ user.id if user else '' }}">
+                      <div class="col-12">
+                        <select name="attendance_status" class="form-select form-select-sm">
+                          {% for val, label in [('pending','待反馈'),('signed','已签到'),('leave','已请假'),('absent','缺席')] %}
+                          <option value="{{ val }}" {{ 'selected' if status == val else '' }}>{{ label }}</option>
+                          {% endfor %}
+                        </select>
+                      </div>
+                      <div class="col-12"><input type="text" name="remark" value="{{ record.remark if record else '' }}" class="form-control form-control-sm" placeholder="补充备注"></div>
+                      <div class="col-12"><button class="btn btn-sm btn-outline-primary w-100">保存</button></div>
+                    </form>
+                  </td>
+                  {% endif %}
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="text-center text-muted py-5">暂无指定参会人员</div>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if meeting.related_doc %}
+      <div class="card shadow-sm">
+        <div class="card-header bg-white fw-semibold">关联公文</div>
+        <div class="card-body">
+          <a href="{{ url_for('doc_detail', doc_id=meeting.related_doc.id) }}" class="text-decoration-none fw-semibold">{{ meeting.related_doc.title }}</a>
+          <div class="small text-muted mt-1">{{ meeting.related_doc.doc_no }} · {{ meeting.related_doc.doc_type }}</div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="col-lg-4">
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white fw-semibold">参会范围</div>
+        <div class="card-body">
+          <div class="small text-muted mb-2">参会部门</div>
+          <div class="mb-3">{{ meeting.attendee_depts or '未指定' }}</div>
+          <div class="small text-muted mb-2">指定参会人员</div>
+          {% if attendee_rows %}
+          <ul class="list-group list-group-flush border rounded">
+            {% for row in attendee_rows %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <span>{{ row.user.name if row.user else '未知人员' }}</span>
+              <span class="small text-muted">{{ row.user.department if row.user and row.user.department else '未设置部门' }}</span>
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <div class="text-muted">暂无指定参会人员</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white fw-semibold">会议室信息</div>
+        <div class="card-body">
+          {% if meeting.room %}
+          <div class="mb-2"><span class="text-muted small">位置：</span>{{ meeting.room.location or '未设置' }}</div>
+          <div class="mb-2"><span class="text-muted small">容纳人数：</span>{{ meeting.room.capacity }}</div>
+          <div><span class="text-muted small">设备：</span>{{ meeting.room.equipment or '未设置' }}</div>
+          {% else %}
+          <div class="text-muted">当前未分配会议室</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="card shadow-sm">
+        <div class="card-header bg-white fw-semibold">签到说明</div>
+        <div class="card-body small text-muted" style="line-height:1.8;">
+          <div>1. 参会人可自行签到、请假并填写反馈。</div>
+          <div>2. 会议结束时，仍为“待反馈”的人员会自动标记为“缺席”。</div>
+          <div>3. 发起人、主持人和管理员可代维护签到状态，便于会后补录。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="feedbackModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="post" action="{{ url_for('meeting_update_attendance', meeting_id=meeting.id) }}">
+        <div class="modal-header">
+          <h5 class="modal-title">填写参会反馈</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" name="action" value="feedback">
+          <div class="mb-3">
+            <label class="form-label">参会反馈</label>
+            <textarea name="feedback" class="form-control" rows="6" placeholder="请填写会议要点、需跟进事项或个人建议">{{ my_attendance.feedback if my_attendance else '' }}</textarea>
+          </div>
+          <div>
+            <label class="form-label">补充备注</label>
+            <input type="text" name="remark" class="form-control" value="{{ my_attendance.remark if my_attendance else '' }}" placeholder="如：已同步相关科室，需后续跟进材料">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+          <button type="submit" class="btn btn-primary">保存反馈</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="minutesModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="post" action="{{ url_for('meeting_update_status', meeting_id=meeting.id) }}">
+        <div class="modal-header">
+          <h5 class="modal-title">结束会议并归档纪要</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-light border mb-3">
+            会议结束后，系统会自动将仍未反馈的参会人员标记为“缺席”。
+          </div>
+          <div class="mb-3">
+            <label class="form-label">会议纪要</label>
+            <textarea name="minutes" class="form-control" rows="8" placeholder="请补充会议形成的决议事项、责任分工和完成时限">{{ meeting.minutes or '' }}</textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+          <button type="submit" name="action" value="complete" class="btn btn-success">确认结束</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

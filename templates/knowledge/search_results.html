@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-header">搜索筛选</div>
+            <div class="card-body">
+                <h6>知识库类型</h6>
+                <div class="form-check">
+                    <input type="radio" class="form-check-input" name="kb_type" value="all" id="kt_all" {% if kb_type=='all' %}checked{% endif %}>
+                    <label class="form-check-label" for="kt_all">全部</label>
+                </div>
+                <div class="form-check">
+                    <input type="radio" class="form-check-input" name="kb_type" value="personal" id="kt_personal" {% if kb_type=='personal' %}checked{% endif %}>
+                    <label class="form-check-label" for="kt_personal">个人知识库</label>
+                </div>
+                <div class="form-check">
+                    <input type="radio" class="form-check-input" name="kb_type" value="shared" id="kt_shared" {% if kb_type=='shared' %}checked{% endif %}>
+                    <label class="form-check-label" for="kt_shared">共享知识库</label>
+                </div>
+                <div class="form-check">
+                    <input type="radio" class="form-check-input" name="kb_type" value="policy" id="kt_policy" {% if kb_type=='policy' %}checked{% endif %}>
+                    <label class="form-check-label" for="kt_policy">政策文件库</label>
+                </div>
+                <hr>
+                <h6>文件类型</h6>
+                <div class="form-check">
+                    <input type="radio" class="form-check-input" name="file_type" value="all" id="ft_all" {% if file_type=='all' %}checked{% endif %}>
+                    <label class="form-check-label" for="ft_all">全部</label>
+                </div>
+                <div class="form-check">
+                    <input type="radio" class="form-check-input" name="file_type" value="pdf" id="ft_pdf" {% if file_type=='pdf' %}checked{% endif %}>
+                    <label class="form-check-label" for="ft_pdf">PDF</label>
+                </div>
+                <div class="form-check">
+                    <input type="radio" class="form-check-input" name="file_type" value="docx" id="ft_docx" {% if file_type=='docx' %}checked{% endif %}>
+                    <label class="form-check-label" for="ft_docx">Word</label>
+                </div>
+                <div class="form-check">
+                    <input type="radio" class="form-check-input" name="file_type" value="txt" id="ft_txt" {% if file_type=='txt' %}checked{% endif %}>
+                    <label class="form-check-label" for="ft_txt">TXT</label>
+                </div>
+            </div>
+        </div>
+        <a href="{{ url_for('personal_knowledge_base') }}" class="btn btn-outline-secondary btn-sm mt-2">← 返回知识库</a>
+    </div>
+
+    <div class="col-md-9">
+        <h4>🔍 知识库全文搜索</h4>
+        <form method="get" action="{{ url_for('knowledge_search_page') }}" class="mb-3" id="knowledgeSearchForm">
+            <div class="input-group">
+                <input type="text" name="keyword" class="form-control" value="{{ keyword }}" placeholder="输入关键词搜索...">
+                <input type="hidden" name="kb_type" id="hidden_kb_type" value="{{ kb_type }}">
+                <input type="hidden" name="file_type" id="hidden_file_type" value="{{ file_type }}">
+                <button class="btn btn-primary" type="submit">搜索</button>
+            </div>
+        </form>
+
+        {% if keyword %}
+        <div class="alert alert-info">
+            关键词：<strong>{{ keyword }}</strong>，
+            找到 <strong>{{ total }}</strong> 条相关结果
+            {% if kb_type != 'all' %}，知识库类型：{{ kb_type }}{% endif %}
+            {% if file_type != 'all' %}，文件类型：{{ file_type }}{% endif %}
+        </div>
+
+        {# 调试信息 - 用于诊断显示问题 #}
+        <div class="alert alert-warning d-print-none">
+            <small>
+                <strong>搜索诊断:</strong> 
+                关键词: "{{ keyword }}" | 
+                找到结果: {{ total }} 条 | 
+                显示: {{ results|length if results else 0 }} 条
+                {% if results and results|length > 0 and results[0] %}
+                | 首条标题: "{{ results[0].get('title', '')[:30] if results[0].get('title') else '无标题' }}"
+                {% endif %}
+            </small>
+        </div>
+        
+        {% if results %}
+        {% for r in results %}
+        <div class="card mb-2">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="mb-1">{{ r.title|safe }}</h6>
+                        <small class="text-muted">
+                            知识库：{{ r.kb_name }} &nbsp;|&nbsp;
+                            类型：<span class="badge bg-info">{{ r.kb_type }}</span>
+                            <span class="badge bg-secondary">{{ r.file_type }}</span>
+                            {% if r.tags %}&nbsp;|&nbsp;标签：{{ r.tags }}{% endif %}
+                        </small>
+                    </div>
+                    <div>
+                        <a href="{{ url_for('knowledge_preview', file_id=r.file_id) }}" class="btn btn-sm btn-primary" target="_blank">预览</a>
+                        <button class="btn btn-sm btn-outline-warning" onclick="toggleFav({{ r.file_id }})">⭐</button>
+                    </div>
+                </div>
+                <p class="mb-0 mt-2 small" style="background:#f8f9fa;padding:8px;border-radius:4px;">
+                    {{ r.snippet|safe if r.snippet else '（无预览内容）' }}
+                </p>
+            </div>
+        </div>
+        {% endfor %}
+
+        {% if total > 20 %}
+        <div class="text-center mt-3">
+            {% set total_pages = ((total / 20)|round(0, 'ceil')|int) %}
+            {% for p in range(1, total_pages + 1) %}
+            <a href="?keyword={{ keyword }}&kb_type={{ kb_type }}&file_type={{ file_type }}&page={{ p }}"
+               class="btn btn-sm {% if p == page %}btn-primary{% else %}btn-outline-primary{% endif %}">{{ p }}</a>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center text-muted py-5">
+            <p class="mb-2">未找到与「<strong>{{ keyword }}</strong>」相关的文件</p>
+            <p class="small">建议：尝试使用更通用的关键词，或检查文件是否已上传并通过审核</p>
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="text-center text-muted py-5">
+            <p>输入关键词开始搜索知识库内容</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+// 筛选表单联动
+const knowledgeSearchForm = document.getElementById('knowledgeSearchForm');
+document.querySelectorAll('input[name="kb_type"]').forEach(r => {
+    r.addEventListener('change', () => {
+        document.getElementById('hidden_kb_type').value = r.value;
+        knowledgeSearchForm.submit();
+    });
+});
+document.querySelectorAll('input[name="file_type"]').forEach(r => {
+    r.addEventListener('change', () => {
+        document.getElementById('hidden_file_type').value = r.value;
+        knowledgeSearchForm.submit();
+    });
+});
+
+function toggleFav(fileId) {
+    fetch(`/knowledge/favorite/${fileId}`, {
+        method: 'POST',
+        headers: {'X-CSRFToken': '{{ csrf_token() }}'}
+    })
+    .then(r => r.json())
+    .then(data => {
+        alert(data.message);
+    });
+}
+</script>
+{% endblock %}

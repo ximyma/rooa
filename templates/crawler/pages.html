@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ task.name }} - 爬取页面 - 智能办公平台</title>
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/css/fontawesome.all.min.css" rel="stylesheet">
+    <style>
+        :root { --bg-primary: #0a0e1a; --bg-secondary: #111827; --bg-card: #1a2235; --accent-cyan: #00d4ff; --accent-green: #00ff9d; --accent-red: #ff4757; --accent-orange: #ff9f43; --text-primary: #e8edf5; --text-secondary: #8892a4; --border-color: #2a3550; }
+        * { box-sizing: border-box; }
+        body { background: var(--bg-primary); color: var(--text-primary); font-family: 'Microsoft YaHei', sans-serif; }
+        .card-dark { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; }
+        .btn-cyber { border: 1px solid var(--accent-cyan); color: var(--accent-cyan); border-radius: 8px; padding: 5px 14px; font-size: 0.82rem; font-weight: 600; transition: all 0.3s; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; background: transparent; }
+        .btn-cyber:hover { background: var(--accent-cyan); color: #000; }
+        .btn-cyber-green { border-color: var(--accent-green); color: var(--accent-green); }
+        .btn-cyber-green:hover { background: var(--accent-green); color: #000; }
+        .btn-sm-flat { border-radius: 6px; padding: 4px 10px; font-size: 0.78rem; }
+        .glow-title { color: var(--accent-cyan); text-shadow: 0 0 20px rgba(0,212,255,0.5); }
+        .table-dark-custom { background: transparent; color: var(--text-primary); }
+        .table-dark-custom thead th { background: rgba(0,212,255,0.08); border-color: var(--border-color); color: var(--accent-cyan); padding: 12px; }
+        .table-dark-custom tbody td { border-color: var(--border-color); padding: 10px; vertical-align: middle; }
+        .table-dark-custom tbody tr:hover { background: rgba(0,212,255,0.04); }
+        .text-preview { color: var(--text-secondary); font-size: 0.8rem; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        /* 弹窗样式 */
+        .modal-content-dark { background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 12px; }
+        .modal-header-dark { background: rgba(0,212,255,0.06); border-bottom: 1px solid var(--border-color); border-radius: 12px 12px 0 0; padding: 16px 20px; }
+        .modal-header-dark .modal-title { color: var(--accent-cyan); font-weight: 600; }
+        .modal-header-dark .btn-close { filter: invert(1); opacity: 0.5; }
+        .modal-header-dark .btn-close:hover { opacity: 1; }
+        .modal-body-dark { padding: 20px; max-height: 70vh; overflow-y: auto; }
+        .page-content-body { background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; font-size: 0.88rem; line-height: 1.8; color: var(--text-primary); white-space: pre-wrap; word-break: break-all; min-height: 200px; }
+        .page-meta { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
+        .page-meta span { font-size: 0.78rem; color: var(--text-secondary); }
+        .url-link { color: var(--accent-cyan); font-size: 0.8rem; word-break: break-all; text-decoration: none; }
+        .url-link:hover { text-decoration: underline; }
+        .status-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; }
+        .status-ok { background: rgba(0,255,157,0.15); color: var(--accent-green); }
+        .status-err { background: rgba(255,71,87,0.15); color: var(--accent-red); }
+        .status-pend { background: rgba(136,146,164,0.15); color: var(--text-secondary); }
+        /* 内容标签页 */
+        .content-tabs { display: flex; gap: 4px; margin-bottom: 10px; }
+        .content-tab { padding: 5px 14px; border-radius: 6px; font-size: 0.78rem; cursor: pointer; border: 1px solid var(--border-color); color: var(--text-secondary); background: transparent; transition: all 0.2s; }
+        .content-tab.active { border-color: var(--accent-cyan); color: var(--accent-cyan); background: rgba(0,212,255,0.08); }
+        .page-content-body { background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; font-size: 0.88rem; line-height: 1.8; color: var(--text-primary); white-space: pre-wrap; word-break: break-all; min-height: 200px; overflow-y: auto; max-height: 60vh; }
+        .page-content-body.html-view { white-space: pre-wrap; word-break: break-all; }
+        .page-content-body.text-view { white-space: pre-wrap; word-break: break-all; }
+        .page-content-body:empty::before { content: '（无内容）'; color: var(--text-secondary); font-style: italic; }
+        .copy-toast { position: fixed; bottom: 30px; right: 30px; background: var(--accent-green); color: #000; padding: 8px 18px; border-radius: 8px; font-size: 0.82rem; font-weight: 600; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 9999; }
+        .copy-toast.show { opacity: 1; }
+        .sidebar { background: var(--bg-secondary); min-height: 100vh; border-right: 1px solid var(--border-color); }
+        .nav-link-custom {
+            color: var(--text-secondary);
+            padding: 12px 20px;
+            border-radius: 8px;
+            transition: all 0.3s;
+            display: flex; align-items: center; gap: 10px;
+            text-decoration: none;
+        }
+        .nav-link-custom:hover, .nav-link-custom.active {
+            background: rgba(0,212,255,0.1);
+            color: var(--accent-cyan);
+        }
+        .glow-title {
+            color: var(--accent-cyan);
+            text-shadow: 0 0 20px rgba(0,212,255,0.5);
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        .badge-custom { border-radius: 6px; padding: 3px 10px; font-size: 0.75rem; }
+    </style>
+</head>
+<body>
+<div class="d-flex">
+    <!-- 侧边栏 -->
+    <div class="sidebar p-3" style="width: 240px; flex-shrink: 0;">
+        <div class="mb-4 px-2">
+            <h5 class="glow-title mb-1">🕷️ 网站爬虫</h5>
+            <small style="color: var(--text-secondary);">Website Crawler</small>
+        </div>
+        <nav class="nav flex-column">
+            <a href="{{ url_for('crawler_index') }}" class="nav-link-custom">
+                <i class="fas fa-desktop"></i> 爬虫控制台
+            </a>
+            <a href="{{ url_for('crawler_search') }}" class="nav-link-custom">
+                <i class="fas fa-search"></i> 内容检索
+            </a>
+            <a href="{{ url_for('crawler_advanced_search') }}" class="nav-link-custom">
+                <i class="fas fa-stream"></i> 高级检索
+            </a>
+            <hr style="border-color: var(--border-color);">
+            <a href="{{ url_for('monitor_index') }}" class="nav-link-custom">
+                <i class="fas fa-broadcast-tower"></i> 栏目监测
+            </a>
+            <a href="{{ url_for('index') }}" class="nav-link-custom">
+                <i class="fas fa-home"></i> 返回首页
+            </a>
+        </nav>
+    </div>
+
+    <!-- 主内容 -->
+    <div class="flex-fill p-4">
+        <!-- 页面标题 -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h4 class="mb-1 glow-title">📄 {{ task.name }}</h4>
+                <small style="color: var(--text-secondary);">{{ task.base_url }}</small>
+            </div>
+            <div class="d-flex gap-2 align-items-center">
+                <span class="badge" style="background: rgba(0,212,255,0.2); color: var(--accent-cyan);">
+                    共 {{ pages|length }} 条
+                </span>
+                <a href="{{ url_for('crawler_index') }}" class="btn btn-sm" style="border:1px solid var(--border-color); color: var(--text-secondary);">
+                    <i class="fas fa-arrow-left"></i> 返回控制台
+                </a>
+            </div>
+        </div>
+
+    <div class="card-dark">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-dark-custom mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width:40px;">#</th>
+                            <th>标题</th>
+                            <th>URL</th>
+                            <th>状态</th>
+                            <th>内容摘要</th>
+                            <th>时间</th>
+                            <th style="width:90px;">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for page in pages %}
+                        <tr data-page-id="{{ page.id }}">
+                            <td>{{ loop.index }}</td>
+                            <td style="max-width:160px;">
+                                <span style="font-size:0.85rem;">{{ page.title or '无标题' }}</span>
+                            </td>
+                            <td style="max-width:200px;">
+                                <a href="{{ page.url }}" target="_blank" class="url-link" title="{{ page.url }}">
+                                    {{ page.url[:60] }}{% if page.url|length > 60 %}...{% endif %}
+                                </a>
+                            </td>
+                            <td>
+                                {% if page.status == 'completed' %}
+                                    <span class="status-badge status-ok"><i class="fas fa-check-circle"></i> 成功</span>
+                                {% elif page.status == 'error' %}
+                                    <span class="status-badge status-err" title="{{ page.error_msg }}"><i class="fas fa-times-circle"></i> 失败</span>
+                                {% else %}
+                                    <span class="status-badge status-pend">{{ page.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="text-preview">{{ page.text_content[:100] if page.text_content else '无内容' }}</span>
+                            </td>
+                            <td>
+                                <small style="color: var(--text-secondary);">
+                                    {{ page.updated_at.strftime('%m-%d %H:%M') if page.updated_at else '-' }}
+                                </small>
+                            </td>
+                            <td>
+                                <button class="btn-cyber btn-sm-flat" onclick="showPageDetail({{ page.id }})">
+                                    <i class="fas fa-eye"></i> 查看
+                                </button>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 页面详情弹窗 -->
+<div class="modal fade" id="pageDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content modal-content-dark">
+            <div class="modal-header-dark d-flex justify-content-between align-items-center">
+                <h5 class="modal-title" id="detailModalLabel">
+                    <i class="fas fa-file-alt me-2"></i><span id="detail-title">页面详情</span>
+                </h5>
+                <div class="d-flex gap-2 align-items-center">
+                    <a id="detail-url-link" href="#" target="_blank" class="btn-cyber btn-sm-flat" style="font-size:0.75rem;">
+                        <i class="fas fa-external-link-alt"></i> 打开原文
+                    </a>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+                </div>
+            </div>
+            <div class="modal-body-dark">
+                <div class="page-meta">
+                    <span id="detail-status"></span>
+                    <span><i class="fas fa-clock me-1"></i><span id="detail-time"></span></span>
+                </div>
+                <div id="detail-error" class="mb-3" style="display:none;">
+                    <div class="alert alert-danger" style="font-size:0.82rem; padding:8px 12px;"></div>
+                </div>
+                <div class="content-tabs">
+                    <button class="content-tab active" id="tab-text" onclick="switchTab('text')">📝 纯净文本</button>
+                    <button class="content-tab" id="tab-html" onclick="switchTab('html')">🏷️ 原始HTML</button>
+                </div>
+                <div class="page-content-body text-view" id="detail-content-text">加载中...</div>
+                <div class="page-content-body html-view" id="detail-content-html" style="display:none;"></div>
+                <div style="margin-top:8px; display:flex; justify-content:flex-end;">
+                    <button class="btn-cyber btn-sm-flat" style="font-size:0.75rem;" onclick="copyContent()">
+                        <i class="fas fa-copy"></i> 复制内容
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/bootstrap.bundle.min.js"></script>
+<script>
+let detailModal = null;
+let storedText = '';
+let storedHtml = '';
+let currentTab = 'text';
+
+document.addEventListener('DOMContentLoaded', function() {
+    detailModal = new bootstrap.Modal(document.getElementById('pageDetailModal'));
+});
+
+function switchTab(tab) {
+    currentTab = tab;
+    document.getElementById('tab-text').classList.toggle('active', tab === 'text');
+    document.getElementById('tab-html').classList.toggle('active', tab === 'html');
+    document.getElementById('detail-content-text').style.display = tab === 'text' ? '' : 'none';
+    document.getElementById('detail-content-html').style.display = tab === 'html' ? '' : 'none';
+}
+
+function copyContent() {
+    const text = currentTab === 'text' ? storedText : storedHtml;
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+        showToast('已复制到剪贴板');
+    }).catch(() => {
+        // fallback
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast('已复制到剪贴板');
+    });
+}
+
+function showToast(msg) {
+    let t = document.getElementById('copyToast');
+    if (!t) {
+        t = document.createElement('div');
+        t.id = 'copyToast';
+        t.className = 'copy-toast';
+        document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+function showPageDetail(pageId) {
+    document.getElementById('detail-content-text').textContent = '加载中...';
+    document.getElementById('detail-content-html').innerHTML = '';
+    document.getElementById('detail-error').style.display = 'none';
+    // Reset to text tab
+    switchTab('text');
+
+    fetch('/crawler/page/' + pageId)
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('detail-title').textContent = data.title || '无标题';
+            document.getElementById('detail-url-link').href = data.url;
+
+            storedText = data.text_content || '（无正文内容）';
+            storedHtml = data.content || '';
+            document.getElementById('detail-content-text').textContent = storedText;
+            document.getElementById('detail-content-html').textContent = storedHtml;
+
+            // 状态
+            const statusEl = document.getElementById('detail-status');
+            if (data.status === 'completed') {
+                statusEl.className = 'status-badge status-ok';
+                statusEl.innerHTML = '<i class="fas fa-check-circle"></i> 成功';
+            } else if (data.status === 'error') {
+                statusEl.className = 'status-badge status-err';
+                statusEl.innerHTML = '<i class="fas fa-times-circle"></i> 失败';
+            } else {
+                statusEl.className = 'status-badge status-pend';
+                statusEl.textContent = data.status;
+            }
+
+            document.getElementById('detail-time').textContent = data.updated_at;
+
+            if (data.error_msg) {
+                const errDiv = document.getElementById('detail-error');
+                errDiv.style.display = 'block';
+                errDiv.querySelector('.alert').textContent = '错误: ' + data.error_msg;
+            }
+
+            detailModal.show();
+        })
+        .catch(err => {
+            document.getElementById('detail-content-text').textContent = '加载失败: ' + err;
+        });
+}
+</script>
+</body>
+</html>

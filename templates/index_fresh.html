@@ -1,0 +1,314 @@
+{% from '_sidebar_nav.html' import sidebar with context %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能OA - 清新风</title>
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/fontawesome.all.min.css">
+    <style>
+        body {
+            background: linear-gradient(180deg, #e8f5e9 0%, #f1f8e9 100%);
+            font-family: 'Microsoft YaHei', sans-serif;
+            color: #2e7d32;
+        }
+        .sidebar {
+            background: rgba(255,255,255,0.8);
+            backdrop-filter: blur(10px);
+            min-height: 100vh;
+            border-right: 2px solid #c8e6c9;
+        }
+        .sidebar .nav-link {
+            color: #43a047;
+            padding: 14px 20px;
+            border-radius: 25px;
+            margin: 4px 10px;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+        .sidebar .nav-link:hover, .sidebar .nav-link.active {
+            background: #a5d6a7;
+            color: #1b5e20;
+        }
+        .sidebar .nav-link i { margin-right: 12px; width: 20px; }
+        .sidebar .brand {
+            padding: 25px 20px;
+            font-size: 1.6rem;
+            font-weight: bold;
+            color: #2e7d32;
+            text-align: center;
+        }
+        .main-content { padding: 25px; }
+        .card {
+            border: none;
+            border-radius: 20px;
+            background: rgba(255,255,255,0.9);
+            box-shadow: 0 4px 15px rgba(76,175,80,0.1);
+            transition: all 0.3s;
+        }
+        .card:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(76,175,80,0.2); }
+        .card-header {
+            background: transparent;
+            border-bottom: 2px solid #c8e6c9;
+            font-weight: 600;
+            color: #2e7d32;
+        }
+        .btn-outline-success { border-color: #66bb6a; color: #43a047; }
+        .btn-outline-success:hover { background: #66bb6a; color: white; }
+        .dropdown-menu { background: rgba(255,255,255,0.95); border: 1px solid #c8e6c9; border-radius: 15px; }
+        .dropdown-item { color: #43a047; }
+        .dropdown-item:hover { background: #e8f5e9; }
+        select.form-select { background: #f1f8e9; border-color: #a5d6a7; color: #43a047; }
+        .quick-card {
+            border: 2px dashed #a5d6a7;
+            border-radius: 15px;
+            text-align: center;
+            padding: 1.5rem 1rem;
+            text-decoration: none;
+            color: #2e7d32;
+            display: block;
+            transition: all 0.3s;
+        }
+        .quick-card:hover {
+            background: #c8e6c9;
+            color: #1b5e20;
+            transform: translateY(-3px);
+        }
+        .quick-card .icon { font-size: 2rem; margin-bottom: 0.5rem; }
+        .quick-card .label { font-weight: 600; font-size: 0.9rem; }
+        .welcome-card {
+            background: linear-gradient(135deg, #66bb6a 0%, #43a047 100%);
+            color: white;
+            border-radius: 16px;
+        }
+        .welcome-card h4 { font-weight: 700; }
+        .welcome-card .info-line { opacity: 0.9; font-size: 0.95rem; }
+    </style>
+</head>
+<body>
+    <div class="container-fluid p-0">
+        <div class="row g-0">
+            <div class="col-md-3 col-lg-2 sidebar">
+                {{ sidebar("index") }}
+            </div>
+
+            <div class="col-md-9 col-lg-10 main-content">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h3><i class="fas fa-seedling"></i> 工作台</h3>
+                    <div class="dropdown">
+                        <button class="btn btn-outline-success dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-cog"></i> 个性化
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="{{ url_for('personal_center') }}">个人中心</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <form method="POST" action="{{ url_for('set_home_style') }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <select name="style" class="dropdown-item" onchange="this.form.submit()">
+                                        <option value="default" {% if current_user.home_style == 'default' %}selected{% endif %}>默认风格</option>
+                                        <option value="dark" {% if current_user.home_style == 'dark' %}selected{% endif %}>暗黑风</option>
+                                        <option value="anime" {% if current_user.home_style == 'anime' %}selected{% endif %}>动漫风</option>
+                                        <option value="fresh" {% if current_user.home_style == 'fresh' %}selected{% endif %}>清新风</option>
+                                        <option value="tech" {% if current_user.home_style == 'tech' %}selected{% endif %}>科技风</option>
+                                    </select>
+                                </form>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- 统计卡片 -->
+                <div class="row mb-4">
+                    <div class="col-md-3 col-sm-6">
+                        <div class="card mb-3" style="background: linear-gradient(135deg, #66bb6a 0%, #43a047 100%); color: white;">
+                            <div class="card-body">
+                                <h6><i class="fas fa-file-alt"></i> 专项报告</h6>
+                                <h2>{{ stats.total_reports }}</h2>
+                                <small>总计提交</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <div class="card mb-3" style="background: linear-gradient(135deg, #ffa726 0%, #fb8c00 100%); color: white;">
+                            <div class="card-body">
+                                <h6><i class="fas fa-tasks"></i> 待办事项</h6>
+                                <h2>{{ stats.pending_tasks }}</h2>
+                                <small>待处理</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <div class="card mb-3" style="background: linear-gradient(135deg, #42a5f5 0%, #1e88e5 100%); color: white;">
+                            <div class="card-body">
+                                <h6><i class="fas fa-database"></i> 知识文件</h6>
+                                <h2>{{ stats.total_knowledge }}</h2>
+                                <small>已上传</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <div class="card mb-3" style="background: linear-gradient(135deg, #ab47bc 0%, #8e24aa 100%); color: white;">
+                            <div class="card-body">
+                                <h6><i class="fas fa-robot"></i> AI对话</h6>
+                                <h2>{{ stats.ai_chats }}</h2>
+                                <small>历史记录</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 欢迎卡片 -->
+                <div class="row mb-4">
+                    <div class="col-md-12">
+                        <div class="card welcome-card">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center">
+                                    <div class="me-4">
+                                        <i class="fas fa-user-circle fa-4x"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="mb-2">欢迎回来，{{ current_user.username }}！</h4>
+                                        <p class="info-line mb-1">
+                                            <i class="fas fa-landmark me-2"></i>
+                                            部门：{% if current_user.dept %}{{ current_user.dept.name }}{% else %}未分配部门{% endif %}
+                                            &nbsp;|&nbsp;
+                                            <i class="fas fa-briefcase me-2"></i>
+                                            岗位：{% if current_user.position %}{{ current_user.position.name }}{% else %}未分配岗位{% endif %}
+                                        </p>
+                                        <p class="info-line mb-0">
+                                            <i class="fas fa-clock me-2"></i>
+                                            登录时间：{% if current_user.last_login %}{{ current_user.last_login.strftime('%Y-%m-%d %H:%M') }}{% else %}首次登录{% endif %}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 快捷功能 -->
+                <div class="row mb-4">
+                    <div class="col-md-3 col-sm-6 mb-3">
+                        <a href="{{ url_for('document_writing') }}" class="quick-card">
+                            <div class="icon text-success"><i class="fas fa-pen-alt"></i></div>
+                            <div class="label">公文写作</div>
+                        </a>
+                    </div>
+                    <div class="col-md-3 col-sm-6 mb-3">
+                        <a href="{{ url_for('ai_chat') }}" class="quick-card">
+                            <div class="icon text-primary"><i class="fas fa-robot"></i></div>
+                            <div class="label">AI 智能助手</div>
+                        </a>
+                    </div>
+                    <div class="col-md-3 col-sm-6 mb-3">
+                        <a href="{{ url_for('template_library_v2') }}" class="quick-card">
+                            <div class="icon text-warning"><i class="fas fa-file-alt"></i></div>
+                            <div class="label">公文模板库</div>
+                        </a>
+                    </div>
+                    <div class="col-md-3 col-sm-6 mb-3">
+                        <a href="{{ url_for('personal_knowledge_base') }}" class="quick-card">
+                            <div class="icon text-info"><i class="fas fa-database"></i></div>
+                            <div class="label">个人知识库</div>
+                        </a>
+                    </div>
+                    <div class="col-md-3 col-sm-6 mb-3">
+                        <a href="{{ url_for('shared_knowledge_base') }}" class="quick-card">
+                            <div class="icon" style="color:#8e44ad;"><i class="fas fa-share-alt"></i></div>
+                            <div class="label">共享知识库</div>
+                        </a>
+                    </div>
+                    <div class="col-md-3 col-sm-6 mb-3">
+                        <a href="{{ url_for('briefing_index') }}" class="quick-card">
+                            <div class="icon" style="color:#e74c3c;"><i class="fas fa-newspaper"></i></div>
+                            <div class="label">简报生成</div>
+                        </a>
+                    </div>
+                    <div class="col-md-3 col-sm-6 mb-3">
+                        <a href="{{ url_for('doc_inbox') }}" class="quick-card">
+                            <div class="icon" style="color:#27ae60;"><i class="fas fa-envelope-open-text"></i></div>
+                            <div class="label">电子公文</div>
+                        </a>
+                    </div>
+                    <div class="col-md-3 col-sm-6 mb-3">
+                        <a href="{{ url_for('personal_center') }}" class="quick-card">
+                            <div class="icon" style="color:#2980b9;"><i class="fas fa-user-cog"></i></div>
+                            <div class="label">个人中心</div>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- 常用模板 -->
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span><i class="fas fa-file-alt"></i> 常用模板</span>
+                                <a href="{{ url_for('template_library_v2') }}" class="btn btn-outline-success btn-sm">
+                                    <i class="fas fa-th-large me-1"></i>查看全部
+                                </a>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-2 col-sm-4 col-6 mb-3">
+                                        <a href="{{ url_for('template_library_v2', category='通知') }}" class="text-decoration-none">
+                                            <div class="text-center py-3" style="border: 2px dashed #a5d6a7; border-radius: 10px;">
+                                                <i class="fas fa-bell fa-2x mb-2" style="color: #66bb6a;"></i>
+                                                <div class="small" style="color: #43a047;">通知</div>
+                                            </div>
+                                        </a>
+                                    </div>
+                                    <div class="col-md-2 col-sm-4 col-6 mb-3">
+                                        <a href="{{ url_for('template_library_v2', category='报告') }}" class="text-decoration-none">
+                                            <div class="text-center py-3" style="border: 2px dashed #a5d6a7; border-radius: 10px;">
+                                                <i class="fas fa-chart-bar fa-2x mb-2" style="color: #66bb6a;"></i>
+                                                <div class="small" style="color: #43a047;">报告</div>
+                                            </div>
+                                        </a>
+                                    </div>
+                                    <div class="col-md-2 col-sm-4 col-6 mb-3">
+                                        <a href="{{ url_for('template_library_v2', category='请示') }}" class="text-decoration-none">
+                                            <div class="text-center py-3" style="border: 2px dashed #a5d6a7; border-radius: 10px;">
+                                                <i class="fas fa-question-circle fa-2x mb-2" style="color: #66bb6a;"></i>
+                                                <div class="small" style="color: #43a047;">请示</div>
+                                            </div>
+                                        </a>
+                                    </div>
+                                    <div class="col-md-2 col-sm-4 col-6 mb-3">
+                                        <a href="{{ url_for('template_library_v2', category='纪要') }}" class="text-decoration-none">
+                                            <div class="text-center py-3" style="border: 2px dashed #a5d6a7; border-radius: 10px;">
+                                                <i class="fas fa-list-alt fa-2x mb-2" style="color: #66bb6a;"></i>
+                                                <div class="small" style="color: #43a047;">会议纪要</div>
+                                            </div>
+                                        </a>
+                                    </div>
+                                    <div class="col-md-2 col-sm-4 col-6 mb-3">
+                                        <a href="{{ url_for('template_library_v2', category='函') }}" class="text-decoration-none">
+                                            <div class="text-center py-3" style="border: 2px dashed #a5d6a7; border-radius: 10px;">
+                                                <i class="fas fa-envelope fa-2x mb-2" style="color: #66bb6a;"></i>
+                                                <div class="small" style="color: #43a047;">函</div>
+                                            </div>
+                                        </a>
+                                    </div>
+                                    <div class="col-md-2 col-sm-4 col-6 mb-3">
+                                        <a href="{{ url_for('template_library_v2') }}" class="text-decoration-none">
+                                            <div class="text-center py-3" style="border: 2px dashed #a5d6a7; border-radius: 10px;">
+                                                <i class="fas fa-th-large fa-2x mb-2" style="color: #66bb6a;"></i>
+                                                <div class="small" style="color: #43a047;">更多模板</div>
+                                            </div>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

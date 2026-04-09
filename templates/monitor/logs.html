@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>监测日志 - {{ lib.name }} - 栏目监测</title>
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/css/fontawesome.all.min.css" rel="stylesheet">
+    <style>
+        :root { --bg-primary: #0a0e1a; --bg-secondary: #111827; --bg-card: #1a2235; --accent-cyan: #00d4ff; --accent-green: #00ff9d; --accent-orange: #ff9f43; --accent-red: #ff4757; --text-primary: #e8edf5; --text-secondary: #8892a4; --border-color: #2a3550; }
+        * { box-sizing: border-box; }
+        body { background: var(--bg-primary); color: var(--text-primary); font-family: 'Microsoft YaHei', sans-serif; min-height: 100vh; }
+        .card-dark { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; }
+        .btn-cyber { border: 1px solid var(--accent-cyan); color: var(--accent-cyan); border-radius: 8px; padding: 6px 16px; font-weight: 600; transition: all 0.3s; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; }
+        .glow-title { color: var(--accent-cyan); text-shadow: 0 0 20px rgba(0,212,255,0.5); }
+        .log-item { border-bottom: 1px solid var(--border-color); padding: 10px 16px; font-family: 'Consolas', monospace; font-size: 0.82rem; display: flex; gap: 12px; }
+        .log-item:last-child { border-bottom: none; }
+        .log-item .log-time { color: var(--text-secondary); flex-shrink: 0; }
+        .log-item .log-msg { color: var(--text-primary); word-break: break-all; }
+        .log-item.log-error { background: rgba(255,71,87,0.05); }
+        .log-item.log-error .log-msg { color: var(--accent-red); }
+        .log-item.log-warning { background: rgba(255,159,67,0.03); }
+        .log-item.log-warning .log-msg { color: var(--accent-orange); }
+        .log-item.log-info .log-msg { color: var(--accent-green); }
+        .sidebar { background: var(--bg-secondary); min-height: 100vh; border-right: 1px solid var(--border-color); }
+        .nav-link-custom { color: var(--text-secondary); padding: 12px 20px; border-radius: 8px; transition: all 0.3s; display: flex; align-items: center; gap: 10px; text-decoration: none; }
+        .nav-link-custom:hover, .nav-link-custom.active { background: rgba(0,212,255,0.1); color: var(--accent-cyan); }
+    </style>
+</head>
+<body>
+<div class="d-flex">
+    <!-- 侧边栏 -->
+    <div class="sidebar p-3" style="width: 240px; flex-shrink: 0;">
+        <div class="mb-4 px-2">
+            <h5 class="glow-title mb-1">📡 栏目监测</h5>
+            <small style="color: var(--text-secondary);">Column Monitor</small>
+        </div>
+        <nav class="nav flex-column">
+            <a href="{{ url_for('monitor_index') }}" class="nav-link-custom">
+                <i class="fas fa-broadcast-tower"></i> 监测中心
+            </a>
+            <a href="{{ url_for('crawler_index') }}" class="nav-link-custom">
+                <i class="fas fa-spider"></i> 网站爬虫
+            </a>
+            <a href="{{ url_for('crawler_search') }}" class="nav-link-custom">
+                <i class="fas fa-search"></i> 内容检索
+            </a>
+            <a href="{{ url_for('crawler_advanced_search') }}" class="nav-link-custom">
+                <i class="fas fa-stream"></i> 高级检索
+            </a>
+            <hr style="border-color: var(--border-color);">
+            <a href="{{ url_for('index') }}" class="nav-link-custom">
+                <i class="fas fa-home"></i> 返回首页
+            </a>
+        </nav>
+    </div>
+
+    <!-- 主内容 -->
+    <div class="flex-fill p-4">
+        <!-- 页面标题 -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h4 class="mb-1 glow-title"><i class="fas fa-file-alt me-2"></i>{{ lib.name }} - 监测日志</h4>
+                <small style="color: var(--text-secondary);">实时记录栏目监测过程</small>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{{ url_for('monitor_results', lib_id=lib.id) }}" class="btn-cyber">
+                    <i class="fas fa-chart-bar me-1"></i>查看结果
+                </a>
+                <form method="post" action="{{ url_for('monitor_run', lib_id=lib.id) }}">
+                    <button type="submit" class="btn-cyber" style="border-color: var(--accent-green); color: var(--accent-green);">
+                        <i class="fas fa-redo me-1"></i>重新监测
+                    </button>
+                </form>
+            </div>
+        </div>
+
+    <div class="card-dark">
+        <div class="card-body p-0" style="max-height: 600px; overflow-y: auto;" id="logContainer">
+            {% for log in logs %}
+            <div class="log-item log-{{ log.level }}">
+                <span class="log-time">{{ log.created_at.strftime('%H:%M:%S') }}</span>
+                <span class="log-msg">{{ log.message }}</span>
+            </div>
+            {% else %}
+            <div class="log-item">
+                <span class="log-msg" style="color: var(--text-secondary);">暂无日志记录</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+</div>
+<script src="/static/js/bootstrap.bundle.min.js"></script>
+<script>
+// 滚动到底部
+const container = document.getElementById('logContainer');
+if (container) container.scrollTop = container.scrollHeight;
+</script>
+</body>
+</html>

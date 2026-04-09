@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>编辑案卷 - {{ volume.volume_title }}</title>
+    <style>
+        body { background: #f7fafc; font-family: 'Microsoft YaHei', sans-serif; }
+        .container { max-width: 800px; margin: 3rem auto; background: white; border-radius: 16px; padding: 2.5rem; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        .header { margin-bottom: 2rem; }
+        .header h2 { color: #2d3748; margin: 0; }
+        .breadcrumb { font-size: 0.85rem; color: #718096; margin-bottom: 0.5rem; }
+        .breadcrumb a { color: #667eea; text-decoration: none; }
+        .form-group { margin-bottom: 1.25rem; }
+        .form-group label { display: block; font-weight: 600; color: #2d3748; margin-bottom: 0.4rem; }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%; padding: 0.65rem 0.9rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.9rem; box-sizing: border-box;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+        }
+        .row { display: flex; gap: 1rem; }
+        .row .form-group { flex: 1; }
+        .info-box { background: #fff8ed; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; font-size: 0.9rem; color: #92400e; }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;
+            padding: 0.75rem 2rem; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer;
+        }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(102,126,234,0.4); }
+        .btn-secondary { background: #e2e8f0; color: #4a5568; border: none; padding: 0.75rem 1.5rem; border-radius: 10px; cursor: pointer; margin-left: 0.5rem; }
+        .btn-secondary:hover { background: #cbd5e0; }
+        .actions { margin-top: 2rem; display: flex; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <div class="breadcrumb">
+            <a href="{{ url_for('archive.fonds_list') }}">全宗管理</a> /
+            <a href="{{ url_for('archive.catalog_list', fonds_id=volume.fonds_id) }}">{{ fonds.fonds_name if fonds else '' }}</a> /
+            <a href="{{ url_for('archive.volume_list', catalog_id=volume.catalog_id) }}">{{ catalog.catalog_name if catalog else '' }}</a> /
+            编辑案卷
+        </div>
+        <h2>📚 编辑案卷</h2>
+    </div>
+
+    <div class="info-box">
+        当前目录：<strong>{{ catalog.catalog_code if catalog else '' }} - {{ catalog.catalog_name if catalog else '' }}</strong>
+    </div>
+
+    <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="row">
+            <div class="form-group">
+                <label>案卷号 <span style="color:red">*</span></label>
+                <input type="text" name="volume_code" value="{{ volume.volume_code }}" required placeholder="如：001">
+            </div>
+            <div class="form-group">
+                <label>年度</label>
+                <input type="number" name="volume_year" value="{{ volume.volume_year or '' }}" placeholder="如：2024">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>案卷题名 <span style="color:red">*</span></label>
+            <input type="text" name="volume_title" value="{{ volume.volume_title }}" required placeholder="如：2024年度文书档案第一卷">
+        </div>
+
+        <div class="row">
+            <div class="form-group">
+                <label>保管期限</label>
+                <select name="retention_period">
+                    <option value="永久" {% if volume.retention_period == '永久' %}selected{% endif %}>永久</option>
+                    <option value="30年" {% if volume.retention_period == '30年' %}selected{% endif %}>30年</option>
+                    <option value="10年" {% if volume.retention_period == '10年' %}selected{% endif %}>10年</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>密级</label>
+                <select name="security_level">
+                    <option value="公开" {% if volume.security_level == '公开' %}selected{% endif %}>公开</option>
+                    <option value="内部" {% if volume.security_level == '内部' %}selected{% endif %}>内部</option>
+                    <option value="秘密" {% if volume.security_level == '秘密' %}selected{% endif %}>秘密</option>
+                    <option value="机密" {% if volume.security_level == '机密' %}selected{% endif %}>机密</option>
+                    <option value="绝密" {% if volume.security_level == '绝密' %}selected{% endif %}>绝密</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>责任者</label>
+                <input type="text" name="responsibility" value="{{ volume.responsibility or '' }}" placeholder="形成单位">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>存放位置</label>
+            <input type="text" name="storage_location" value="{{ volume.storage_location or '' }}" placeholder="如：A区-01架-02层">
+        </div>
+
+        <div class="form-group">
+            <label>案卷说明</label>
+            <textarea name="description" rows="3" placeholder="可选">{{ volume.description or '' }}</textarea>
+        </div>
+
+        <div class="actions">
+            <button type="submit" class="btn-primary">💾 保存修改</button>
+            <a href="{{ url_for('archive.volume_list', catalog_id=volume.catalog_id) }}"><button type="button" class="btn-secondary">取消</button></a>
+        </div>
+    </form>
+</div>
+</body>
+</html>

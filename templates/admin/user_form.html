@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% block title %}{{ '编辑用户' if action=='edit' else '新增用户' }}{% endblock %}
+{% block content %}
+<div class="container py-3" style="max-width:800px">
+  <div class="mb-3">
+    <h4><i class="fas fa-user-edit text-primary me-2"></i>{{ '编辑用户' if action=='edit' else '新增用户' }}</h4>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb small mb-0">
+      <li class="breadcrumb-item"><a href="{{ url_for('admin_org_tree') }}">组织架构</a></li>
+      <li class="breadcrumb-item"><a href="{{ url_for('admin_users') }}">用户管理</a></li>
+      <li class="breadcrumb-item active">{{ '编辑' if action=='edit' else '新增' }}</li>
+    </ol></nav>
+  </div>
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-4">
+      <form method="post" id="userForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <!-- 基本信息 -->
+        <h6 class="text-muted mb-3 pb-2 border-bottom"><i class="fas fa-user me-2"></i>基本信息</h6>
+        <div class="row g-3 mb-4">
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">姓名 <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" name="name" value="{{ user.name if user else '' }}" required>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">用户名 <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" name="username"
+                   value="{{ user.username if user else '' }}"
+                   {{ 'readonly' if action=='edit' }} required>
+            {% if action=='edit' %}<small class="text-muted">用户名不可修改</small>{% endif %}
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">工号</label>
+            <input type="text" class="form-control" name="employee_no" value="{{ user.employee_no if user else '' }}">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">性别</label>
+            <select class="form-select" name="gender">
+              {% for g in ['男','女','未知'] %}
+              <option value="{{ g }}" {{ 'selected' if user and user.gender==g }}>{{ g }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">手机号</label>
+            <input type="text" class="form-control" name="phone" value="{{ user.phone if user else '' }}">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">邮箱</label>
+            <input type="email" class="form-control" name="email" value="{{ user.email if user else '' }}">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">
+              {{ '新密码' if action=='edit' else '密码' }}
+              {% if action=='edit' %}<span class="text-muted small">（留空则不修改）</span>{% else %}<span class="text-danger">*</span>{% endif %}
+            </label>
+            <input type="password" class="form-control" name="password"
+                   {{ '' if action=='edit' else 'required' }} placeholder="{{ '留空则不修改' if action=='edit' else '请输入密码（至少6位）' }}">
+          </div>
+        </div>
+
+        <!-- 组织架构 -->
+        <h6 class="text-muted mb-3 pb-2 border-bottom"><i class="fas fa-sitemap me-2"></i>组织架构归属</h6>
+        <div class="row g-3 mb-4">
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">所属机构</label>
+            <select class="form-select" name="org_id" id="orgSelect">
+              <option value="">— 未指定 —</option>
+              {% for org in orgs %}
+              <option value="{{ org.id }}" {{ 'selected' if user and user.org_id==org.id }}>{{ org.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">所属部门</label>
+            <select class="form-select" name="dept_id" id="deptSelect">
+              <option value="">— 未指定 —</option>
+              {% for dept in depts %}
+              <option value="{{ dept.id }}" {{ 'selected' if user and user.dept_id==dept.id }}>{{ dept.get_full_path() }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">所属岗位
+              <span class="text-muted small">（可自动带入角色）</span>
+            </label>
+            <select class="form-select" name="position_id" id="positionSelect">
+              <option value="">— 未指定 —</option>
+              {% for pos in positions %}
+              <option value="{{ pos.id }}" data-role="{{ pos.role_name or '' }}"
+                      {{ 'selected' if user and user.position_id==pos.id }}>{{ pos.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <!-- 系统权限 -->
+        <h6 class="text-muted mb-3 pb-2 border-bottom"><i class="fas fa-shield-alt me-2"></i>系统权限设置</h6>
+        <div class="row g-3 mb-4">
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">系统角色 <span class="text-danger">*</span></label>
+            <select class="form-select" name="role" id="roleSelect" required>
+              {% for r in roles %}
+              <option value="{{ r.name }}" {{ 'selected' if user and user.role==r.name }}>
+                {{ r.display_name }}
+              </option>
+              {% endfor %}
+            </select>
+            <small class="text-muted">岗位中配置了角色时，保存后自动更新</small>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">特殊权限标识</label>
+            <div class="mt-2">
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" name="is_reporter" value="1"
+                       id="isReporter" {{ 'checked' if user and user.is_reporter }}>
+                <label class="form-check-label" for="isReporter">
+                  <span class="badge bg-success">信息报送员</span>
+                </label>
+              </div>
+              <div class="form-check form-check-inline mt-1">
+                <input class="form-check-input" type="checkbox" name="is_receiver" value="1"
+                       id="isReceiver" {{ 'checked' if user and user.is_receiver }}>
+                <label class="form-check-label" for="isReceiver">
+                  <span class="badge bg-info text-dark">专报接收员</span>
+                </label>
+              </div>
+            </div>
+          </div>
+          {% if action == 'edit' %}
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">在职状态</label>
+            <select class="form-select" name="is_active">
+              <option value="1" {{ 'selected' if user.is_active }}>在职（启用）</option>
+              <option value="0" {{ 'selected' if not user.is_active }}>离职（停用）</option>
+            </select>
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- 备注 -->
+        <div class="mb-4">
+          <label class="form-label fw-semibold">备注</label>
+          <input type="text" class="form-control" name="remark" value="{{ user.remark if user else '' }}" placeholder="可选">
+        </div>
+
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>保存</button>
+          <a href="{{ url_for('admin_users') }}" class="btn btn-outline-secondary">取消</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+// 部门切换时动态加载岗位
+document.getElementById('deptSelect').addEventListener('change', function() {
+  const deptId = this.value;
+  const posSelect = document.getElementById('positionSelect');
+  posSelect.innerHTML = '<option value="">加载中...</option>';
+  fetch(`/admin/api/positions_by_dept?dept_id=${deptId}`)
+    .then(r => r.json())
+    .then(data => {
+      posSelect.innerHTML = '<option value="">— 未指定 —</option>';
+      data.forEach(p => {
+        posSelect.innerHTML += `<option value="${p.id}" data-role="${p.role_name}">${p.name}</option>`;
+      });
+    });
+});
+
+// 岗位切换时自动带入角色
+document.getElementById('positionSelect').addEventListener('change', function() {
+  const sel = this.options[this.selectedIndex];
+  const roleName = sel.dataset.role;
+  if (roleName) {
+    const roleSelect = document.getElementById('roleSelect');
+    for (let opt of roleSelect.options) {
+      if (opt.value === roleName) { opt.selected = true; break; }
+    }
+  }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}{{ '编辑绩效记录' if record else '新增绩效记录' }}{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex align-items-center mb-4">
+    <a href="{{ url_for('performance_index') }}" class="btn btn-outline-secondary me-3"><i class="fas fa-arrow-left me-1"></i>返回</a>
+    <div>
+      <h3 class="mb-1"><i class="fas fa-award me-2 text-success"></i>{{ '编辑绩效记录' if record else '新增绩效记录' }}</h3>
+      <div class="text-muted">{{ '继续维护评分、评价与发布状态，便于及时修正绩效台账。' if record else '围绕重点任务、日常工作、协同贡献等维度录入评分' }}</div>
+    </div>
+  </div>
+
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="row g-4">
+      <div class="col-lg-8">
+        <div class="card shadow-sm">
+          <div class="card-header bg-white fw-semibold">考核信息</div>
+          <div class="card-body row g-3">
+            <div class="col-md-6">
+              <label class="form-label">考核周期</label>
+              <select name="period_id" class="form-select">
+                <option value="">未指定</option>
+                {% for period in periods %}
+                <option value="{{ period.id }}" {{ 'selected' if record and record.period_id == period.id else '' }}>{{ period.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">被考核人</label>
+              <select name="user_id" class="form-select" required>
+                <option value="">请选择</option>
+                {% for user in users %}
+                <option value="{{ user.id }}" {{ 'selected' if record and record.user_id == user.id else '' }}>{{ user.name }}{% if user.department %}（{{ user.department }}）{% endif %}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">考核项目</label>
+              <input type="text" name="project_name" class="form-control" required placeholder="如：公文流转质量、重点任务落实、协同配合效率" value="{{ record.project_name if record else '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">项目分类</label>
+              <select name="category" class="form-select">
+                {% set category_value = record.category if record else '重点工作' %}
+                {% for item in ['重点工作','日常履职','协同配合','创新改进','作风纪律'] %}
+                <option value="{{ item }}" {{ 'selected' if category_value == item else '' }}>{{ item }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">得分</label>
+              <input type="number" step="0.1" min="0" name="score" class="form-control" value="{{ record.score if record else 90 }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">满分</label>
+              <input type="number" step="0.1" min="0.1" name="full_score" class="form-control" value="{{ record.full_score if record else 100 }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">权重</label>
+              <input type="number" step="0.1" min="0.1" name="weight" class="form-control" value="{{ record.weight if record else 1 }}">
+            </div>
+            <div class="col-12">
+              <div class="form-text">发布时会自动校验：得分不能超过满分，满分和权重必须大于 0，已关闭周期不能直接发布。</div>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label">评价</label>
+              <textarea name="evaluation" rows="5" class="form-control" placeholder="如：按时完成重点工作，执行力较强，但跨部门协调仍有优化空间">{{ record.evaluation if record else '' }}</textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label">亮点/改进项</label>
+              <textarea name="highlights" rows="4" class="form-control" placeholder="可记录亮点成果、扣分原因或后续改进建议">{{ record.highlights if record else '' }}</textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <div class="card shadow-sm">
+          <div class="card-body d-grid gap-2">
+            {% if record and record.status == 'published' %}
+            <div class="alert alert-light border small mb-0">当前记录已发布，保存修改后将继续保持发布状态。</div>
+            <button type="submit" name="action" value="save" class="btn btn-primary"><i class="fas fa-save me-1"></i>保存修改</button>
+            {% else %}
+            <button type="submit" name="action" value="save" class="btn btn-outline-secondary"><i class="fas fa-save me-1"></i>保存草稿</button>
+            <button type="submit" name="action" value="publish" class="btn btn-primary"><i class="fas fa-paper-plane me-1"></i>{{ '发布记录' if not record or record.status == 'draft' else '确认发布' }}</button>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

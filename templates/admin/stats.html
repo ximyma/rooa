@@ -1,0 +1,448 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid px-4">
+  <!-- 标题 -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h4 class="mb-1"><i class="fas fa-chart-bar text-primary me-2"></i>综合报表统计</h4>
+      <p class="text-muted mb-0 small">系统使用情况、功能频率及业务数据的全面统计分析</p>
+    </div>
+    <div class="d-flex gap-2">
+      <button class="btn btn-outline-primary btn-sm" onclick="refreshAll()">
+        <i class="fas fa-sync-alt me-1"></i>刷新数据
+      </button>
+    </div>
+  </div>
+
+  <!-- KPI 卡片行 -->
+  <div class="row g-4 mb-4">
+    <div class="col-6 col-xl-3">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <div class="d-flex align-items-center">
+            <div class="flex-shrink-0 me-3">
+              <div class="rounded-3 p-3" style="background:linear-gradient(135deg,#667eea,#764ba2);">
+                <i class="fas fa-users text-white fs-4"></i>
+              </div>
+            </div>
+            <div>
+              <div class="text-muted small">系统用户</div>
+              <div class="fs-3 fw-bold">{{ total_users }}</div>
+              <div class="text-muted" style="font-size:11px;">
+                管理员{{ role_dist.admin }} / 经理{{ role_dist.manager }} / 员工{{ (role_dist.reporter or 0) + (role_dist.employee or 0) }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-xl-3">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <div class="d-flex align-items-center">
+            <div class="flex-shrink-0 me-3">
+              <div class="rounded-3 p-3" style="background:linear-gradient(135deg,#f093fb,#f5576c);">
+                <i class="fas fa-file-signature text-white fs-4"></i>
+              </div>
+            </div>
+            <div>
+              <div class="text-muted small">专报总量</div>
+              <div class="fs-3 fw-bold">{{ report_total }}</div>
+              <div class="text-muted" style="font-size:11px;">本月新增 {{ report_month }} 篇</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-xl-3">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <div class="d-flex align-items-center">
+            <div class="flex-shrink-0 me-3">
+              <div class="rounded-3 p-3" style="background:linear-gradient(135deg,#4facfe,#00f2fe);">
+                <i class="fas fa-robot text-white fs-4"></i>
+              </div>
+            </div>
+            <div>
+              <div class="text-muted small">AI 对话</div>
+              <div class="fs-3 fw-bold">{{ ai_msg_total }}</div>
+              <div class="text-muted" style="font-size:11px;">{{ ai_session_total }} 个会话</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-xl-3">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <div class="d-flex align-items-center">
+            <div class="flex-shrink-0 me-3">
+              <div class="rounded-3 p-3" style="background:linear-gradient(135deg,#43e97b,#38f9d7);">
+                <i class="fas fa-database text-white fs-4"></i>
+              </div>
+            </div>
+            <div>
+              <div class="text-muted small">知识库</div>
+              <div class="fs-3 fw-bold">{{ kb_total }}</div>
+              <div class="text-muted" style="font-size:11px;">{{ file_total }} 个文件</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 图表行 1：专报趋势 + 专报状态分布 -->
+  <div class="row g-4 mb-4">
+    <div class="col-lg-8">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+          <h6 class="mb-0 fw-semibold"><i class="fas fa-chart-line text-primary me-2"></i>近7日专报趋势</h6>
+          <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-primary active" onclick="loadReportTrend(7)">7天</button>
+            <button class="btn btn-outline-primary" onclick="loadReportTrend(30)">30天</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <canvas id="reportTrendChart" height="80"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-transparent">
+          <h6 class="mb-0 fw-semibold"><i class="fas fa-chart-pie text-warning me-2"></i>专报状态分布</h6>
+        </div>
+        <div class="card-body d-flex flex-column align-items-center justify-content-center">
+          <canvas id="reportStatusChart" height="160" style="max-width:220px;"></canvas>
+          <div class="mt-3 w-100">
+            {% set status_labels = {'draft':'草稿','pending':'待审','approved':'已批','adopted':'采用','rejected':'退回'} %}
+            {% set status_colors = {'draft':'#adb5bd','pending':'#ffc107','approved':'#17a2b8','adopted':'#28a745','rejected':'#dc3545'} %}
+            {% for k, v in report_status_dist.items() %}
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <div class="d-flex align-items-center">
+                <span class="rounded-circle me-2" style="width:10px;height:10px;background:{{ status_colors[k] }};display:inline-block;"></span>
+                <small>{{ status_labels.get(k, k) }}</small>
+              </div>
+              <small class="fw-semibold">{{ v }}</small>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 图表行 2：功能使用频率 + 活跃用户 -->
+  <div class="row g-4 mb-4">
+    <div class="col-lg-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-transparent">
+          <h6 class="mb-0 fw-semibold"><i class="fas fa-fire text-danger me-2"></i>近7日功能使用频率</h6>
+        </div>
+        <div class="card-body">
+          {% if usage_data %}
+          <canvas id="usageBarChart" height="120"></canvas>
+          {% else %}
+          <div class="text-center text-muted py-4">
+            <i class="fas fa-chart-bar fa-2x mb-2 d-block opacity-30"></i>
+            <p class="small">暂无使用数据<br><span class="text-muted">系统会自动记录功能使用情况</span></p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-transparent">
+          <h6 class="mb-0 fw-semibold"><i class="fas fa-trophy text-warning me-2"></i>活跃报送员 TOP10（近30天）</h6>
+        </div>
+        <div class="card-body">
+          {% if active_reporters %}
+          <div class="list-group list-group-flush">
+            {% for user, cnt in active_reporters %}
+            <div class="list-group-item px-0 py-2 border-0">
+              <div class="d-flex align-items-center">
+                <span class="badge bg-primary rounded-pill me-3" style="min-width:28px;">{{ loop.index }}</span>
+                <div class="flex-grow-1">
+                  <div class="d-flex justify-content-between align-items-center">
+                    <span class="fw-semibold">{{ user.name or user.username }}</span>
+                    <span class="text-muted small">{{ user.department or '-' }}</span>
+                  </div>
+                  <div class="progress mt-1" style="height:4px;">
+                    {% set max_cnt = active_reporters[0][1] if active_reporters else 1 %}
+                    <div class="progress-bar bg-primary" style="width:{{ (cnt / max_cnt * 100)|int }}%"></div>
+                  </div>
+                </div>
+                <span class="ms-3 fw-bold text-primary">{{ cnt }}</span>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="text-center text-muted py-4">
+            <i class="fas fa-users fa-2x mb-2 d-block opacity-30"></i>
+            <p class="small">近30天暂无报送记录</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 图表行 3：AI使用趋势 + 模板使用排行 -->
+  <div class="row g-4 mb-4">
+    <div class="col-lg-7">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-transparent">
+          <h6 class="mb-0 fw-semibold"><i class="fas fa-robot text-info me-2"></i>近7日 AI 对话量</h6>
+        </div>
+        <div class="card-body">
+          <canvas id="aiTrendChart" height="90"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-5">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-transparent">
+          <h6 class="mb-0 fw-semibold"><i class="fas fa-file-alt text-success me-2"></i>模板使用排行 TOP10</h6>
+        </div>
+        <div class="card-body">
+          {% if top_templates %}
+          <div class="list-group list-group-flush">
+            {% for tpl in top_templates %}
+            {% if tpl.use_count > 0 %}
+            <div class="list-group-item px-0 py-2 border-0">
+              <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center">
+                  <span class="badge {% if loop.index <= 3 %}bg-warning{% else %}bg-light text-muted{% endif %} me-2">{{ loop.index }}</span>
+                  <div>
+                    <div class="fw-semibold small">{{ tpl.name }}</div>
+                    <div class="text-muted" style="font-size:11px;">{{ tpl.category }}</div>
+                  </div>
+                </div>
+                <span class="badge bg-success bg-opacity-10 text-success">{{ tpl.use_count }} 次</span>
+              </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+          </div>
+          {% if not top_templates or top_templates | selectattr('use_count', 'gt', 0) | list | length == 0 %}
+          <div class="text-center text-muted py-3">
+            <small>暂无使用记录</small>
+          </div>
+          {% endif %}
+          {% else %}
+          <div class="text-center text-muted py-4">
+            <i class="fas fa-file-alt fa-2x mb-2 d-block opacity-30"></i>
+            <p class="small">暂无模板使用数据</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 任务统计 -->
+  <div class="row g-4">
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm text-center">
+        <div class="card-body py-4">
+          <div class="display-4 fw-bold text-primary mb-1">{{ task_total }}</div>
+          <div class="text-muted">任务总量</div>
+          <div class="mt-2">
+            <span class="badge bg-success me-1">进行中 {{ task_active }}</span>
+            <span class="badge bg-secondary">已结束 {{ task_total - task_active }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm text-center">
+        <div class="card-body py-4">
+          <div class="display-4 fw-bold text-success mb-1">{{ report_status_dist.adopted }}</div>
+          <div class="text-muted">专报采用数</div>
+          <div class="mt-2">
+            {% if report_total > 0 %}
+            <span class="badge bg-success">采用率 {{ ((report_status_dist.adopted / report_total) * 100) | int }}%</span>
+            {% else %}
+            <span class="badge bg-secondary">暂无数据</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm text-center">
+        <div class="card-body py-4">
+          <div class="display-4 fw-bold text-warning mb-1">{{ report_status_dist.pending }}</div>
+          <div class="text-muted">待处理专报</div>
+          <div class="mt-2">
+            <a href="{{ url_for('info_pool') }}" class="badge bg-warning text-dark">立即处理</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/chart.min.js') }}"></script>
+<script>
+// ====== 数据准备 ======
+const dailyReports = {{ daily_reports | tojson }};
+const dailyAI      = {{ daily_ai | tojson }};
+const usageData    = {{ usage_data | tojson }};
+const statusDist   = {{ report_status_dist | tojson }};
+
+// ====== 专报趋势图 ======
+let reportTrendChart = null;
+function buildReportTrendChart(labels, totals, adopteds) {
+  const ctx = document.getElementById('reportTrendChart').getContext('2d');
+  if (reportTrendChart) reportTrendChart.destroy();
+  reportTrendChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: '报送量',
+          data: totals,
+          borderColor: '#4c6ef5',
+          backgroundColor: 'rgba(76,110,245,0.08)',
+          tension: 0.4,
+          fill: true,
+          pointRadius: 4,
+          pointBackgroundColor: '#4c6ef5',
+        },
+        {
+          label: '采用量',
+          data: adopteds,
+          borderColor: '#37b24d',
+          backgroundColor: 'rgba(55,178,77,0.08)',
+          tension: 0.4,
+          fill: true,
+          pointRadius: 4,
+          pointBackgroundColor: '#37b24d',
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'top' } },
+      scales: {
+        y: { beginAtZero: true, ticks: { stepSize: 1 } }
+      }
+    }
+  });
+}
+
+// 初始用7天本地数据
+buildReportTrendChart(
+  dailyReports.map(d => d.date),
+  dailyReports.map(d => d.count),
+  dailyReports.map(d => d.count) // adopted 从 API 再取
+);
+
+function loadReportTrend(days) {
+  document.querySelectorAll('.btn-group .btn-outline-primary').forEach((b, i) => {
+    b.classList.toggle('active', (days === 7 && i === 0) || (days === 30 && i === 1));
+  });
+  fetch(`/admin/stats/api/report_trend?days=${days}`)
+    .then(r => r.json())
+    .then(data => {
+      buildReportTrendChart(
+        data.map(d => d.date.slice(5)),
+        data.map(d => d.total),
+        data.map(d => d.adopted)
+      );
+    });
+}
+
+// ====== 状态分布饼图 ======
+(function() {
+  const ctx = document.getElementById('reportStatusChart')?.getContext('2d');
+  if (!ctx) return;
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['草稿','待审','已批','采用','退回'],
+      datasets: [{
+        data: [statusDist.draft, statusDist.pending, statusDist.approved, statusDist.adopted, statusDist.rejected],
+        backgroundColor: ['#adb5bd','#ffc107','#17a2b8','#28a745','#dc3545'],
+        borderWidth: 2,
+        borderColor: '#fff'
+      }]
+    },
+    options: {
+      responsive: true,
+      cutout: '60%',
+      plugins: { legend: { display: false } }
+    }
+  });
+})();
+
+// ====== 功能使用频率柱状图 ======
+(function() {
+  const ctx = document.getElementById('usageBarChart')?.getContext('2d');
+  if (!ctx || !usageData || !usageData.length) return;
+  const labels = usageData.map(d => d.module);
+  const values = usageData.map(d => d.total);
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: '使用次数',
+        data: values,
+        backgroundColor: [
+          '#4c6ef5','#f59f00','#37b24d','#f03e3e','#7950f2',
+          '#1098ad','#e64980','#74c0fc','#a9e34b','#ff8787'
+        ],
+        borderRadius: 6,
+        borderWidth: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { stepSize: 1 } },
+        x: { ticks: { maxRotation: 30 } }
+      }
+    }
+  });
+})();
+
+// ====== AI 趋势折线图 ======
+(function() {
+  const ctx = document.getElementById('aiTrendChart')?.getContext('2d');
+  if (!ctx) return;
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: dailyAI.map(d => d.date),
+      datasets: [{
+        label: 'AI 对话量',
+        data: dailyAI.map(d => d.count),
+        borderColor: '#17a2b8',
+        backgroundColor: 'rgba(23,162,184,0.1)',
+        tension: 0.4,
+        fill: true,
+        pointRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'top' } },
+      scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+    }
+  });
+})();
+
+function refreshAll() {
+  location.reload();
+}
+</script>
+{% endblock %}

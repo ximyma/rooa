@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid px-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h4 class="mb-1"><i class="fas fa-history text-warning me-2"></i>操作日志</h4>
+      <p class="text-muted mb-0 small">记录系统中的所有重要操作，便于审计追踪</p>
+    </div>
+  </div>
+
+  <!-- 搜索过滤 -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body py-3">
+      <form method="GET" class="row g-2 align-items-end">
+        <div class="col-md-3">
+          <label class="form-label small fw-semibold mb-1">功能模块</label>
+          <select name="module" class="form-select form-select-sm">
+            <option value="">全部模块</option>
+            {% for m in modules %}
+            <option value="{{ m[0] }}" {% if m[0] == module_filter %}selected{% endif %}>{{ m[0] }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small fw-semibold mb-1">操作类型</label>
+          <select name="action" class="form-select form-select-sm">
+            <option value="">全部操作</option>
+            <option value="create" {% if action_filter=='create' %}selected{% endif %}>创建</option>
+            <option value="update" {% if action_filter=='update' %}selected{% endif %}>更新</option>
+            <option value="delete" {% if action_filter=='delete' %}selected{% endif %}>删除</option>
+            <option value="login"  {% if action_filter=='login' %}selected{% endif %}>登录</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small fw-semibold mb-1">用户名</label>
+          <input type="text" name="user" class="form-control form-control-sm" placeholder="搜索用户名"
+                 value="{{ user_filter }}">
+        </div>
+        <div class="col-md-2">
+          <button type="submit" class="btn btn-primary btn-sm w-100">
+            <i class="fas fa-search me-1"></i>查询
+          </button>
+        </div>
+        <div class="col-md-2">
+          <a href="{{ url_for('admin_operation_logs') }}" class="btn btn-outline-secondary btn-sm w-100">
+            <i class="fas fa-redo me-1"></i>重置
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 日志列表 -->
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th class="ps-4">时间</th>
+              <th>用户</th>
+              <th>模块</th>
+              <th>操作</th>
+              <th>对象</th>
+              <th>详情</th>
+              <th>IP地址</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for log in logs.items %}
+            <tr>
+              <td class="ps-4"><small class="text-muted">{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</small></td>
+              <td>
+                <span class="fw-semibold">{{ log.username or '-' }}</span>
+              </td>
+              <td>
+                <span class="badge bg-primary bg-opacity-10 text-primary">{{ log.module }}</span>
+              </td>
+              <td>
+                {% if log.action == 'create' %}<span class="badge bg-success">创建</span>
+                {% elif log.action == 'update' %}<span class="badge bg-info">更新</span>
+                {% elif log.action == 'delete' %}<span class="badge bg-danger">删除</span>
+                {% elif log.action == 'login' %}<span class="badge bg-primary">登录</span>
+                {% else %}<span class="badge bg-secondary">{{ log.action }}</span>
+                {% endif %}
+              </td>
+              <td><small>{{ log.target or '-' }}</small></td>
+              <td><small class="text-muted">{{ log.detail or '-' }}</small></td>
+              <td><small class="text-muted">{{ log.ip_addr or '-' }}</small></td>
+            </tr>
+            {% endfor %}
+            {% if not logs.items %}
+            <tr><td colspan="7" class="text-center py-5 text-muted">
+              <i class="fas fa-inbox fa-2x mb-2 d-block"></i>暂无操作日志
+            </td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% if logs.pages > 1 %}
+    <div class="card-footer bg-transparent d-flex justify-content-between align-items-center py-3 px-4">
+      <span class="text-muted small">共 {{ logs.total }} 条记录，第 {{ logs.page }}/{{ logs.pages }} 页</span>
+      <nav>
+        <ul class="pagination pagination-sm mb-0">
+          {% if logs.has_prev %}
+          <li class="page-item"><a class="page-link" href="?page={{ logs.prev_num }}&module={{ module_filter }}&action={{ action_filter }}&user={{ user_filter }}">上一页</a></li>
+          {% endif %}
+          {% for p in logs.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
+            {% if p %}
+            <li class="page-item {% if p == logs.page %}active{% endif %}">
+              <a class="page-link" href="?page={{ p }}&module={{ module_filter }}&action={{ action_filter }}&user={{ user_filter }}">{{ p }}</a>
+            </li>
+            {% else %}
+            <li class="page-item disabled"><span class="page-link">…</span></li>
+            {% endif %}
+          {% endfor %}
+          {% if logs.has_next %}
+          <li class="page-item"><a class="page-link" href="?page={{ logs.next_num }}&module={{ module_filter }}&action={{ action_filter }}&user={{ user_filter }}">下一页</a></li>
+          {% endif %}
+        </ul>
+      </nav>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

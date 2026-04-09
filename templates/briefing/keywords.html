@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+
+{% block title %}关键词管理 - 简报系统{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4><i class="fas fa-tags me-2"></i>关键词管理</h4>
+    <button class="btn btn-primary" onclick="showKeywordModal()">
+        <i class="fas fa-plus me-1"></i>添加关键词
+    </button>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" id="keywordTable">
+                <thead class="table-light">
+                    <tr>
+                        <th width="50">#</th>
+                        <th>关键词</th>
+                        <th>分类</th>
+                        <th>描述</th>
+                        <th>颜色</th>
+                        <th>使用次数</th>
+                        <th width="120">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for kw in keywords %}
+                    <tr data-id="{{ kw.id }}">
+                        <td>{{ kw.id }}</td>
+                        <td>
+                            <span class="badge" style="background: {{ kw.color }}20; color: {{ kw.color }}; border: 1px solid {{ kw.color }}40;">
+                                {{ kw.text }}
+                            </span>
+                        </td>
+                        <td>{{ kw.category or '-' }}</td>
+                        <td>{{ kw.description or '-' }}</td>
+                        <td>
+                            <span style="display:inline-block;width:20px;height:20px;background:{{ kw.color }};border-radius:4px;"></span>
+                        </td>
+                        <td>{{ kw.use_count }}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary me-1" onclick="editKeyword({{ kw.id }})" title="编辑">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteKeyword({{ kw.id }}, '{{ kw.text }}')" title="删除">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">
+                            <i class="fas fa-tags fa-2x mb-2 d-block"></i>
+                            暂无关键词
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 关键词编辑弹窗 -->
+<div class="modal fade" id="keywordModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="keywordModalTitle">添加关键词</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="keywordForm">
+                    <input type="hidden" id="keywordId">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">关键词文本 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="keywordText" required placeholder="例如：习近平">
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label class="form-label">分类</label>
+                            <input type="text" class="form-control" id="keywordCategory" placeholder="例如：领导">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">标签颜色</label>
+                            <input type="color" class="form-control form-control-color" id="keywordColor" value="#3498db">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">描述</label>
+                        <textarea class="form-control" id="keywordDesc" rows="2" placeholder="关键词说明"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveKeyword()">
+                    <i class="fas fa-save me-1"></i>保存
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function showKeywordModal() {
+    document.getElementById('keywordForm').reset();
+    document.getElementById('keywordId').value = '';
+    document.getElementById('keywordColor').value = '#3498db';
+    document.getElementById('keywordModalTitle').textContent = '添加关键词';
+    new bootstrap.Modal(document.getElementById('keywordModal')).show();
+}
+
+async function editKeyword(id) {
+    try {
+        const response = await fetch(`/briefing/api/keywords/${id}`);
+        const data = await response.json();
+        
+        document.getElementById('keywordId').value = data.id;
+        document.getElementById('keywordText').value = data.text;
+        document.getElementById('keywordCategory').value = data.category || '';
+        document.getElementById('keywordColor').value = data.color;
+        document.getElementById('keywordDesc').value = data.description || '';
+        
+        document.getElementById('keywordModalTitle').textContent = '编辑关键词';
+        new bootstrap.Modal(document.getElementById('keywordModal')).show();
+    } catch (error) {
+        alert('加载数据失败: ' + error.message);
+    }
+}
+
+async function saveKeyword() {
+    const id = document.getElementById('keywordId').value;
+    const formData = {
+        text: document.getElementById('keywordText').value,
+        category: document.getElementById('keywordCategory').value,
+        color: document.getElementById('keywordColor').value,
+        description: document.getElementById('keywordDesc').value
+    };
+    
+    const url = id ? `/briefing/api/keywords/${id}` : '/briefing/api/keywords';
+    const method = id ? 'PUT' : 'POST';
+    
+    try {
+        const response = await fetch(url, {
+            method: method,
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(formData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            location.reload();
+        } else {
+            alert('保存失败: ' + result.error);
+        }
+    } catch (error) {
+        alert('请求失败: ' + error.message);
+    }
+}
+
+async function deleteKeyword(id, text) {
+    if (!confirm(`确定要删除关键词【${text}】吗？`)) return;
+    
+    try {
+        const response = await fetch(`/briefing/api/keywords/${id}`, { method: 'DELETE' });
+        const result = await response.json();
+        
+        if (result.success) {
+            document.querySelector(`tr[data-id="${id}"]`)?.remove();
+        } else {
+            alert('删除失败: ' + result.error);
+        }
+    } catch (error) {
+        alert('请求失败: ' + error.message);
+    }
+}
+</script>
+{% endblock %}

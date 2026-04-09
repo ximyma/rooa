@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-7">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2>退回报送内容</h2>
+            <a href="{{ url_for('task_detail', task_id=task.id) }}" class="btn btn-outline-secondary">← 返回任务</a>
+        </div>
+        <div class="card mb-3">
+            <div class="card-header fw-bold">报送信息</div>
+            <div class="card-body">
+                <p><strong>所属任务：</strong>{{ task.title }}</p>
+                <p><strong>报送时间：</strong>{{ submission.submitted_at.strftime('%Y-%m-%d %H:%M') if submission.submitted_at else '未知' }}</p>
+            </div>
+        </div>
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="mb-3">
+                <label class="form-label fw-bold">退回意见 <span class="text-danger">*</span></label>
+                <textarea name="feedback" class="form-control md-editor" rows="5" data-height="220"
+                          placeholder="请填写具体的退回原因和修改意见，将通知报送方进行修改..." required></textarea>
+                <small class="text-muted">退回意见将同步通知报送方，请详细说明修改方向。</small>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-warning">
+                    <i class="fas fa-undo me-1"></i>确认退回
+                </button>
+                <a href="{{ url_for('task_detail', task_id=task.id) }}" class="btn btn-outline-secondary">取消</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

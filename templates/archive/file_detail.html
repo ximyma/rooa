@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+{% block title %}{{ file.title }} - 档案详情{% endblock %}
+
+{% block content %}
+<style>
+.detail-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 16px;
+    padding: 2rem;
+    color: white;
+    margin-bottom: 2rem;
+}
+.detail-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+.preview-container {
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 1.5rem;
+    min-height: 400px;
+}
+.keyword-tag {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    background: #e0e7ff;
+    color: #3730a3;
+    border-radius: 20px;
+    margin: 0.25rem;
+    font-size: 0.85rem;
+}
+.action-btn {
+    padding: 0.5rem 1.5rem;
+    border-radius: 8px;
+    margin-right: 0.5rem;
+}
+</style>
+
+<div class="container-fluid">
+    <!-- 头部信息 -->
+    <div class="detail-header">
+        <div class="row">
+            <div class="col-md-8">
+                <nav aria-label="breadcrumb" class="mb-2">
+                    <ol class="breadcrumb" style="background: rgba(255,255,255,0.1); padding: 0.5rem 1rem; border-radius: 8px;">
+                        <li class="breadcrumb-item"><a href="{{ url_for('archive.index') }}" class="text-white-50">档案首页</a></li>
+                        <li class="breadcrumb-item"><a href="{{ url_for('archive.file_list') }}" class="text-white-50">档案列表</a></li>
+                        <li class="breadcrumb-item active text-white">{{ file.title[:20] }}...</li>
+                    </ol>
+                </nav>
+                <h2 class="mb-3">{{ file.title }}</h2>
+                <div class="d-flex flex-wrap gap-3">
+                    <span><i class="fas fa-barcode me-1"></i>档号：{{ file.get_archive_code() or '待编' }}</span>
+                    <span><i class="fas fa-calendar me-1"></i>{{ file.file_date.strftime('%Y-%m-%d') if file.file_date else '-' }}</span>
+                    <span><i class="fas fa-user me-1"></i>{{ file.responsibility or '-' }}</span>
+                    <span><i class="fas fa-file me-1"></i>{{ file.page_count or 0 }} 页</span>
+                </div>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="mb-3">
+                    {% if file.retention_period == '永久' %}
+                    <span class="badge bg-light text-dark fs-6">永久保管</span>
+                    {% elif file.retention_period %}
+                    <span class="badge bg-light text-dark fs-6">{{ file.retention_period }}</span>
+                    {% endif %}
+                    {% if file.security_level and file.security_level != '公开' %}
+                    <span class="badge bg-danger fs-6 ms-2">{{ file.security_level }}</span>
+                    {% endif %}
+                </div>
+                <div>
+                    <a href="{{ url_for('archive.file_edit', file_id=file.id) }}" class="btn btn-outline-light action-btn">
+                        <i class="fas fa-edit me-1"></i>编辑
+                    </a>
+                    <button type="button" class="btn btn-light action-btn" onclick="showBorrowModal()">
+                        <i class="fas fa-hand-holding me-1"></i>申请借阅
+                    </button>
+                    {% if file.file_path %}
+                    <a href="{{ file.file_path }}" class="btn btn-outline-light action-btn" target="_blank">
+                        <i class="fas fa-download me-1"></i>下载
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- 左侧：档案预览 -->
+        <div class="col-md-8">
+            <div class="detail-card">
+                <h5 class="mb-3"><i class="fas fa-eye me-2"></i>档案预览</h5>
+                <div class="preview-container">
+                    {% if file.file_type == 'pdf' %}
+                    <embed src="{{ file.file_path }}" type="application/pdf" width="100%" height="500px">
+                    {% elif file.file_type in ['jpg', 'png', 'tif'] %}
+                    <img src="{{ file.file_path }}" alt="{{ file.title }}" style="max-width: 100%;">
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-file-alt fa-4x text-muted mb-3"></i>
+                        <p class="text-muted">该文件类型暂不支持在线预览</p>
+                        <a href="{{ file.file_path }}" class="btn btn-primary" target="_blank">
+                            <i class="fas fa-download me-1"></i>下载查看
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- 内容摘要 -->
+            {% if file.summary %}
+            <div class="detail-card">
+                <h5 class="mb-3"><i class="fas fa-align-left me-2"></i>内容摘要</h5>
+                <p class="text-muted">{{ file.summary }}</p>
+            </div>
+            {% endif %}
+
+            <!-- 全文内容 -->
+            {% if file.content %}
+            <div class="detail-card">
+                <h5 class="mb-3"><i class="fas fa-file-alt me-2"></i>全文内容</h5>
+                <div style="max-height: 400px; overflow-y: auto; white-space: pre-wrap; font-size: 0.9rem;">
+                    {{ file.content }}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- 右侧：档案信息 -->
+        <div class="col-md-4">
+            <!-- 基本信息卡片 -->
+            <div class="detail-card">
+                <h5 class="mb-3"><i class="fas fa-info-circle me-2"></i>基本信息</h5>
+                <table class="table table-sm">
+                    <tbody>
+                        <tr>
+                            <td class="text-muted">全宗</td>
+                            <td>{{ file.fonds_name or '-' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">目录</td>
+                            <td>{{ file.catalog_name or '-' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">案卷</td>
+                            <td>{{ file.volume_name or '-' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">档号</td>
+                            <td><code>{{ file.get_archive_code() or '待编' }}</code></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">责任者</td>
+                            <td>{{ file.author or '-' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">形成日期</td>
+                            <td>{{ file.archive_date or '-' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">页数</td>
+                            <td>{{ file.page_count or 0 }} 页</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">文件大小</td>
+                            <td>{{ file.file_size|filesizeformat if file.file_size else '-' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">保管期限</td>
+                            <td>{{ file.retention_period or '-' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">密级</td>
+                            <td>{{ file.security_level or '公开' }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 关键词 -->
+            {% if file.keywords %}
+            <div class="detail-card">
+                <h5 class="mb-3"><i class="fas fa-tags me-2"></i>关键词</h5>
+                <div>
+                    {% for kw in file.keywords.split(',') %}
+                    <span class="keyword-tag">{{ kw.strip() }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 借阅记录 -->
+            <div class="detail-card">
+                <h5 class="mb-3"><i class="fas fa-history me-2"></i>借阅记录</h5>
+                {% if borrows %}
+                <div class="list-group list-group-flush">
+                    {% for b in borrows[:5] %}
+                    <div class="list-group-item px-0">
+                        <div class="d-flex justify-content-between">
+                            <span>{{ b.borrower.name if b.borrower else '-' }}</span>
+                            <small class="text-muted">{{ b.borrow_date.strftime('%Y-%m-%d') if b.borrow_date else '-' }}</small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted small mb-0">暂无借阅记录</p>
+                {% endif %}
+            </div>
+
+            <!-- 相关档案 -->
+            <div class="detail-card">
+                <h5 class="mb-3"><i class="fas fa-link me-2"></i>相关档案</h5>
+                {% if related_files %}
+                <div class="list-group list-group-flush">
+                    {% for rf in related_files %}
+                    <a href="{{ url_for('archive.file_detail', file_id=rf.id) }}" class="list-group-item list-group-item-action px-0">
+                        <small>{{ rf.title[:30] }}{% if rf.title|length > 30 %}...{% endif %}</small>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted small mb-0">暂无相关档案</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 借阅申请模态框 -->
+<div class="modal fade" id="borrowModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">申请借阅</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('archive.borrow_request', file_id=file.id) }}" method="post">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>借阅《{{ file.title[:30] }}...》
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">借阅目的 <span class="text-danger">*</span></label>
+                        <textarea name="purpose" class="form-control" rows="3" required placeholder="请填写借阅目的..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">预计归还日期 <span class="text-danger">*</span></label>
+                        <input type="date" name="return_date" class="form-control" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">提交申请</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function showBorrowModal() {
+    var modal = new bootstrap.Modal(document.getElementById('borrowModal'));
+    modal.show();
+}
+</script>
+{% endblock %}

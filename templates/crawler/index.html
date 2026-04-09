@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>网站爬虫 - 智能办公平台</title>
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/css/fontawesome.all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0e1a;
+            --bg-secondary: #111827;
+            --bg-card: #1a2235;
+            --accent-cyan: #00d4ff;
+            --accent-green: #00ff9d;
+            --accent-orange: #ff9f43;
+            --accent-red: #ff4757;
+            --text-primary: #e8edf5;
+            --text-secondary: #8892a4;
+            --border-color: #2a3550;
+        }
+        * { box-sizing: border-box; }
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+            min-height: 100vh;
+        }
+        .sidebar { background: var(--bg-secondary); min-height: 100vh; border-right: 1px solid var(--border-color); }
+        .nav-link-custom {
+            color: var(--text-secondary);
+            padding: 12px 20px;
+            border-radius: 8px;
+            transition: all 0.3s;
+            display: flex; align-items: center; gap: 10px;
+            text-decoration: none;
+        }
+        .nav-link-custom:hover, .nav-link-custom.active {
+            background: rgba(0,212,255,0.1);
+            color: var(--accent-cyan);
+        }
+        .card-dark {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+        }
+        .card-dark .card-header {
+            background: transparent;
+            border-bottom: 1px solid var(--border-color);
+            padding: 16px 20px;
+            color: var(--accent-cyan);
+            font-weight: 600;
+        }
+        .btn-cyber {
+            background: linear-gradient(135deg, rgba(0,212,255,0.2), rgba(0,255,157,0.1));
+            border: 1px solid var(--accent-cyan);
+            color: var(--accent-cyan);
+            border-radius: 8px;
+            padding: 8px 20px;
+            font-weight: 600;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .btn-cyber:hover {
+            background: var(--accent-cyan);
+            color: #000;
+            box-shadow: 0 0 20px rgba(0,212,255,0.4);
+        }
+        .btn-cyber-green {
+            border-color: var(--accent-green);
+            color: var(--accent-green);
+            background: linear-gradient(135deg, rgba(0,255,157,0.15), rgba(0,255,157,0.05));
+        }
+        .btn-cyber-green:hover { background: var(--accent-green); color: #000; box-shadow: 0 0 20px rgba(0,255,157,0.4); }
+        .btn-cyber-red { border-color: var(--accent-red); color: var(--accent-red); }
+        .btn-cyber-red:hover { background: var(--accent-red); color: #fff; }
+        .btn-cyber-orange { border-color: var(--accent-orange); color: var(--accent-orange); }
+        .btn-cyber-orange:hover { background: var(--accent-orange); color: #000; }
+        .glow-title {
+            color: var(--accent-cyan);
+            text-shadow: 0 0 20px rgba(0,212,255,0.5);
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        .table-dark-custom {
+            background: transparent;
+            color: var(--text-primary);
+        }
+        .table-dark-custom thead th {
+            background: rgba(0,212,255,0.08);
+            border-color: var(--border-color);
+            color: var(--accent-cyan);
+            font-weight: 600;
+            padding: 12px;
+        }
+        .table-dark-custom tbody td {
+            border-color: var(--border-color);
+            padding: 12px;
+            vertical-align: middle;
+        }
+        .table-dark-custom tbody tr:hover { background: rgba(0,212,255,0.04); }
+        .status-badge {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        .status-idle { background: rgba(136,146,164,0.2); color: #8892a4; }
+        .status-running { background: rgba(0,212,255,0.2); color: var(--accent-cyan); animation: pulse-cyan 2s infinite; }
+        .status-paused { background: rgba(255,159,67,0.2); color: var(--accent-orange); }
+        .status-stopped { background: rgba(255,71,87,0.2); color: var(--accent-red); }
+        @keyframes pulse-cyan {
+            0%, 100% { box-shadow: 0 0 5px rgba(0,212,255,0.3); }
+            50% { box-shadow: 0 0 15px rgba(0,212,255,0.6); }
+        }
+        .cyber-border {
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+        }
+        .cyber-border::before {
+            content: '';
+            position: absolute;
+            top: -1px; left: -1px; right: -1px; bottom: -1px;
+            border-radius: 12px;
+            padding: 1px;
+            background: linear-gradient(135deg, var(--accent-cyan), transparent, var(--accent-green));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+        }
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        .stat-card:hover { border-color: var(--accent-cyan); transform: translateY(-2px); }
+        .stat-value { font-size: 2rem; font-weight: 700; color: var(--accent-cyan); }
+        .stat-label { color: var(--text-secondary); font-size: 0.85rem; margin-top: 5px; }
+        .progress-cyber {
+            height: 8px;
+            background: var(--bg-primary);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .progress-cyber .progress-bar {
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-green));
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+        .badge-custom { border-radius: 6px; padding: 3px 10px; font-size: 0.75rem; }
+    </style>
+</head>
+<body>
+<div class="d-flex">
+    <!-- 侧边栏 -->
+    <div class="sidebar p-3" style="width: 240px; flex-shrink: 0;">
+        <div class="mb-4 px-2">
+            <h5 class="glow-title mb-1">🕷️ 网站爬虫</h5>
+            <small style="color: var(--text-secondary);">Website Crawler</small>
+        </div>
+        <nav class="nav flex-column">
+            <a href="{{ url_for('crawler_index') }}" class="nav-link-custom active">
+                <i class="fas fa-desktop"></i> 爬虫控制台
+            </a>
+            <a href="{{ url_for('crawler_search') }}" class="nav-link-custom">
+                <i class="fas fa-search"></i> 内容检索
+            </a>
+            <a href="{{ url_for('crawler_advanced_search') }}" class="nav-link-custom">
+                <i class="fas fa-stream"></i> 高级检索
+            </a>
+            <hr style="border-color: var(--border-color);">
+            <a href="{{ url_for('monitor_index') }}" class="nav-link-custom">
+                <i class="fas fa-broadcast-tower"></i> 栏目监测
+            </a>
+            <a href="{{ url_for('index') }}" class="nav-link-custom">
+                <i class="fas fa-home"></i> 返回首页
+            </a>
+        </nav>
+    </div>
+
+    <!-- 主内容 -->
+    <div class="flex-fill p-4">
+        <!-- 页面标题 -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h4 class="mb-1">🕷️ 爬虫控制台</h4>
+                <small style="color: var(--text-secondary);">管理整站爬取任务，监控抓取进度</small>
+            </div>
+            <a href="{{ url_for('crawler_task_new') }}" class="btn-cyber">
+                <i class="fas fa-plus"></i> 新建任务
+            </a>
+        </div>
+
+        <!-- 统计卡片 -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="stat-value">{{ tasks|length }}</div>
+                    <div class="stat-label">总任务数</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="stat-value" style="color: var(--accent-green);">{{ task_stats.values()|sum }}</div>
+                    <div class="stat-label">已爬取页面</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="stat-value" style="color: var(--accent-orange);">{{ tasks|selectattr('status', 'equalto', 'running')|list|length }}</div>
+                    <div class="stat-label">运行中</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="stat-value" style="color: var(--accent-cyan);">--</div>
+                    <div class="stat-label">成功率</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 任务列表 -->
+        <div class="card-dark">
+            <div class="card-header">
+                <i class="fas fa-list me-2"></i>任务列表
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-dark-custom mb-0">
+                        <thead>
+                            <tr>
+                                <th>任务名称</th>
+                                <th>目标网址</th>
+                                <th>状态</th>
+                                <th>线程/层级</th>
+
+                                <th>已爬页面</th>
+                                <th>定时</th>
+                                <th>最近操作</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for task in tasks %}
+                            <tr id="row-{{ task.id }}">
+                                <td>
+                                    <strong>{{ task.name }}</strong>
+                                </td>
+                                <td>
+                                    <a href="{{ task.base_url }}" target="_blank" class="text-decoration-none" style="color: var(--text-secondary); font-size: 0.85rem;">
+                                        {{ task.base_url[:50] }}{% if task.base_url|length > 50 %}...{% endif %}
+                                    </a>
+                                </td>
+                                <td>
+                                    <span class="status-badge status-{{ task.status }}">
+                                        {% if task.status == 'running' %}<i class="fas fa-spinner fa-spin"></i> 运行中
+                                        {% elif task.status == 'paused' %}<i class="fas fa-pause"></i> 已暂停
+                                        {% elif task.status == 'stopped' %}<i class="fas fa-stop"></i> 已停止
+                                        {% else %}<i class="fas fa-circle"></i> 空闲
+                                        {% endif %}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div>{{ task.max_threads }} 线程</div>
+                                    <small style="color: var(--text-secondary);">层级 {{ task.max_depth if task.max_depth is not none else 3 }}</small>
+                                </td>
+
+                                <td>
+                                    <span id="count-{{ task.id }}">{{ task_stats.get(task.id, 0) }}</span>
+                                </td>
+                                <td>
+                                    {% if task.schedule_enabled %}
+                                    <span style="color: var(--accent-green); font-size: 0.8rem;">
+                                        <i class="fas fa-clock"></i> 每{{ task.schedule_interval }}h
+                                    </span>
+                                    {% else %}
+                                    <span style="color: var(--text-secondary); font-size: 0.8rem;">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <small style="color: var(--text-secondary);">
+                                        {{ task.updated_at.strftime('%m-%d %H:%M') if task.updated_at else '-' }}
+                                    </small>
+                                </td>
+                                <td>
+                                    <div class="d-flex gap-1 flex-wrap">
+                                        {% if task.status == 'running' %}
+                                            <button onclick="doAction({{ task.id }}, 'pause')" class="btn btn-sm btn-cyber-orange badge-custom">暂停</button>
+                                            <button onclick="doAction({{ task.id }}, 'stop')" class="btn btn-sm btn-cyber-red badge-custom">停止</button>
+                                        {% elif task.status == 'paused' %}
+                                            <button onclick="doAction({{ task.id }}, 'resume')" class="btn btn-sm btn-cyber-green badge-custom">恢复</button>
+                                            <button onclick="doAction({{ task.id }}, 'stop')" class="btn btn-sm btn-cyber-red badge-custom">停止</button>
+                                        {% else %}
+                                            <button onclick="doAction({{ task.id }}, 'start')" class="btn btn-sm btn-cyber-green badge-custom">启动</button>
+                                        {% endif %}
+                                        <a href="{{ url_for('crawler_pages', tid=task.id) }}" class="btn btn-sm badge-custom" style="border:1px solid var(--border-color); color: var(--text-secondary);" title="查看页面">
+                                            <i class="fas fa-list me-1"></i>查看
+                                        </a>
+                                        <a href="{{ url_for('crawler_task_edit', tid=task.id) }}" class="btn btn-sm badge-custom" style="border:1px solid var(--accent-cyan); color: var(--accent-cyan);" title="编辑任务">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <button onclick="doAction({{ task.id }}, 'delete')" class="btn btn-sm badge-custom btn-cyber-red" title="删除任务">删除</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="8" class="text-center py-5" style="color: var(--text-secondary);">
+                                    <i class="fas fa-spider fa-3x mb-3 opacity-25"></i>
+                                    <p>暂无爬虫任务，<a href="{{ url_for('crawler_task_new') }}" class="text-decoration-none" style="color: var(--accent-cyan);">创建第一个任务</a></p>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 实时进度模态框 -->
+<div class="modal fade" id="progressModal" tabindex="-1" style="color: var(--text-primary);">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="background: var(--bg-card); border: 1px solid var(--border-color);">
+            <div class="modal-header" style="border-color: var(--border-color);">
+                <h5 class="modal-title" style="color: var(--accent-cyan);">
+                    <i class="fas fa-spinner fa-spin me-2"></i>爬取进度
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <small style="color: var(--text-secondary);">正在处理...</small>
+                    <div class="progress-cyber mt-2">
+                        <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+                    </div>
+                </div>
+                <div class="row g-2 text-center">
+                    <div class="col-3">
+                        <div style="font-size:1.5rem; color: var(--accent-cyan);" id="statQueued">0</div>
+                        <small style="color: var(--text-secondary);">待处理</small>
+                    </div>
+                    <div class="col-3">
+                        <div style="font-size:1.5rem; color: var(--accent-green);" id="statCompleted">0</div>
+                        <small style="color: var(--text-secondary);">已完成</small>
+                    </div>
+                    <div class="col-3">
+                        <div style="font-size:1.5rem; color: var(--accent-red);" id="statErrors">0</div>
+                        <small style="color: var(--text-secondary);">失败</small>
+                    </div>
+                    <div class="col-3">
+                        <div style="font-size:1.5rem; color: var(--accent-orange);" id="statAttach">0</div>
+                        <small style="color: var(--text-secondary);">附件</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<form id="actionForm" method="post" style="display:none;">
+    <input type="hidden" name="action" id="actionInput">
+</form>
+
+<script src="/static/js/bootstrap.bundle.min.js"></script>
+<script>
+let currentTaskId = null;
+let progressInterval = null;
+
+function doAction(taskId, action) {
+    if (action === 'delete') {
+        if (!confirm('确定删除此任务？所有爬取数据将被清除！')) return;
+    }
+    document.getElementById('actionInput').value = action;
+    document.getElementById('actionForm').action = '/crawler/task/' + taskId + '/action';
+    document.getElementById('actionForm').submit();
+}
+
+function showProgress(taskId) {
+    currentTaskId = taskId;
+    new bootstrap.Modal(document.getElementById('progressModal')).show();
+    startProgressStream(taskId);
+}
+
+function startProgressStream(taskId) {
+    if (progressInterval) clearInterval(progressInterval);
+    progressInterval = setInterval(async () => {
+        try {
+            const csrfToken = getCsrfToken();
+            const resp = await fetch('/crawler/task/' + taskId + '/action', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': csrfToken
+                },
+                body: 'action=status&csrf_token=' + encodeURIComponent(csrfToken)
+            });
+            const data = await resp.json();
+            if (data.error) { clearInterval(progressInterval); return; }
+            document.getElementById('statQueued').textContent = data.queued || 0;
+            document.getElementById('statCompleted').textContent = data.completed || 0;
+            document.getElementById('statErrors').textContent = data.errors || 0;
+            document.getElementById('statAttach').textContent = data.attachments || 0;
+            // 更新页面上的计数
+            const cntEl = document.getElementById('count-' + taskId);
+            if (cntEl) cntEl.textContent = data.completed || 0;
+        } catch(e) {}
+    }, 2000);
+}
+
+// 启动后自动显示进度
+document.querySelectorAll('[data-action="start"]').forEach(btn => {
+    btn.addEventListener('click', () => showProgress(btn.dataset.taskId));
+});
+</script>
+</body>
+</html>

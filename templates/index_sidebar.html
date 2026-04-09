@@ -1,0 +1,312 @@
+{% from '_sidebar_nav.html' import sidebar with context %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能服务办公平台 - 首页</title>
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/fontawesome.all.min.css">
+    <style>
+        :root {
+            --primary: #667eea;
+            --secondary: #764ba2;
+            --dark: #0f0c29;
+            --card-bg: rgba(255, 255, 255, 0.05);
+        }
+        body {
+            background: var(--dark);
+            font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
+            color: #fff;
+            overflow-x: hidden;
+        }
+        .sidebar {
+            background: linear-gradient(180deg, rgba(15, 12, 41, 0.98) 0%, rgba(30, 27, 75, 0.98) 100%);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 260px;
+            padding: 20px 0;
+            z-index: 1000;
+            transition: all 0.3s;
+        }
+        .sidebar-brand {
+            padding: 0 25px 30px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 20px;
+        }
+        .sidebar-brand .logo {
+            font-size: 22px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .sidebar-brand .version {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.4);
+            margin-top: 5px;
+        }
+        .nav-item {
+            margin: 5px 15px;
+        }
+        .nav-link {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            border-radius: 10px;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+        .nav-link:hover {
+            background: rgba(102, 126, 234, 0.1);
+            color: #fff;
+            transform: translateX(5px);
+        }
+        .nav-link.active {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%);
+            color: #667eea;
+            border: 1px solid rgba(102, 126, 234, 0.3);
+        }
+        .nav-link i {
+            width: 24px;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        .nav-section-title {
+            padding: 15px 25px 10px;
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.4);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+        .user-profile {
+            position: absolute;
+            bottom: 20px;
+            left: 15px;
+            right: 15px;
+            padding: 15px;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 12px;
+            border: 1px solid rgba(102, 126, 234, 0.2);
+        }
+        .user-avatar {
+            width: 45px;
+            height: 45px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        .main-content {
+            margin-left: 260px;
+            padding: 30px;
+            min-height: 100vh;
+        }
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 25px;
+            transition: all 0.3s;
+        }
+        .card:hover {
+            border-color: rgba(102, 126, 234, 0.3);
+            box-shadow: 0 10px 40px rgba(102, 126, 234, 0.1);
+        }
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #fff;
+        }
+        .card-title i {
+            color: #667eea;
+        }
+        .stat-item {
+            text-align: center;
+            padding: 20px;
+        }
+        .stat-number {
+            font-size: 32px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .stat-label {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 13px;
+            margin-top: 5px;
+        }
+        .quick-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+        }
+        .quick-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            text-decoration: none;
+            color: #fff;
+            transition: all 0.3s;
+        }
+        .quick-item:hover {
+            background: rgba(102, 126, 234, 0.15);
+            border-color: rgba(102, 126, 234, 0.4);
+            transform: translateY(-3px);
+            color: #fff;
+        }
+        .quick-item i {
+            font-size: 28px;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .quick-item span {
+            font-size: 13px;
+            font-weight: 500;
+            text-align: center;
+        }
+        @media (max-width: 992px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            .sidebar.show {
+                transform: translateX(0);
+            }
+            .main-content {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        {{ sidebar('index') }}
+    </div>
+
+    <div class="main-content">
+        <!-- 欢迎横幅 -->
+        <div class="card mb-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h3 class="mb-1">欢迎回来，{{ current_user.name }}！</h3>
+                    <p class="text-secondary mb-0">
+                        {% if current_user.dept %}{{ current_user.dept.name }}{% else %}未分配部门{% endif %}
+                        | <span id="currentDate"></span>
+                    </p>
+                </div>
+                <div>
+                    <a href="{{ url_for('document_writing') }}" class="btn btn-primary" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none;">
+                        <i class="fas fa-plus me-2"></i>新建公文
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 统计数据 -->
+        <div class="row mb-4">
+            <div class="col-md-3 col-sm-6">
+                <div class="card stat-item">
+                    <div class="stat-number">{{ stats.total_reports }}</div>
+                    <div class="stat-label">我的报告</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="card stat-item">
+                    <div class="stat-number">{{ stats.pending_tasks }}</div>
+                    <div class="stat-label">待办任务</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="card stat-item">
+                    <div class="stat-number">{{ stats.total_knowledge }}</div>
+                    <div class="stat-label">知识文件</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="card stat-item">
+                    <div class="stat-number">{{ stats.ai_chats }}</div>
+                    <div class="stat-label">AI对话</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 快捷功能 -->
+        <div class="card">
+            <div class="card-title">
+                <i class="fas fa-th-large"></i> 快捷功能
+            </div>
+            <div class="quick-grid">
+                <a href="{{ url_for('document_writing') }}" class="quick-item">
+                    <i class="fas fa-pen-alt"></i>
+                    <span>公文写作</span>
+                </a>
+                <a href="{{ url_for('ai_chat') }}" class="quick-item">
+                    <i class="fas fa-robot"></i>
+                    <span>AI 智能助手</span>
+                </a>
+                <a href="{{ url_for('template_library_v2') }}" class="quick-item">
+                    <i class="fas fa-file-alt"></i>
+                    <span>公文模板库</span>
+                </a>
+                <a href="{{ url_for('personal_knowledge_base') }}" class="quick-item">
+                    <i class="fas fa-database"></i>
+                    <span>个人知识库</span>
+                </a>
+                <a href="{{ url_for('shared_knowledge_base') }}" class="quick-item">
+                    <i class="fas fa-share-alt"></i>
+                    <span>共享知识库</span>
+                </a>
+                <a href="{{ url_for('briefing_index') }}" class="quick-item">
+                    <i class="fas fa-newspaper"></i>
+                    <span>简报生成</span>
+                </a>
+                <a href="{{ url_for('doc_inbox') }}" class="quick-item">
+                    <i class="fas fa-envelope-open-text"></i>
+                    <span>电子公文</span>
+                </a>
+                <a href="{{ url_for('personal_center') }}" class="quick-item">
+                    <i class="fas fa-user-cog"></i>
+                    <span>个人中心</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const now = new Date();
+        const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+        const dateEl = document.getElementById('currentDate');
+        if (dateEl) {
+            dateEl.textContent = now.getFullYear() + '年' + (now.getMonth()+1) + '月' + now.getDate() + '日 ' + weekdays[now.getDay()];
+        }
+    </script>
+</body>
+</html>

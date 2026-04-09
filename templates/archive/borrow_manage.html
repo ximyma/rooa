@@ -1,0 +1,502 @@
+{% extends "base.html" %}
+
+{% block title %}借阅审批管理 - 档案管理系统{% endblock %}
+
+{% block content %}
+<style>
+/* ===== 页面整体 ===== */
+.borrow-manage-page { max-width: 1400px; margin: 0 auto; }
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+.page-title { font-size: 1.8rem; font-weight: 700; color: #2d3748; margin: 0; }
+.page-title i { margin-right: 0.5rem; color: #667eea; }
+
+/* ===== 统计卡片 ===== */
+.stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+.stat-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.2rem 1rem;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    text-align: center;
+    transition: all 0.2s;
+    border-top: 3px solid transparent;
+}
+.stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,0,0,0.12); }
+.stat-number { font-size: 2rem; font-weight: 700; margin-bottom: 0.2rem; line-height: 1; }
+.stat-label { font-size: 0.85rem; color: #718096; }
+.stat-card.pending  { border-top-color: #f6ad55; } .stat-card.pending .stat-number  { color: #f6ad55; }
+.stat-card.borrowed { border-top-color: #3182ce; } .stat-card.borrowed .stat-number { color: #3182ce; }
+.stat-card.returned { border-top-color: #38a169; } .stat-card.returned .stat-number { color: #38a169; }
+.stat-card.total    { border-top-color: #667eea; } .stat-card.total .stat-number    { color: #667eea; }
+
+/* ===== 筛选标签 ===== */
+.filter-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+.filter-tab {
+    padding: 0.45rem 1.1rem;
+    border-radius: 25px;
+    background: white;
+    border: 1px solid #e2e8f0;
+    color: #4a5568;
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    white-space: nowrap;
+}
+.filter-tab:hover { border-color: #667eea; color: #667eea; text-decoration: none; }
+.filter-tab.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-color: transparent;
+}
+.filter-tab .badge-count {
+    background: rgba(255,255,255,0.25);
+    color: inherit;
+    padding: 0.1rem 0.4rem;
+    border-radius: 10px;
+    font-size: 0.75rem;
+}
+.filter-tab:not(.active) .badge-count { background: #edf2f7; color: #4a5568; }
+
+/* ===== 状态标签 ===== */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.65rem;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+.status-badge.pending  { background: #fffaf0; color: #dd6b20; border: 1px solid #fbd38d; }
+.status-badge.borrowed { background: #ebf8ff; color: #2b6cb0; border: 1px solid #90cdf4; }
+.status-badge.returned { background: #f0fff4; color: #276749; border: 1px solid #9ae6b4; }
+.status-badge.rejected { background: #fff5f5; color: #c53030; border: 1px solid #feb2b2; }
+
+/* ===== 操作按钮 ===== */
+.btn-approve, .btn-reject, .btn-return {
+    border: none;
+    padding: 0.4rem 0.85rem;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    white-space: nowrap;
+    font-weight: 500;
+}
+.btn-approve { background: linear-gradient(135deg,#38a169,#68d391); color:white; }
+.btn-approve:hover { transform:translateY(-1px); box-shadow:0 4px 12px rgba(56,161,105,.4); }
+.btn-reject { background:#fff; color:#e53e3e; border:1px solid #e53e3e; }
+.btn-reject:hover { background:#fff5f5; }
+.btn-return { background: linear-gradient(135deg,#3182ce,#63b3ed); color:white; }
+.btn-return:hover { transform:translateY(-1px); box-shadow:0 4px 12px rgba(49,130,206,.4); }
+
+/* ===== 桌面表格 ===== */
+.table-container {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    overflow: hidden;
+}
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table thead {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+.data-table th { padding: 0.9rem 1rem; text-align: left; font-weight: 600; font-size: 0.875rem; white-space: nowrap; }
+.data-table td { padding: 0.9rem 1rem; border-bottom: 1px solid #edf2f7; vertical-align: middle; }
+.data-table tbody tr:hover { background: #f7fafc; }
+.data-table tbody tr:last-child td { border-bottom: none; }
+
+.archive-title-cell { font-weight: 600; color: #2d3748; font-size: 0.9rem; }
+.archive-code-cell { font-family: monospace; font-size: 0.8rem; color: #718096; margin-top: 0.15rem; }
+.user-name { font-weight: 600; color: #2d3748; font-size: 0.875rem; }
+.user-dept { font-size: 0.8rem; color: #718096; }
+
+.action-buttons { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+
+/* ===== 空状态 ===== */
+.empty-state { text-align: center; padding: 4rem 2rem; color: #718096; }
+.empty-state i { font-size: 3.5rem; margin-bottom: 1rem; opacity: 0.4; display: block; }
+.empty-state h4 { margin-bottom: 0.5rem; color: #4a5568; }
+
+/* ===== 移动端卡片视图 ===== */
+.mobile-borrow-list { display: none; }
+.borrow-card {
+    background: white;
+    border-radius: 14px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    margin-bottom: 1rem;
+    overflow: hidden;
+    border: 1px solid #edf2f7;
+    transition: all 0.2s;
+}
+.borrow-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.12); transform: translateY(-1px); }
+.borrow-card-header {
+    padding: 1rem;
+    border-bottom: 1px solid #edf2f7;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+.borrow-card-title { font-weight: 600; color: #2d3748; font-size: 0.95rem; flex: 1; line-height: 1.4; }
+.borrow-card-body { padding: 0.75rem 1rem; }
+.borrow-card-meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem 1rem;
+    margin-bottom: 0.75rem;
+}
+.borrow-meta-item { display: flex; flex-direction: column; gap: 0.1rem; }
+.meta-label { font-size: 0.75rem; color: #718096; font-weight: 500; text-transform: uppercase; letter-spacing: 0.03em; }
+.meta-value { font-size: 0.875rem; color: #2d3748; font-weight: 500; }
+.meta-value.code { font-family: monospace; font-size: 0.8rem; color: #667eea; }
+.borrow-card-purpose {
+    background: #f7fafc;
+    border-radius: 8px;
+    padding: 0.6rem 0.75rem;
+    font-size: 0.875rem;
+    color: #4a5568;
+    margin-bottom: 0.75rem;
+    border-left: 3px solid #667eea;
+}
+.borrow-card-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    padding: 0.75rem 1rem;
+    background: #f7fafc;
+    border-top: 1px solid #edf2f7;
+}
+.borrow-card-actions .btn-approve,
+.borrow-card-actions .btn-reject,
+.borrow-card-actions .btn-return {
+    flex: 1;
+    min-width: 80px;
+    justify-content: center;
+    padding: 0.55rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+/* ===== 分页 ===== */
+.pagination-wrap { display:flex; justify-content:center; padding:1rem; }
+
+/* ===== 响应式断点 ===== */
+@media (max-width: 991px) {
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 767px) {
+    .page-title { font-size: 1.4rem; }
+    .stats-row { grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
+    .stat-number { font-size: 1.6rem; }
+
+    /* 切换为卡片视图 */
+    .desktop-table-view { display: none !important; }
+    .mobile-borrow-list { display: block; }
+
+    .filter-tabs { gap: 0.4rem; }
+    .filter-tab { padding: 0.4rem 0.9rem; font-size: 0.82rem; }
+}
+
+@media (max-width: 480px) {
+    .stats-row { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+    .stat-card { padding: 0.9rem 0.75rem; }
+    .stat-number { font-size: 1.4rem; }
+    .borrow-card-meta { grid-template-columns: 1fr; }
+}
+</style>
+
+<div class="borrow-manage-page">
+    <!-- 页面标题 -->
+    <div class="page-header">
+        <h1 class="page-title">
+            <i class="fas fa-clipboard-check"></i>借阅审批管理
+        </h1>
+        <a href="{{ url_for('archive.my_borrows') }}" class="btn btn-sm btn-outline-secondary">
+            <i class="fas fa-user me-1"></i>我的借阅
+        </a>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div class="stats-row">
+        <div class="stat-card pending">
+            <div class="stat-number">{{ stats.pending }}</div>
+            <div class="stat-label"><i class="fas fa-clock me-1"></i>待审批</div>
+        </div>
+        <div class="stat-card borrowed">
+            <div class="stat-number">{{ stats.borrowed }}</div>
+            <div class="stat-label"><i class="fas fa-book-open me-1"></i>借阅中</div>
+        </div>
+        <div class="stat-card returned">
+            <div class="stat-number">{{ stats.returned }}</div>
+            <div class="stat-label"><i class="fas fa-check-circle me-1"></i>已归还</div>
+        </div>
+        <div class="stat-card total">
+            <div class="stat-number">{{ stats.total }}</div>
+            <div class="stat-label"><i class="fas fa-list me-1"></i>全部记录</div>
+        </div>
+    </div>
+
+    <!-- 筛选标签 -->
+    <div class="filter-tabs">
+        <a href="{{ url_for('archive.borrow_manage', status='pending') }}" 
+           class="filter-tab {% if current_status == 'pending' %}active{% endif %}">
+            <i class="fas fa-clock"></i> 待审批
+            <span class="badge-count">{{ stats.pending }}</span>
+        </a>
+        <a href="{{ url_for('archive.borrow_manage', status='borrowed') }}" 
+           class="filter-tab {% if current_status == 'borrowed' %}active{% endif %}">
+            <i class="fas fa-hand-holding"></i> 借阅中
+            <span class="badge-count">{{ stats.borrowed }}</span>
+        </a>
+        <a href="{{ url_for('archive.borrow_manage', status='returned') }}" 
+           class="filter-tab {% if current_status == 'returned' %}active{% endif %}">
+            <i class="fas fa-undo"></i> 已归还
+        </a>
+        <a href="{{ url_for('archive.borrow_manage', status='all') }}" 
+           class="filter-tab {% if current_status == 'all' %}active{% endif %}">
+            <i class="fas fa-list"></i> 全部
+        </a>
+    </div>
+
+    {% if borrows %}
+
+    <!-- ===== 桌面端表格（> 767px） ===== -->
+    <div class="table-container desktop-table-view">
+        <div style="overflow-x:auto;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>档案信息</th>
+                        <th>申请人</th>
+                        <th>借阅目的</th>
+                        <th style="white-space:nowrap">申请日期</th>
+                        <th style="white-space:nowrap">计划归还</th>
+                        <th>状态</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for borrow in borrows %}
+                    <tr>
+                        <td>
+                            <div class="archive-title-cell">
+                                {{ borrow.archive_file.title if borrow.archive_file else '档案已删除' }}
+                            </div>
+                            {% if borrow.archive_file %}
+                            <div class="archive-code-cell">{{ borrow.archive_file.get_archive_code() }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="user-name">{{ borrow.borrower.name if borrow.borrower else '未知用户' }}</div>
+                            <div class="user-dept">
+                                {{ borrow.borrower.department.name if borrow.borrower and borrow.borrower.department else '' }}
+                            </div>
+                        </td>
+                        <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ borrow.purpose }}">
+                            {{ borrow.purpose or '-' }}
+                        </td>
+                        <td style="white-space:nowrap">{{ borrow.borrow_date.strftime('%Y-%m-%d') if borrow.borrow_date else '-' }}</td>
+                        <td style="white-space:nowrap">{{ borrow.return_date.strftime('%Y-%m-%d') if borrow.return_date else '-' }}</td>
+                        <td>
+                            <span class="status-badge {{ borrow.status }}">
+                                {% if borrow.status == 'pending' %}⏳ 待审批
+                                {% elif borrow.status == 'borrowed' %}📖 借阅中
+                                {% elif borrow.status == 'returned' %}✅ 已归还
+                                {% elif borrow.status == 'rejected' %}❌ 已拒绝
+                                {% else %}{{ borrow.status }}{% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="action-buttons">
+                                {% if borrow.status == 'pending' %}
+                                    <form action="{{ url_for('archive.borrow_approve', borrow_id=borrow.id) }}" method="post" style="display:inline;">
+                                        <input type="hidden" name="action" value="approve">
+                                        <button type="submit" class="btn-approve" onclick="return confirm('确认批准此借阅申请？')">
+                                            <i class="fas fa-check"></i> 批准
+                                        </button>
+                                    </form>
+                                    <button type="button" class="btn-reject" onclick="showRejectModal({{ borrow.id }}, '{{ borrow.archive_file.title if borrow.archive_file else '' }}')">
+                                        <i class="fas fa-times"></i> 拒绝
+                                    </button>
+                                {% elif borrow.status == 'borrowed' %}
+                                    <form action="{{ url_for('archive.borrow_return', borrow_id=borrow.id) }}" method="post" style="display:inline;">
+                                        <button type="submit" class="btn-return" onclick="return confirm('确认档案已归还？')">
+                                            <i class="fas fa-undo"></i> 确认归还
+                                        </button>
+                                    </form>
+                                {% else %}
+                                    <span style="color:#a0aec0;font-size:0.82rem;">无操作</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ===== 移动端卡片（≤ 767px） ===== -->
+    <div class="mobile-borrow-list">
+        {% for borrow in borrows %}
+        <div class="borrow-card">
+            <div class="borrow-card-header">
+                <div class="borrow-card-title">
+                    {{ borrow.archive_file.title if borrow.archive_file else '档案已删除' }}
+                </div>
+                <span class="status-badge {{ borrow.status }}" style="flex-shrink:0;">
+                    {% if borrow.status == 'pending' %}⏳ 待审批
+                    {% elif borrow.status == 'borrowed' %}📖 借阅中
+                    {% elif borrow.status == 'returned' %}✅ 已归还
+                    {% elif borrow.status == 'rejected' %}❌ 已拒绝
+                    {% else %}{{ borrow.status }}{% endif %}
+                </span>
+            </div>
+            <div class="borrow-card-body">
+                <!-- 元数据网格 -->
+                <div class="borrow-card-meta">
+                    <div class="borrow-meta-item">
+                        <span class="meta-label">申请人</span>
+                        <span class="meta-value">{{ borrow.borrower.name if borrow.borrower else '-' }}</span>
+                    </div>
+                    <div class="borrow-meta-item">
+                        <span class="meta-label">部门</span>
+                        <span class="meta-value">{{ borrow.borrower.department.name if borrow.borrower and borrow.borrower.department else '-' }}</span>
+                    </div>
+                    <div class="borrow-meta-item">
+                        <span class="meta-label">申请日期</span>
+                        <span class="meta-value">{{ borrow.borrow_date.strftime('%Y-%m-%d') if borrow.borrow_date else '-' }}</span>
+                    </div>
+                    <div class="borrow-meta-item">
+                        <span class="meta-label">计划归还</span>
+                        <span class="meta-value">{{ borrow.return_date.strftime('%Y-%m-%d') if borrow.return_date else '-' }}</span>
+                    </div>
+                    {% if borrow.archive_file %}
+                    <div class="borrow-meta-item" style="grid-column: 1 / -1;">
+                        <span class="meta-label">档号</span>
+                        <span class="meta-value code">{{ borrow.archive_file.get_archive_code() }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                <!-- 借阅目的 -->
+                {% if borrow.purpose %}
+                <div class="borrow-card-purpose">
+                    <strong>借阅目的：</strong>{{ borrow.purpose }}
+                </div>
+                {% endif %}
+                {% if borrow.reject_reason %}
+                <div style="background:#fff5f5;border-radius:8px;padding:0.6rem 0.75rem;font-size:0.875rem;color:#c53030;border-left:3px solid #e53e3e;">
+                    <strong>拒绝原因：</strong>{{ borrow.reject_reason }}
+                </div>
+                {% endif %}
+            </div>
+            <!-- 操作区 -->
+            {% if borrow.status == 'pending' %}
+            <div class="borrow-card-actions">
+                <form action="{{ url_for('archive.borrow_approve', borrow_id=borrow.id) }}" method="post" style="flex:1;">
+                    <input type="hidden" name="action" value="approve">
+                    <button type="submit" class="btn-approve" style="width:100%;justify-content:center;" onclick="return confirm('确认批准此借阅申请？')">
+                        <i class="fas fa-check"></i> 批准申请
+                    </button>
+                </form>
+                <button type="button" class="btn-reject" style="flex:1;justify-content:center;" 
+                        onclick="showRejectModal({{ borrow.id }}, '{{ borrow.archive_file.title if borrow.archive_file else '' }}')">
+                    <i class="fas fa-times"></i> 拒绝
+                </button>
+            </div>
+            {% elif borrow.status == 'borrowed' %}
+            <div class="borrow-card-actions">
+                <form action="{{ url_for('archive.borrow_return', borrow_id=borrow.id) }}" method="post" style="width:100%;">
+                    <button type="submit" class="btn-return" style="width:100%;justify-content:center;" onclick="return confirm('确认档案已归还？')">
+                        <i class="fas fa-undo"></i> 确认归还
+                    </button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    {% else %}
+    <!-- 空状态 -->
+    <div class="table-container">
+        <div class="empty-state">
+            <i class="fas fa-inbox"></i>
+            <h4>暂无借阅记录</h4>
+            <p>当前筛选条件下没有借阅申请</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 拒绝原因模态框 -->
+<div class="modal fade" id="rejectModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;">
+                <h5 class="modal-title"><i class="fas fa-times-circle me-2"></i>拒绝借阅申请</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="" method="post" id="rejectForm">
+                <input type="hidden" name="action" value="reject">
+                <div class="modal-body">
+                    <div id="rejectArchiveTitle" style="font-weight:600;color:#2d3748;margin-bottom:1rem;padding:0.75rem;background:#f7fafc;border-radius:8px;font-size:0.9rem;"></div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">拒绝原因 <small class="text-muted fw-normal">（可选）</small></label>
+                        <textarea name="reason" class="form-control" rows="3" 
+                                  placeholder="请输入拒绝原因，将通知申请人..." 
+                                  style="resize:none;"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-times me-1"></i>确认拒绝
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function showRejectModal(borrowId, archiveTitle) {
+    var form = document.getElementById('rejectForm');
+    form.action = '/archive/borrow/approve/' + borrowId;
+    var titleEl = document.getElementById('rejectArchiveTitle');
+    if (titleEl && archiveTitle) {
+        titleEl.textContent = '📁 ' + archiveTitle;
+    }
+    var modal = new bootstrap.Modal(document.getElementById('rejectModal'));
+    modal.show();
+}
+</script>
+{% endblock %}

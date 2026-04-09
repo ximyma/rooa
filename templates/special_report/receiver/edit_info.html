@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <h2>编辑信息</h2>
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="mb-3">
+                <label class="form-label">标题</label>
+                <input type="text" name="title" class="form-control" value="{{ report.title }}" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">信息类别</label>
+                <select name="category" class="form-select">
+                    <option value="工作动态" {% if report.category=='工作动态' %}selected{% endif %}>工作动态</option>
+                    <option value="问题建议" {% if report.category=='问题建议' %}selected{% endif %}>问题建议</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">附件</label>
+                <input type="text" name="attachments" class="form-control" value="{{ report.attachments }}">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">内容</label>
+                <textarea name="content" class="form-control md-editor" rows="10" data-height="380" required>{{ report.content }}</textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">保存</button>
+            <a href="{{ url_for('info_pool') }}" class="btn btn-secondary">取消</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

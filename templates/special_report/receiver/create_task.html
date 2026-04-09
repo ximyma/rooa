@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+  <div class="row justify-content-center">
+    <div class="col-lg-9">
+      <div class="d-flex align-items-center mb-4">
+        <a href="{{ url_for('task_manage') }}" class="btn btn-outline-secondary me-3">
+          <i class="fas fa-arrow-left me-1"></i>返回
+        </a>
+        <h4 class="mb-0"><i class="fas fa-tasks me-2 text-primary"></i>新建约稿任务</h4>
+      </div>
+
+      <form method="POST" id="createTaskForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="row g-4">
+          <!-- 左侧：任务信息 -->
+          <div class="col-lg-8">
+            <div class="card shadow-sm mb-4">
+              <div class="card-header bg-white fw-semibold">
+                <i class="fas fa-file-alt me-2 text-primary"></i>任务信息
+              </div>
+              <div class="card-body">
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label fw-semibold">信息类别 <span class="text-danger">*</span></label>
+                    <select name="category" class="form-select" required>
+                      <option value="">请选择</option>
+                      <option value="工作动态">工作动态</option>
+                      <option value="问题建议">问题建议</option>
+                      <option value="经验交流">经验交流</option>
+                      <option value="典型案例">典型案例</option>
+                      <option value="政策解读">政策解读</option>
+                    </select>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label fw-semibold">紧急程度</label>
+                    <select name="urgency" class="form-select">
+                      <option value="normal">普通</option>
+                      <option value="urgent">加急</option>
+                    </select>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label fw-semibold">任务标题 <span class="text-danger">*</span></label>
+                    <input type="text" name="title" class="form-control" placeholder="请输入约稿任务标题" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label fw-semibold">开始时间 <span class="text-danger">*</span></label>
+                    <input type="datetime-local" name="start_time" class="form-control" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label fw-semibold">截止时间 <span class="text-danger">*</span></label>
+                    <input type="datetime-local" name="end_time" class="form-control" required>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label fw-semibold">任务要求 <span class="text-danger">*</span></label>
+                    <textarea name="description" class="form-control md-editor" rows="5" data-height="200" required></textarea>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label fw-semibold">相关附件</label>
+                    <input type="text" name="attachments" class="form-control" placeholder="附件链接或说明">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label fw-semibold">备注</label>
+                    <textarea name="remark" class="form-control" rows="2"></textarea>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 右侧：约稿范围 -->
+          <div class="col-lg-4">
+            <div class="card shadow-sm mb-4">
+              <div class="card-header bg-white fw-semibold">
+                <i class="fas fa-users me-2 text-success"></i>约稿范围
+                <span class="badge bg-primary ms-2" id="taskSelectedCount">0</span>人
+              </div>
+              <div class="card-body">
+                <!-- 按部门快速选择 -->
+                {% if depts %}
+                <div class="mb-2">
+                  <small class="text-muted fw-semibold">按部门快速选择：</small>
+                  <div class="d-flex flex-wrap gap-1 mt-1">
+                    <button type="button" class="btn btn-xs btn-outline-secondary" onclick="selectDept('', false)">清空</button>
+                    {% for d in depts %}
+                    <button type="button" class="btn btn-xs btn-outline-primary" style="font-size:.75rem;padding:2px 8px;"
+                            onclick="selectDept('{{ d.name }}', true)">{{ d.name }}</button>
+                    {% endfor %}
+                  </div>
+                </div>
+                <hr class="my-2">
+                {% endif %}
+                <!-- 搜索框 -->
+                <div class="mb-2">
+                  <input type="text" id="taskSearchUser" class="form-control form-control-sm"
+                         placeholder="搜索姓名/部门…" oninput="taskFilterUsers()">
+                </div>
+                <!-- 用户列表（checkbox形式） -->
+                <div id="taskUserList" style="max-height:260px;overflow-y:auto;border:1px solid #dee2e6;border-radius:6px;padding:6px">
+                  {% for u in users %}
+                  <div class="task-user-item d-flex align-items-center p-1 rounded"
+                       data-name="{{ u.name }}" data-dept="{{ u.department or '' }}">
+                    <input class="form-check-input me-2 flex-shrink-0 task-user-cb" type="checkbox"
+                           name="assigned_to" value="{{ u.id }}"
+                           id="tuser_{{ u.id }}" onchange="updateTaskCount()">
+                    <label class="form-check-label flex-grow-1" for="tuser_{{ u.id }}" style="cursor:pointer;">
+                      <span class="fw-semibold small">{{ u.name }}</span>
+                      <small class="text-muted ms-1">{{ u.department or '-' }}</small>
+                    </label>
+                  </div>
+                  {% endfor %}
+                </div>
+                <small class="text-muted mt-1 d-block">勾选接收账号（可多选）</small>
+              </div>
+            </div>
+
+            <!-- 联系人信息 -->
+            <div class="card shadow-sm">
+              <div class="card-header bg-white fw-semibold">
+                <i class="fas fa-user me-2 text-secondary"></i>约稿联系人
+              </div>
+              <div class="card-body">
+                <div class="mb-2">
+                  <label class="form-label small text-muted">姓名</label>
+                  <input type="text" class="form-control form-control-sm" value="{{ current_user.name }}" readonly>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label small text-muted">电话</label>
+                  <input type="text" class="form-control form-control-sm" value="{{ current_user.phone or '未设置' }}" readonly>
+                </div>
+                <div>
+                  <label class="form-label small text-muted">部门</label>
+                  <input type="text" class="form-control form-control-sm" value="{{ current_user.department or '未设置' }}" readonly>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="d-flex gap-2 mt-2">
+          <button type="submit" class="btn btn-primary px-4">
+            <i class="fas fa-check me-1"></i>确定创建
+          </button>
+          <a href="{{ url_for('task_manage') }}" class="btn btn-outline-secondary px-4">取消</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function taskFilterUsers() {
+  const kw = document.getElementById('taskSearchUser').value.toLowerCase();
+  document.querySelectorAll('.task-user-item').forEach(item => {
+    const name = item.dataset.name.toLowerCase();
+    const dept = item.dataset.dept.toLowerCase();
+    item.style.display = (name.includes(kw) || dept.includes(kw)) ? '' : 'none';
+  });
+}
+
+function selectDept(deptName, select) {
+  document.querySelectorAll('.task-user-item').forEach(item => {
+    const cb = item.querySelector('.task-user-cb');
+    if (!deptName) {
+      cb.checked = false;
+    } else if (item.dataset.dept === deptName) {
+      cb.checked = select;
+    }
+    item.style.display = '';
+  });
+  document.getElementById('taskSearchUser').value = '';
+  updateTaskCount();
+}
+
+function updateTaskCount() {
+  const count = document.querySelectorAll('.task-user-cb:checked').length;
+  document.getElementById('taskSelectedCount').textContent = count;
+}
+
+// 初始化
+document.addEventListener('DOMContentLoaded', updateTaskCount);
+
+// 提交前验证
+document.getElementById('createTaskForm').addEventListener('submit', function(e) {
+  const count = document.querySelectorAll('.task-user-cb:checked').length;
+  if (count === 0) {
+    e.preventDefault();
+    alert('请至少选择一位约稿对象');
+  }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,131 @@
+/* md-editor.css - Markdown编辑器样式 */
+.md-editor-wrap {
+  background: #fff;
+  border-color: #dee2e6 !important;
+  overflow: hidden;
+}
+.md-editor-wrap:focus-within {
+  border-color: #86b7fe !important;
+  box-shadow: 0 0 0 0.25rem rgba(13,110,253,.15);
+}
+.md-editor-toolbar {
+  background: #f8f9fa !important;
+  border-bottom-color: #e9ecef !important;
+  padding: 6px 8px !important;
+  flex-shrink: 0;
+}
+.md-editor-toolbar .md-toolbar-btn {
+  border-radius: 4px !important;
+  font-size: 12px !important;
+  padding: 2px 7px !important;
+  min-width: 30px;
+  height: 28px;
+  line-height: 1;
+  color: #495057;
+  background: transparent;
+  border-color: transparent;
+  transition: all 0.15s;
+}
+.md-editor-toolbar .md-toolbar-btn:hover {
+  background: #e9ecef !important;
+  border-color: #ced4da !important;
+  color: #212529;
+}
+.md-editor-toolbar .md-toolbar-btn.active,
+.md-editor-toolbar .md-toolbar-btn.btn-primary {
+  background: #0d6efd !important;
+  border-color: #0d6efd !important;
+  color: #fff !important;
+}
+.md-editor-input {
+  background: #fff !important;
+  color: #212529;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  padding: 14px 16px !important;
+  font-size: 14px;
+  font-family: 'Consolas', 'Courier New', 'Microsoft YaHei', monospace;
+  line-height: 1.75;
+  resize: none;
+}
+.md-editor-input::placeholder {
+  color: #adb5bd;
+}
+.md-editor-preview {
+  padding: 14px 16px;
+  overflow-y: auto;
+  font-size: 14px;
+  line-height: 1.8;
+  border-left: 1px solid #e9ecef;
+}
+.md-editor-preview h1 { font-size: 1.6em; border-bottom: 1px solid #e9ecef; padding-bottom: 0.3em; }
+.md-editor-preview h2 { font-size: 1.35em; border-bottom: 1px solid #f0f0f0; padding-bottom: 0.2em; }
+.md-editor-preview h3 { font-size: 1.15em; }
+.md-editor-preview blockquote {
+  border-left: 4px solid #0d6efd;
+  padding: 8px 16px;
+  margin: 12px 0;
+  background: #f0f6ff;
+  border-radius: 0 4px 4px 0;
+  color: #444;
+}
+.md-editor-preview code {
+  background: #f1f3f5;
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+.md-editor-preview pre {
+  background: #282c34;
+  color: #abb2bf;
+  padding: 14px 16px;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+.md-editor-preview pre code {
+  background: none;
+  color: inherit;
+  padding: 0;
+}
+.md-editor-preview table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 12px 0;
+}
+.md-editor-preview table th,
+.md-editor-preview table td {
+  border: 1px solid #dee2e6;
+  padding: 8px 12px;
+  text-align: left;
+}
+.md-editor-preview table th {
+  background: #f8f9fa;
+  font-weight: 600;
+}
+.md-editor-preview table tr:nth-child(even) td {
+  background: #fafafa;
+}
+.md-editor-statusbar {
+  background: #f8f9fa;
+  border-top: 1px solid #e9ecef;
+  font-size: 11px;
+  color: #888;
+  flex-shrink: 0;
+}
+.md-editor-statusbar kbd {
+  font-size: 10px;
+  padding: 1px 4px;
+  background: #e9ecef;
+  border-radius: 3px;
+  border: 1px solid #ced4da;
+  color: #495057;
+}
+/* 全屏模式 */
+.md-editor-wrap[style*="position:fixed"] .md-editor-toolbar {
+  flex-shrink: 0;
+}
+.md-editor-wrap[style*="position:fixed"] .md-editor-input {
+  flex: 1;
+  height: 100%;
+}

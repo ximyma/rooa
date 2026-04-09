@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2>公文模板库</h2>
+        <div class="row">
+            {% for template in templates %}
+            <div class="col-md-3 mb-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ template }}</h5>
+                        <a href="#" class="btn btn-primary btn-sm preview-template" data-template="{{ template }}">预览</a>
+                        <a href="#" class="btn btn-secondary btn-sm download-template" data-template="{{ template }}">下载</a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+<!-- 预览模态框 -->
+<div class="modal fade" id="templateModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">模板预览</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <pre id="templateContent" class="bg-light p-3"></pre>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+document.querySelectorAll('.preview-template').forEach(btn => {
+    btn.addEventListener('click', e => {
+        e.preventDefault();
+        const template = btn.dataset.template;
+        // 模拟模板内容
+        const content = `这是${template}的示例内容。\n\n正文内容...`;
+        document.getElementById('templateContent').innerText = content;
+        new bootstrap.Modal(document.getElementById('templateModal')).show();
+    });
+});
+document.querySelectorAll('.download-template').forEach(btn => {
+    btn.addEventListener('click', e => {
+        e.preventDefault();
+        alert('下载功能开发中');
+    });
+});
+</script>
+{% endblock %}
