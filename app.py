@@ -36,6 +36,23 @@ app = Flask(__name__)
 app.config.from_object(Config)
 db.init_app(app)
 
+# ===== SQLite 性能优化 PRAGMA 配置 =====
+# 使用 SQLAlchemy 事件监听器在连接池获取连接时设置
+from sqlalchemy import event
+
+def set_sqlite_pragma(dbapi_conn, connection_record):
+    """在每次数据库连接时设置 SQLite 优化参数"""
+    cursor = dbapi_conn.cursor()
+    cursor.execute("PRAGMA synchronous=NORMAL")
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA cache_size=-10000")  # -10000 = 10MB
+    cursor.execute("PRAGMA temp_store=MEMORY")
+    cursor.close()
+
+# 使用 after_flush 事件延迟注册监听器
+with app.app_context():
+    event.listen(db.engine.pool, "connect", set_sqlite_pragma)
+
 # 初始化 CSRF 保护
 csrf = CSRFProtect(app)
 

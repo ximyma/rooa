@@ -34,6 +34,14 @@ class Config:
         'csv', 'md', 'html', 'htm'
     }
     
+    # SQLite 性能优化配置
+    SQLITE_PRAGMAS = {
+        'synchronous': 'NORMAL',
+        'journal_mode': 'WAL',
+        'cache_size': -10000,  # 负数表示 KB，-10000 = 10MB
+        'temp_store': 'MEMORY',
+    }
+
     # 缓存配置 - 使用内存缓存，生产环境可改用Redis
     CACHE_TYPE = 'SimpleCache'
     CACHE_DEFAULT_TIMEOUT = 300  # 5分钟
