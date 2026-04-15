@@ -324,6 +324,7 @@
                                 <th style="white-space:nowrap">更新期限</th>
                                 <th style="white-space:nowrap">最新日期</th>
                                 <th style="white-space:nowrap">距今</th>
+                                <th style="min-width:100px">责任单位</th>
                                 <th>状态</th>
                             </tr>
                         </thead>
@@ -348,6 +349,7 @@
                                 <span style="{{ 'color:var(--accent-red);font-weight:700' if r.is_overdue else ('color:var(--accent-orange)' if r.is_expiring else 'color:var(--accent-green)') }}">{{ r.days_since_update }}天</span>
                                 {% else %}—{% endif %}
                             </td>
+                            <td style="color:var(--text-secondary);font-size:.78rem">{{ r.responsible_unit or '—' }}</td>
                             <td>
                                 {% if r.status == 'error' %}<span class="badge-error" title="{{ r.error_msg }}"><i class="fas fa-times-circle me-1"></i>失败</span>
                                 {% elif r.is_overdue %}<span class="badge-overdue"><i class="fas fa-exclamation-circle me-1"></i>逾期</span>

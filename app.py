@@ -32,6 +32,51 @@ import time
 import uuid
 import threading
 
+
+def parse_deadline_to_days(deadline_str):
+    """将期限文字解析为天数"""
+    if not deadline_str or deadline_str == 'nan':
+        return None
+    deadline_str = str(deadline_str).strip().lower()
+    
+    # 中文数字转换
+    cn_num_map = {'零': 0, '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9, '十': 10, '两': 2}
+    for cn, num in cn_num_map.items():
+        deadline_str = deadline_str.replace(cn, str(num))
+    
+    # 匹配数字部分
+    m = re.search(r'(\d+\.?\d*)', deadline_str)
+    if not m:
+        # 处理"半年"这种无数字的情况
+        if '半' in deadline_str:
+            if '年' in deadline_str:
+                return 183
+            elif '月' in deadline_str:
+                return 15
+            elif '周' in deadline_str:
+                return 3
+    
+    num = float(m.group(1)) if m else 0
+    
+    if '年' in deadline_str:
+        # 1年=365天，半年=183天
+        if num == 0.5:
+            return 183
+        return int(num * 365)
+    elif '月' in deadline_str:
+        # 1月=30天
+        if num == 0.5:
+            return 15
+        return int(num * 30)
+    elif '周' in deadline_str:
+        # 1周=7天
+        return int(num * 7)
+    elif '天' in deadline_str or '日' in deadline_str:
+        return int(num)
+    
+    return int(num) if num > 0 else None
+
+
 app = Flask(__name__)
 app.config.from_object(Config)
 db.init_app(app)
@@ -7469,6 +7514,7 @@ def monitor_library_edit(lib_id):
                         elif '期限' in col and '天' not in col: col_map['deadline_days'] = col
                         elif '网站名称' in col: col_map['website_name'] = col
                         elif '标识码' in col: col_map['website_code'] = col
+                        elif '责任单位' in col: col_map['responsible_unit'] = col
 
                     imported = 0
                     for _, row in df.iterrows():
@@ -7477,15 +7523,19 @@ def monitor_library_edit(lib_id):
                             continue
                         col_name = str(row.get(col_map.get('column_name', ''), '')).strip()
                         deadline_str = str(row.get(col_map.get('update_deadline', ''), '')).strip()
+                        deadline_days_val = str(row.get(col_map.get('deadline_days', ''), '')).strip()
+                        
                         # 解析期限天数
                         days = None
-                        if deadline_str and deadline_str != 'nan':
-                            if '天' in deadline_str:
-                                days = int(re.search(r'(\d+)', deadline_str).group(1)) if re.search(r'(\d+)', deadline_str) else None
-                            elif '周' in deadline_str:
-                                days = int(re.search(r'(\d+)', deadline_str).group(1)) * 7 if re.search(r'(\d+)', deadline_str) else None
-                            elif '月' in deadline_str:
-                                days = int(re.search(r'(\d+)', deadline_str).group(1)) * 30 if re.search(r'(\d+)', deadline_str) else None
+                        if deadline_days_val and deadline_days_val != 'nan':
+                            try:
+                                days = int(float(deadline_days_val))
+                            except:
+                                pass
+                        
+                        # 如果期限天数没有，从期限文字解析
+                        if days is None and deadline_str and deadline_str != 'nan':
+                            days = parse_deadline_to_days(deadline_str)
 
                         item = UrlItem(
                             library_id=lib.id,
@@ -7497,6 +7547,7 @@ def monitor_library_edit(lib_id):
                             deadline_days=days,
                             website_name=str(row.get(col_map.get('website_name', ''), '')).strip(),
                             website_code=str(row.get(col_map.get('website_code', ''), '')).strip(),
+                            responsible_unit=str(row.get(col_map.get('responsible_unit', ''), '')).strip(),
                         )
                         db.session.add(item)
                         imported += 1
@@ -7513,17 +7564,19 @@ def monitor_library_edit(lib_id):
                 flash('网址不能为空', 'warning')
             else:
                 deadline_str = request.form.get('update_deadline', '').strip()
+                deadline_days_str = request.form.get('deadline_days', '').strip()
+                
+                # 优先使用期限天数输入框
                 days = None
-                if deadline_str:
-                    if '天' in deadline_str:
-                        m = re.search(r'(\d+)', deadline_str)
-                        days = int(m.group(1)) if m else None
-                    elif '周' in deadline_str:
-                        m = re.search(r'(\d+)', deadline_str)
-                        days = int(m.group(1)) * 7 if m else None
-                    elif '月' in deadline_str:
-                        m = re.search(r'(\d+)', deadline_str)
-                        days = int(m.group(1)) * 30 if m else None
+                if deadline_days_str:
+                    try:
+                        days = int(deadline_days_str)
+                    except ValueError:
+                        pass
+                
+                # 如果期限天数没有，从期限文字解析
+                if days is None and deadline_str:
+                    days = parse_deadline_to_days(deadline_str)
 
                 item = UrlItem(
                     library_id=lib.id,
@@ -7533,6 +7586,7 @@ def monitor_library_edit(lib_id):
                     column_category=request.form.get('column_category', '').strip(),
                     update_deadline=deadline_str,
                     deadline_days=days,
+                    responsible_unit=request.form.get('responsible_unit', '').strip(),
                 )
                 db.session.add(item)
                 lib.item_count = UrlItem.query.filter_by(library_id=lib.id).count()
@@ -7655,6 +7709,7 @@ def monitor_export(lib_id):
         '栏目分类': r.column_category,
         '更新期限': r.update_deadline,
         '期限天数': r.deadline_days,
+        '责任单位': r.responsible_unit or '',
         '最大日期': r.last_max_date,
         '距今天数': r.days_since_update,
         '是否逾期': '是' if r.is_overdue else '否',

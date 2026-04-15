@@ -66,6 +66,7 @@ class MonitorEngine:
                     'deadline_days': r.deadline_days,
                     'serial_no': r.serial_no,
                     'website_name': r.website_name,
+                    'responsible_unit': r.responsible_unit,
                 }
                 for r in rows
             ]
@@ -205,6 +206,7 @@ class MonitorEngine:
                         column_category=item['column_category'],
                         update_deadline=item['update_deadline'],
                         deadline_days=item['deadline_days'],
+                        responsible_unit=item.get('responsible_unit'),
                         last_max_date=max_date,
                         days_since_update=days,
                         is_overdue=is_overdue,
