@@ -154,6 +154,10 @@
                                     <td>{{ item.deadline_days or '-' }}</td>
                                     <td style="color: var(--text-secondary); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ item.responsible_unit }}">{{ item.responsible_unit or '-' }}</td>
                                     <td>
+                                        <button type="button" class="btn btn-sm" style="border:1px solid rgba(0,212,255,0.5); color: var(--accent-cyan); padding: 2px 8px; font-size: 0.75rem;"
+                                                onclick="editItem({{ item.id }}, '{{ item.column_name|default('')|e }}', '{{ item.url|e }}', '{{ item.column_category|default('')|e }}', '{{ item.update_deadline|default('')|e }}', '{{ item.deadline_days|default('')|e }}', '{{ item.responsible_unit|default('')|e }}', '{{ item.serial_no|default('')|e }}')">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
                                         <form method="post" action="{{ url_for('monitor_library_edit', lib_id=lib.id) }}" style="display:inline;">
                                             <input type="hidden" name="action" value="delete_item">
                                             <input type="hidden" name="item_id" value="{{ item.id }}">
@@ -389,6 +393,76 @@ dropZone.addEventListener('drop', e => {
         }
     }
 });
+</script>
+
+<!-- 编辑网址模态框 -->
+<div class="modal fade" id="editItemModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" style="background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-primary);">
+            <div class="modal-header" style="border-color: var(--border-color);">
+                <h5 class="modal-title" style="color: var(--accent-cyan);"><i class="fas fa-edit me-2"></i>编辑网址</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{{ url_for('monitor_library_edit', lib_id=lib.id) }}">
+                <div class="modal-body">
+                    <input type="hidden" name="action" value="edit_item">
+                    <input type="hidden" name="item_id" id="edit_item_id">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">序号</label>
+                            <input type="text" name="serial_no" id="edit_serial_no" class="form-control form-control-dark">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">栏目名称 *</label>
+                            <input type="text" name="column_name" id="edit_column_name" class="form-control form-control-dark" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">网址 *</label>
+                            <input type="url" name="url" id="edit_url" class="form-control form-control-dark" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">栏目分类</label>
+                            <input type="text" name="column_category" id="edit_column_category" class="form-control form-control-dark">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">更新期限</label>
+                            <input type="text" name="update_deadline" id="edit_update_deadline" class="form-control form-control-dark" placeholder="例如：2周、30天">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">期限天数</label>
+                            <input type="number" name="deadline_days" id="edit_deadline_days" class="form-control form-control-dark" placeholder="直接输入天数">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">责任单位</label>
+                            <input type="text" name="responsible_unit" id="edit_responsible_unit" class="form-control form-control-dark">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer" style="border-color: var(--border-color);">
+                    <button type="button" class="btn" style="border: 1px solid var(--border-color); color: var(--text-secondary);" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn-cyber"><i class="fas fa-save me-1"></i>保存修改</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// 编辑网址函数
+function editItem(id, columnName, url, columnCategory, updateDeadline, deadlineDays, responsibleUnit, serialNo) {
+    document.getElementById('edit_item_id').value = id;
+    document.getElementById('edit_serial_no').value = serialNo || '';
+    document.getElementById('edit_column_name').value = columnName || '';
+    document.getElementById('edit_url').value = url || '';
+    document.getElementById('edit_column_category').value = columnCategory || '';
+    document.getElementById('edit_update_deadline').value = updateDeadline || '';
+    document.getElementById('edit_deadline_days').value = deadlineDays || '';
+    document.getElementById('edit_responsible_unit').value = responsibleUnit || '';
+    
+    // 显示模态框
+    var modal = new bootstrap.Modal(document.getElementById('editItemModal'));
+    modal.show();
+}
 </script>
 </body>
 </html>

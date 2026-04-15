@@ -7596,6 +7596,35 @@ def monitor_library_edit(lib_id):
                 db.session.commit()
                 flash('网址已添加', 'success')
 
+        elif action == 'edit_item':
+            item_id = request.form.get('item_id', type=int)
+            if item_id:
+                item = UrlItem.query.get(item_id)
+                if item and item.library_id == lib.id:
+                    item.serial_no = request.form.get('serial_no', '').strip()
+                    item.column_name = request.form.get('column_name', '').strip()
+                    item.url = request.form.get('url', '').strip()
+                    item.column_category = request.form.get('column_category', '').strip()
+                    item.update_deadline = request.form.get('update_deadline', '').strip()
+                    item.responsible_unit = request.form.get('responsible_unit', '').strip()
+                    
+                    # 处理期限天数
+                    deadline_days_str = request.form.get('deadline_days', '').strip()
+                    deadline_str = request.form.get('update_deadline', '').strip()
+                    
+                    days = None
+                    if deadline_days_str:
+                        try:
+                            days = int(deadline_days_str)
+                        except ValueError:
+                            pass
+                    if days is None and deadline_str:
+                        days = parse_deadline_to_days(deadline_str)
+                    
+                    item.deadline_days = days
+                    db.session.commit()
+                    flash('网址已更新', 'success')
+
         elif action == 'delete_item':
             item_id = request.form.get('item_id', type=int)
             if item_id:
