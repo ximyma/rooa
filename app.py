@@ -58,7 +58,10 @@ def parse_deadline_to_days(deadline_str):
     
     num = float(m.group(1)) if m else 0
     
-    if '年' in deadline_str:
+    if '季度' in deadline_str:
+        # 1季度=90天
+        return int(num * 90) if num > 0 else 90
+    elif '年' in deadline_str:
         # 1年=365天，半年=183天
         if num == 0.5:
             return 183
