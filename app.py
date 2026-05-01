@@ -17,6 +17,7 @@ from models import PerformancePeriod, PerformanceAssessment, WorkLog, WorkLogRev
 from models import Organization, Department, Position
 from models import CrawlerTask, CrawlerPage, CrawlerAttachment
 from models import UrlLibrary, UrlItem, MonitorResult, MonitorLog, MonitorScheduledTask, MonitorSystemLog
+from archive_models import ArchiveFonds, ArchiveCatalog, ArchiveVolume, ArchiveFile
 
 from forms import *
 from utils import *
@@ -277,97 +278,104 @@ def load_user(user_id):
     except (ValueError, TypeError):
         return None
 
-# 初始化数据库和默认管理员
-with app.app_context():
-    db.create_all()
+def initialize_db():
+    """初始化数据库和默认数据"""
+    with app.app_context():
+        db.create_all()
 
-    # 轻量迁移：补齐 crawler_tasks.max_depth 字段（SQLite 不会因 create_all 自动补列）
-    try:
-        crawler_task_columns = {
-            row[1] for row in db.session.execute(db.text("PRAGMA table_info(crawler_tasks)")).fetchall()
-        }
-        if 'max_depth' not in crawler_task_columns:
-            db.session.execute(db.text("ALTER TABLE crawler_tasks ADD COLUMN max_depth INTEGER DEFAULT 3"))
+        # 轻量迁移：补齐 crawler_tasks.max_depth 字段（SQLite 不会因 create_all 自动补列）
+        try:
+            crawler_task_columns = {
+                row[1] for row in db.session.execute(db.text("PRAGMA table_info(crawler_tasks)")).fetchall()
+            }
+            if 'max_depth' not in crawler_task_columns:
+                db.session.execute(db.text("ALTER TABLE crawler_tasks ADD COLUMN max_depth INTEGER DEFAULT 3"))
+                db.session.commit()
+        except Exception:
+            db.session.rollback()
+
+        admin = User.query.filter_by(username='admin').first()
+
+        if not admin:
+            admin = User(
+                username='admin',
+                password=generate_password_hash('admin123'),
+                name='管理员',
+                department='办公室',
+                role='admin',
+                is_reporter=True,
+                is_receiver=True
+            )
+            db.session.add(admin)
             db.session.commit()
-    except Exception:
-        db.session.rollback()
+            # 为管理员创建默认个人知识库
+            personal_kb = KnowledgeBase.query.filter_by(owner_id=admin.id, type='personal').first()
+            if not personal_kb:
+                personal_kb = KnowledgeBase(
+                    name=f"{admin.name}的个人知识库",
+                    type='personal',
+                    owner_id=admin.id,
+                    category='个人文档',
+                    description='个人文档存储空间'
+                )
+                db.session.add(personal_kb)
+                db.session.commit()
 
-    admin = User.query.filter_by(username='admin').first()
-
-    if not admin:
-        admin = User(
-            username='admin',
-            password=generate_password_hash('admin123'),
-            name='管理员',
-            department='办公室',
-            role='admin',
-            is_reporter=True,
-            is_receiver=True
-        )
-        db.session.add(admin)
-        db.session.commit()
-        # 为管理员创建默认个人知识库
-        personal_kb = KnowledgeBase.query.filter_by(owner_id=admin.id, type='personal').first()
-        if not personal_kb:
-            personal_kb = KnowledgeBase(name=f"{admin.name}的个人知识库", type='personal', owner_id=admin.id)
-            db.session.add(personal_kb)
+        # 初始化简报系统默认数据
+        if not BriefingSource.query.first():
+            default_sources = [
+                BriefingSource(name='人民日报', url='http://paper.people.com.cn/rmrb/', source_type='website', category='中央媒体'),
+                BriefingSource(name='新华网', url='http://www.xinhuanet.com/', source_type='website', category='中央媒体'),
+                BriefingSource(name='央视新闻', url='http://www.cctv.com/', source_type='website', category='中央媒体'),
+                BriefingSource(name='中国政府网', url='http://www.gov.cn/', source_type='website', category='政府网站'),
+                BriefingSource(name='光明日报', url='https://www.gmw.cn/', source_type='website', category='中央媒体'),
+            ]
+            for s in default_sources:
+                db.session.add(s)
             db.session.commit()
 
-    # 初始化简报系统默认数据
-    if not BriefingSource.query.first():
-        default_sources = [
-            BriefingSource(name='人民日报', url='http://paper.people.com.cn/rmrb/', source_type='website', category='中央媒体'),
-            BriefingSource(name='新华网', url='http://www.xinhuanet.com/', source_type='website', category='中央媒体'),
-            BriefingSource(name='央视新闻', url='http://www.cctv.com/', source_type='website', category='中央媒体'),
-            BriefingSource(name='中国政府网', url='http://www.gov.cn/', source_type='website', category='政府网站'),
-            BriefingSource(name='光明日报', url='https://www.gmw.cn/', source_type='website', category='中央媒体'),
-        ]
-        for s in default_sources:
-            db.session.add(s)
-        db.session.commit()
+        if not BriefingKeyword.query.first():
+            default_keywords = [
+                BriefingKeyword(text='经济', category='经济', color='#e74c3c'),
+                BriefingKeyword(text='科技', category='科技', color='#3498db'),
+                BriefingKeyword(text='民生', category='民生', color='#2ecc71'),
+                BriefingKeyword(text='教育', category='教育', color='#f39c12'),
+                BriefingKeyword(text='乡村振兴', category='农业', color='#27ae60'),
+                BriefingKeyword(text='改革', category='政策', color='#8e44ad'),
+                BriefingKeyword(text='创新', category='科技', color='#2980b9'),
+            ]
+            for k in default_keywords:
+                db.session.add(k)
+            db.session.commit()
 
-    if not BriefingKeyword.query.first():
-        default_keywords = [
-            BriefingKeyword(text='经济', category='经济', color='#e74c3c'),
-            BriefingKeyword(text='科技', category='科技', color='#3498db'),
-            BriefingKeyword(text='民生', category='民生', color='#2ecc71'),
-            BriefingKeyword(text='教育', category='教育', color='#f39c12'),
-            BriefingKeyword(text='乡村振兴', category='农业', color='#27ae60'),
-            BriefingKeyword(text='改革', category='政策', color='#8e44ad'),
-            BriefingKeyword(text='创新', category='科技', color='#2980b9'),
-        ]
-        for k in default_keywords:
-            db.session.add(k)
-        db.session.commit()
+        # 初始化默认角色
+        if not Role.query.first():
+            default_roles = [
+                Role(name='admin', display_name='系统管理员', description='拥有所有权限', is_system=True,
+                     permissions=json.dumps(['user_manage','role_manage','template_manage',
+                                             'report_view','report_manage','task_manage',
+                                             'knowledge_manage','ai_config','stats_view',
+                                             'operation_log','briefing_manage'], ensure_ascii=False)),
+                Role(name='manager', display_name='部门经理', description='管理本部门事务，可查看统计', is_system=True,
+                     permissions=json.dumps(['report_view','report_manage','task_manage',
+                                             'knowledge_manage','stats_view','briefing_manage'], ensure_ascii=False)),
+                Role(name='reporter', display_name='信息报送员', description='负责信息上报和任务完成', is_system=False,
+                     permissions=json.dumps(['report_view','report_submit','task_view',
+                                             'knowledge_view'], ensure_ascii=False)),
+                Role(name='employee', display_name='普通员工', description='基础功能访问', is_system=False,
+                     permissions=json.dumps(['report_view','knowledge_view'], ensure_ascii=False)),
+            ]
+            for r in default_roles:
+                db.session.add(r)
+            db.session.commit()
 
-    # 初始化默认角色
-    if not Role.query.first():
-        default_roles = [
-            Role(name='admin', display_name='系统管理员', description='拥有所有权限', is_system=True,
-                 permissions=json.dumps(['user_manage','role_manage','template_manage',
-                                         'report_view','report_manage','task_manage',
-                                         'knowledge_manage','ai_config','stats_view',
-                                         'operation_log','briefing_manage'], ensure_ascii=False)),
-            Role(name='manager', display_name='部门经理', description='管理本部门事务，可查看统计', is_system=True,
-                 permissions=json.dumps(['report_view','report_manage','task_manage',
-                                         'knowledge_manage','stats_view','briefing_manage'], ensure_ascii=False)),
-            Role(name='reporter', display_name='信息报送员', description='负责信息上报和任务完成', is_system=False,
-                 permissions=json.dumps(['report_view','report_submit','task_view',
-                                         'knowledge_view'], ensure_ascii=False)),
-            Role(name='employee', display_name='普通员工', description='基础功能访问', is_system=False,
-                 permissions=json.dumps(['report_view','knowledge_view'], ensure_ascii=False)),
-        ]
-        for r in default_roles:
-            db.session.add(r)
-        db.session.commit()
-
-    # 初始化默认公文模板
-    if not DocTemplate.query.first():
-        default_templates = [
-            DocTemplate(name='请示（标准格式）', category='请示', file_type='txt',
-                       description='标准行政请示文件格式',
-                       tags='请示,行政,标准',
-                       content="""【发文机关】
+        # 初始化默认公文模板
+        if not DocTemplate.query.first():
+            default_templates = [
+                DocTemplate(name='请示（标准格式）', category='请示', file_type='txt',
+                           description='标准行政请示文件格式',
+                           tags='请示,行政,标准',
+                           content="""【发文机关】
     XXX单位
 
     关于XXX的请示
@@ -388,10 +396,10 @@ with app.app_context():
 
                                         XXX单位（盖章）
                                         XXXX年XX月XX日"""),
-            DocTemplate(name='报告（工作总结）', category='报告', file_type='txt',
-                       description='工作总结报告格式',
-                       tags='报告,总结,工作',
-                       content="""关于XXXX工作总结报告
+                DocTemplate(name='报告（工作总结）', category='报告', file_type='txt',
+                           description='工作总结报告格式',
+                           tags='报告,总结,工作',
+                           content="""关于XXXX工作总结报告
 
     XXX（上级机关）：
 
@@ -413,10 +421,10 @@ with app.app_context():
 
                                         XXX单位（盖章）
                                         XXXX年XX月XX日"""),
-            DocTemplate(name='通知（标准格式）', category='通知', file_type='txt',
-                       description='行政通知标准格式',
-                       tags='通知,行政',
-                       content="""关于XXXX的通知
+                DocTemplate(name='通知（标准格式）', category='通知', file_type='txt',
+                           description='行政通知标准格式',
+                           tags='通知,行政',
+                           content="""关于XXXX的通知
 
     各有关单位：
 
@@ -438,10 +446,10 @@ with app.app_context():
 
                                         XXX单位（盖章）
                                         XXXX年XX月XX日"""),
-            DocTemplate(name='函（商洽事项）', category='函', file_type='txt',
-                       description='行政函件格式',
-                       tags='函,商洽',
-                       content="""关于XXXX的函
+                DocTemplate(name='函（商洽事项）', category='函', file_type='txt',
+                           description='行政函件格式',
+                           tags='函,商洽',
+                           content="""关于XXXX的函
 
     XXX（对方单位）：
 
@@ -456,10 +464,10 @@ with app.app_context():
 
                                         XXX单位（盖章）
                                         XXXX年XX月XX日"""),
-            DocTemplate(name='会议纪要', category='纪要', file_type='txt',
-                       description='会议纪要标准格式',
-                       tags='会议,纪要',
-                       content="""XXX会议纪要
+                DocTemplate(name='会议纪要', category='纪要', file_type='txt',
+                           description='会议纪要标准格式',
+                           tags='会议,纪要',
+                           content="""XXX会议纪要
 
     会议时间：XXXX年XX月XX日
     会议地点：XXXXXX
@@ -483,78 +491,337 @@ with app.app_context():
     （其他讨论内容）
 
     本纪要经与会人员审阅，如无异议，自发出之日起生效。"""),
-        ]
-        admin_user = User.query.filter_by(username='admin').first()
-        for t in default_templates:
-            if admin_user:
-                t.created_by = admin_user.id
-            db.session.add(t)
-        db.session.commit()
-
-    # 初始化默认组织架构数据
-    if not Organization.query.first():
-        # 创建根机构
-        root_org = Organization(
-            name='智能服务办公平台',
-            short_name='本单位',
-            code='ROOT',
-            org_type='unit',
-            level=1,
-            sort_order=0,
-            description='系统默认根机构'
-        )
-        db.session.add(root_org)
-        db.session.flush()  # 获取 root_org.id
-
-        # 创建默认部门
-        default_depts = [
-            Department(name='办公室', code='OFFICE', org_id=root_org.id, dept_type='functional', sort_order=1, description='综合协调、文件收发、日常行政管理'),
-            Department(name='人事部门', code='HR', org_id=root_org.id, dept_type='functional', sort_order=2, description='人员招聘、考核、培训及薪资管理'),
-            Department(name='财务部门', code='FINANCE', org_id=root_org.id, dept_type='functional', sort_order=3, description='财务管理、预算执行、资产管理'),
-            Department(name='业务部门', code='BUSINESS', org_id=root_org.id, dept_type='business', sort_order=4, description='核心业务开展与管理'),
-            Department(name='信息技术部', code='IT', org_id=root_org.id, dept_type='support', sort_order=5, description='信息化建设与运维'),
-        ]
-        for d in default_depts:
-            db.session.add(d)
-        db.session.flush()
-
-        # 从部门列表取办公室id
-        office_dept = next((d for d in default_depts if d.code == 'OFFICE'), None)
-        hr_dept = next((d for d in default_depts if d.code == 'HR'), None)
-        biz_dept = next((d for d in default_depts if d.code == 'BUSINESS'), None)
-
-        # 创建默认岗位
-        default_positions = []
-        if office_dept:
-            default_positions += [
-                Position(name='系统管理员', code='ADMIN', dept_id=office_dept.id, role_name='admin', level='manager', headcount=1, description='负责系统运维和管理'),
-                Position(name='办公室主任', code='OFFICE_MGR', dept_id=office_dept.id, role_name='manager', level='manager', headcount=1, description='主持办公室全面工作'),
-                Position(name='文秘', code='SECRETARY', dept_id=office_dept.id, role_name='reporter', level='staff', headcount=2, description='负责公文起草、信息报送'),
             ]
-        if hr_dept:
-            default_positions += [
-                Position(name='人事主管', code='HR_MGR', dept_id=hr_dept.id, role_name='manager', level='supervisor', headcount=1, description='负责人事管理工作'),
-                Position(name='人事专员', code='HR_STAFF', dept_id=hr_dept.id, role_name='employee', level='staff', headcount=2, description='日常人事事务处理'),
-            ]
-        if biz_dept:
-            default_positions += [
-                Position(name='业务经理', code='BIZ_MGR', dept_id=biz_dept.id, role_name='manager', level='manager', headcount=1, description='负责业务管理'),
-                Position(name='业务员', code='BIZ_STAFF', dept_id=biz_dept.id, role_name='reporter', level='staff', headcount=5, description='负责具体业务'),
-            ]
-        for p in default_positions:
-            db.session.add(p)
-        db.session.flush()
+            admin_user = User.query.filter_by(username='admin').first()
+            for t in default_templates:
+                if admin_user:
+                    t.created_by = admin_user.id
+                db.session.add(t)
+            db.session.commit()
 
-        # 更新 admin 用户关联到办公室 + 系统管理员岗位
-        admin_u = User.query.filter_by(username='admin').first()
-        if admin_u and office_dept:
-            admin_u.org_id = root_org.id
-            admin_u.dept_id = office_dept.id
-            admin_pos = next((p for p in default_positions if p.code == 'ADMIN'), None)
-            if admin_pos:
-                admin_u.position_id = admin_pos.id
+        # 初始化默认组织架构数据
+        if not Organization.query.first():
+            # 创建根机构
+            root_org = Organization(
+                name='智能服务办公平台',
+                short_name='本单位',
+                code='ROOT',
+                org_type='unit',
+                level=1,
+                sort_order=0,
+                description='系统默认根机构'
+            )
+            db.session.add(root_org)
+            db.session.flush()  # 获取 root_org.id
 
-        db.session.commit()
+            # 创建默认部门
+            default_depts = [
+                Department(name='办公室', code='OFFICE', org_id=root_org.id, dept_type='functional', sort_order=1, description='综合协调、文件收发、日常行政管理'),
+                Department(name='人事部门', code='HR', org_id=root_org.id, dept_type='functional', sort_order=2, description='人员招聘、考核、培训及薪资管理'),
+                Department(name='财务部门', code='FINANCE', org_id=root_org.id, dept_type='functional', sort_order=3, description='财务管理、预算执行、资产管理'),
+                Department(name='业务部门', code='BUSINESS', org_id=root_org.id, dept_type='business', sort_order=4, description='核心业务开展与管理'),
+                Department(name='信息技术部', code='IT', org_id=root_org.id, dept_type='support', sort_order=5, description='信息化建设与运维'),
+            ]
+            for d in default_depts:
+                db.session.add(d)
+            db.session.flush()
+
+            # 从部门列表取办公室id
+            office_dept = next((d for d in default_depts if d.code == 'OFFICE'), None)
+            hr_dept = next((d for d in default_depts if d.code == 'HR'), None)
+            biz_dept = next((d for d in default_depts if d.code == 'BUSINESS'), None)
+
+            # 创建默认岗位
+            default_positions = []
+            if office_dept:
+                default_positions += [
+                    Position(name='系统管理员', code='ADMIN', dept_id=office_dept.id, role_name='admin', level='manager', headcount=1, description='负责系统运维和管理'),
+                    Position(name='办公室主任', code='OFFICE_MGR', dept_id=office_dept.id, role_name='manager', level='manager', headcount=1, description='主持办公室全面工作'),
+                    Position(name='文秘', code='SECRETARY', dept_id=office_dept.id, role_name='reporter', level='staff', headcount=2, description='负责公文起草、信息报送'),
+                ]
+            if hr_dept:
+                default_positions += [
+                    Position(name='人事主管', code='HR_MGR', dept_id=hr_dept.id, role_name='manager', level='supervisor', headcount=1, description='负责人事管理工作'),
+                    Position(name='人事专员', code='HR_STAFF', dept_id=hr_dept.id, role_name='employee', level='staff', headcount=2, description='日常人事事务处理'),
+                ]
+            if biz_dept:
+                default_positions += [
+                    Position(name='业务经理', code='BIZ_MGR', dept_id=biz_dept.id, role_name='manager', level='manager', headcount=1, description='负责业务管理'),
+                    Position(name='业务员', code='BIZ_STAFF', dept_id=biz_dept.id, role_name='reporter', level='staff', headcount=5, description='负责具体业务'),
+                ]
+            for p in default_positions:
+                db.session.add(p)
+            db.session.flush()
+
+            # 更新 admin 用户关联到办公室 + 系统管理员岗位
+            admin_u = User.query.filter_by(username='admin').first()
+            if admin_u and office_dept:
+                admin_u.org_id = root_org.id
+                admin_u.dept_id = office_dept.id
+                admin_pos = next((p for p in default_positions if p.code == 'ADMIN'), None)
+                if admin_pos:
+                    admin_u.position_id = admin_pos.id
+
+            db.session.commit()
+
+        # 初始化会议室
+        from models import MeetingRoom
+        if not MeetingRoom.query.first():
+            default_rooms = [
+                MeetingRoom(
+                    name='第一会议室',
+                    location='3楼301',
+                    capacity=20,
+                    equipment='投影仪、白板、视频会议系统',
+                    manager_id=admin.id if admin else None,
+                    status='available',
+                    remark='主会议室'
+                ),
+                MeetingRoom(
+                    name='第二会议室',
+                    location='3楼302',
+                    capacity=10,
+                    equipment='投影仪、白板',
+                    manager_id=admin.id if admin else None,
+                    status='available',
+                    remark='小会议室'
+                ),
+                MeetingRoom(
+                    name='多功能厅',
+                    location='4楼401',
+                    capacity=50,
+                    equipment='投影仪、音响、舞台',
+                    manager_id=admin.id if admin else None,
+                    status='available',
+                    remark='大型会议'
+                ),
+                MeetingRoom(
+                    name='视频会议室',
+                    location='4楼402',
+                    capacity=15,
+                    equipment='视频会议系统、投影仪',
+                    manager_id=admin.id if admin else None,
+                    status='available',
+                    remark='远程会议专用'
+                ),
+            ]
+            for room in default_rooms:
+                db.session.add(room)
+            db.session.commit()
+
+        # 初始化档案数据
+        import random
+        if not ArchiveFonds.query.first():
+            # 创建全宗
+            fonds = ArchiveFonds(
+                fonds_code='DATIAN',
+                fonds_name='达天科技有限公司',
+                fonds_type='企业',
+                description='达天科技企业档案全宗',
+                total_volumes=0,
+                total_files=0,
+                is_active=True
+            )
+            db.session.add(fonds)
+            db.session.flush()
+            
+            # 创建目录
+            catalogs = []
+            catalog_names = [
+                ('WL', '文书档案', '30年'),
+                ('KJ', '科技档案', '永久'),
+                ('KUAI', '会计档案', '30年'),
+                ('RS', '人事档案', '永久'),
+                ('HT', '合同档案', '30年'),
+            ]
+            for code, name, retention in catalog_names:
+                cat = ArchiveCatalog(
+                    fonds_id=fonds.id,
+                    catalog_code=code,
+                    catalog_name=name,
+                    retention_period=retention
+                )
+                catalogs.append(cat)
+                db.session.add(cat)
+            db.session.flush()
+            
+            # 为文书档案创建年度子目录
+            wl_catalog = catalogs[0]
+            for year in [2022, 2023, 2024]:
+                sub_cat = ArchiveCatalog(
+                    fonds_id=fonds.id,
+                    catalog_code=f'WL-{year}',
+                    catalog_name=f'{year}年度文书',
+                    parent_id=wl_catalog.id,
+                    retention_period='30年'
+                )
+                db.session.add(sub_cat)
+            db.session.flush()
+            
+            # 创建案卷
+            volumes = []
+            vol_titles = ['综合管理类', '人事劳资类', '财务会计类', '市场营销类', '技术研发类']
+            for i, title in enumerate(vol_titles):
+                vol = ArchiveVolume(
+                    fonds_id=fonds.id,
+                    catalog_id=catalogs[0].id,
+                    volume_code=f'2024-{str(i+1).zfill(3)}',
+                    volume_title=f'{title}第{i+1}卷',
+                    volume_year=2024,
+                    retention_period='30年',
+                    security_level='公开',
+                    responsibility='达天科技综合管理部',
+                    storage_location=f'A-{str(random.randint(1,5)).zfill(2)}-{str(random.randint(1,20)).zfill(2)}'
+                )
+                volumes.append(vol)
+                db.session.add(vol)
+            db.session.flush()
+            
+            # 创建示例档案
+            archive_titles = [
+                '关于2024年度工作总结的通知',
+                '关于表彰先进的报告',
+                '关于人员招聘的请示',
+                '设备采购合同',
+                '场地租赁协议',
+                '关于加强安全管理的通知',
+                '年度财务审计报告',
+                '新产品研发立项报告',
+                '员工绩效考核办法',
+                '办公室管理规定',
+            ]
+            keywords_list = [
+                '通知,总结,年度',
+                '表彰,先进,报告',
+                '招聘,人员,请示',
+                '设备,采购,合同',
+                '场地,租赁,协议',
+                '安全,管理,通知',
+                '财务,审计,报告',
+                '研发,立项,产品',
+                '绩效,考核,员工',
+                '办公,管理,规定',
+            ]
+            
+            from datetime import date
+            for i, (title, keywords) in enumerate(zip(archive_titles, keywords_list)):
+                year = random.choice([2022, 2023, 2024])
+                file_date = date(year, random.randint(1, 12), random.randint(1, 28))
+                
+                archive_file = ArchiveFile(
+                    fonds_id=fonds.id,
+                    catalog_id=catalogs[0].id,
+                    volume_id=random.choice(volumes).id if random.random() > 0.3 else None,
+                    file_code=f'{year}-{str(i+1).zfill(4)}',
+                    title=title,
+                    responsibility='达天科技综合管理部',
+                    file_date=file_date,
+                    file_year=year,
+                    retention_period=random.choice(['永久', '30年', '10年']),
+                    security_level=random.choice(['公开', '内部']),
+                    archive_type=random.choice(['通知', '报告', '请示', '合同', '制度']),
+                    page_count=random.randint(1, 50),
+                    keywords=keywords,
+                    content_text=f'这是{title}的正文内容...',
+                    summary=f'{title}的主要内容摘要...',
+                    is_digitized=True,
+                    status='active'
+                )
+                db.session.add(archive_file)
+            
+            db.session.commit()
+            
+            # 更新统计
+            fonds.total_volumes = ArchiveVolume.query.filter_by(fonds_id=fonds.id).count()
+            fonds.total_files = ArchiveFile.query.filter_by(fonds_id=fonds.id).count()
+            db.session.commit()
+
+        # 初始化系统配置
+        from models import SystemConfig
+        if SystemConfig.query.count() == 0:
+            configs_to_create = []
+            
+            configs_to_create.append({
+                'config_key': 'system_name',
+                'config_value': '智能服务办公平台',
+                'config_type': 'string',
+                'category': 'system',
+                'description': '系统名称',
+                'is_public': True,
+                'sort_order': 1
+            })
+            configs_to_create.append({
+                'config_key': 'kb_max_file_size',
+                'config_value': '104857600',
+                'config_type': 'integer',
+                'category': 'knowledge',
+                'description': '知识库最大文件大小(字节)',
+                'is_public': True,
+                'sort_order': 10
+            })
+            configs_to_create.append({
+                'config_key': 'kb_auto_extract',
+                'config_value': 'true',
+                'config_type': 'boolean',
+                'category': 'knowledge',
+                'description': '是否自动提取文件内容',
+                'is_public': True,
+                'sort_order': 11
+            })
+            configs_to_create.append({
+                'config_key': 'ai_default_model',
+                'config_value': 'deepseek',
+                'config_type': 'string',
+                'category': 'ai',
+                'description': '默认AI模型',
+                'is_public': True,
+                'sort_order': 20
+            })
+            configs_to_create.append({
+                'config_key': 'ai_temperature',
+                'config_value': '0.7',
+                'config_type': 'float',
+                'category': 'ai',
+                'description': 'AI温度参数',
+                'is_public': True,
+                'sort_order': 21
+            })
+            configs_to_create.append({
+                'config_key': 'upload_allowed_types',
+                'config_value': 'pdf,doc,docx,xls,xlsx,ppt,pptx,txt,jpg,jpeg,png,gif',
+                'config_type': 'string',
+                'category': 'upload',
+                'description': '允许上传的文件类型',
+                'is_public': True,
+                'sort_order': 30
+            })
+            configs_to_create.append({
+                'config_key': 'security_password_min_length',
+                'config_value': '6',
+                'config_type': 'integer',
+                'category': 'security',
+                'description': '密码最小长度',
+                'is_public': False,
+                'sort_order': 40
+            })
+            configs_to_create.append({
+                'config_key': 'security_session_timeout',
+                'config_value': '1800',
+                'config_type': 'integer',
+                'category': 'security',
+                'description': '会话超时时间(秒)',
+                'is_public': False,
+                'sort_order': 41
+            })
+            
+            admin_user = User.query.filter_by(username='admin').first()
+            for config_data in configs_to_create:
+                config = SystemConfig(
+                    **config_data,
+                    updated_by=admin_user.id if admin_user else None
+                )
+                db.session.add(config)
+            db.session.commit()
 
 
 # ==================== 登录与主页 ====================
@@ -8202,10 +8469,13 @@ def archive_statistics():
 
 
 if __name__ == '__main__':
-    # DEBUG 模式：从环境变量读取，默认关闭（公网访问时不暴露调试信息）
+    # 初始化数据库和默认数据
+    initialize_db()
+    
+    # DEBUG 模式：从环境变量读取，默认关闭
     debug_mode = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
-    # HOST：0.0.0.0 监听所有网络接口，允许公网访问
-    host = os.environ.get('FLASK_HOST', '0.0.0.0')
+    # HOST：127.0.0.1 仅监听本机，测试版不允许网络访问
+    host = os.environ.get('FLASK_HOST', '127.0.0.1')
     # PORT：默认 5000，可通过环境变量覆盖
     port = int(os.environ.get('FLASK_PORT', 5000))
     app.run(host=host, port=port, debug=debug_mode)

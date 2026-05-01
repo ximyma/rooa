@@ -1,4 +1,5 @@
 import os
+import sys
 import secrets
 from pathlib import Path
 
@@ -7,12 +8,18 @@ class Config:
     # 安全密钥 - 必须使用固定值，否则每次重启session失效，CSRF报错
     SECRET_KEY = 'ooa-secret-key-2026-fixed-do-not-change'
     
-    # 数据库配置
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///oa.db'
+    # 数据库配置 - 使用绝对路径，确保路径一致
+    BASE_DIR = Path(__file__).resolve().parent
+    # 检查是否是打包后运行
+    if getattr(sys, 'frozen', False):
+        BASE_DIR = Path(sys.executable).parent
+    # 数据库文件放在应用目录下
+    DB_PATH = BASE_DIR / 'oa.db'
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or f'sqlite:///{DB_PATH.as_posix()}'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # 上传文件配置
-    BASE_DIR = Path(__file__).resolve().parent
+    UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
     UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
     MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', 1024 * 1024 * 1024))  # 默认 1GB
     
