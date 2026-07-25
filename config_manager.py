@@ -44,7 +44,8 @@ DEFAULT_CONFIG = {
         "max_preview_length": 100000,  # 预览页面最大字符数
         "max_ai_sample_length": 5000,  # AI分析使用最大字符数
         "max_file_preview_length": 50000,  # 文件预览最大字符数
-        "max_upload_size_mb": 1024  # 最大上传文件大小(MB)
+        "max_upload_size_mb": 1024,  # 最大上传文件大小(MB)
+        "libreoffice_path": ""  # LibreOffice soffice.exe 路径，为空则自动查找
     }
 }
 

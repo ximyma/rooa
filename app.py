@@ -33,6 +33,45 @@ import time
 import uuid
 import threading
 
+# ===== 登录暴力破解防护 =====
+_login_attempts = {}  # {ip_or_username: [timestamp, ...]}
+_login_lock = threading.Lock()
+_LOGIN_MAX_ATTEMPTS = 5      # 最大尝试次数
+_LOGIN_WINDOW_SECONDS = 60   # 计数窗口(秒)
+_LOGIN_LOCKOUT_SECONDS = 300 # 锁定时间(秒)
+
+def _check_login_rate(username, ip):
+    """检查登录频率，返回 (allowed: bool, wait_seconds: int)"""
+    key = f"{ip}:{username}"
+    now = time.time()
+    with _login_lock:
+        attempts = _login_attempts.get(key, [])
+        # 清理过期记录
+        attempts = [t for t in attempts if now - t < _LOGIN_WINDOW_SECONDS]
+        # 检查是否被锁定
+        if len(attempts) >= _LOGIN_MAX_ATTEMPTS:
+            if now - attempts[0] < _LOGIN_LOCKOUT_SECONDS:
+                wait = int(_LOGIN_LOCKOUT_SECONDS - (now - attempts[0]))
+                return False, wait
+        _login_attempts[key] = attempts
+        return True, 0
+
+def _record_login_attempt(username, ip):
+    """记录登录尝试"""
+    key = f"{ip}:{username}"
+    now = time.time()
+    with _login_lock:
+        attempts = _login_attempts.get(key, [])
+        attempts = [t for t in attempts if now - t < _LOGIN_WINDOW_SECONDS]
+        attempts.append(now)
+        _login_attempts[key] = attempts
+
+def _clear_login_attempts(username, ip):
+    """登录成功后清除尝试记录"""
+    key = f"{ip}:{username}"
+    with _login_lock:
+        _login_attempts.pop(key, None)
+
 
 def parse_deadline_to_days(deadline_str):
     """将期限文字解析为天数"""
@@ -297,9 +336,14 @@ def initialize_db():
         admin = User.query.filter_by(username='admin').first()
 
         if not admin:
+            import secrets
+            import string
+            initial_password = os.environ.get('ADMIN_INITIAL_PASSWORD') or ''.join(
+                secrets.choice(string.ascii_letters + string.digits) for _ in range(16)
+            )
             admin = User(
                 username='admin',
-                password=generate_password_hash('admin123'),
+                password=generate_password_hash(initial_password),
                 name='管理员',
                 department='办公室',
                 role='admin',
@@ -308,6 +352,12 @@ def initialize_db():
             )
             db.session.add(admin)
             db.session.commit()
+            print(f"\n{'='*60}")
+            print(f"  管理员账号已创建")
+            print(f"  用户名: admin")
+            print(f"  初始密码: {initial_password}")
+            print(f"  请登录后立即修改密码！")
+            print(f"{'='*60}\n")
             # 为管理员创建默认个人知识库
             personal_kb = KnowledgeBase.query.filter_by(owner_id=admin.id, type='personal').first()
             if not personal_kb:
@@ -823,6 +873,12 @@ def initialize_db():
                 db.session.add(config)
             db.session.commit()
 
+        # 预构建 FTS 全文索引（避免首次搜索延迟）
+        try:
+            _ensure_fts()
+        except Exception:
+            pass
+
 
 # ==================== 登录与主页 ====================
 @app.route('/login', methods=['GET', 'POST'])
@@ -834,9 +890,21 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
+        client_ip = request.remote_addr or 'unknown'
+
+        # 登录频率检查
+        allowed, wait = _check_login_rate(username, client_ip)
+        if not allowed:
+            mins = wait // 60
+            secs = wait % 60
+            flash(f'登录尝试过于频繁，请在 {mins}分{secs}秒 后重试')
+            return render_template('login.html')
+
+        _record_login_attempt(username, client_ip)
 
         user = User.query.filter_by(username=username).first()
         if user and check_password_hash(user.password, password):
+            _clear_login_attempts(username, client_ip)
             login_user(user)
             session.permanent = True
             next_page = request.args.get('next')
@@ -911,10 +979,27 @@ def personal_center():
 @app.route('/personal_center/update', methods=['POST'])
 @login_required
 def update_personal_center():
-    current_user.name = request.form.get('name')
-    current_user.department = request.form.get('department')
-    current_user.phone = request.form.get('phone')
-    current_user.email = request.form.get('email')   # 新增邮箱
+    name = request.form.get('name', '').strip()
+    phone = request.form.get('phone', '').strip()
+    email = request.form.get('email', '').strip()
+    department = request.form.get('department', '').strip()
+
+    # 输入验证
+    if name and len(name) > 80:
+        flash('姓名长度不能超过80个字符')
+        return redirect(url_for('personal_center'))
+    if email and not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email):
+        flash('邮箱格式不正确')
+        return redirect(url_for('personal_center'))
+    if phone and not re.match(r'^[\d\-+\s()]{7,20}$', phone):
+        flash('电话号码格式不正确')
+        return redirect(url_for('personal_center'))
+
+    if name:
+        current_user.name = name
+    current_user.department = department
+    current_user.phone = phone
+    current_user.email = email
     db.session.commit()
     flash('信息更新成功')
     return redirect(url_for('personal_center'))
@@ -967,7 +1052,6 @@ def change_password():
 
 @app.route('/smart_office/document_writing', methods=['GET', 'POST'])
 @login_required
-@csrf.exempt
 def document_writing():
     if request.method == 'POST':
         # 处理AJAX请求
@@ -1001,7 +1085,6 @@ def document_writing():
 
 @app.route('/smart_office/document_polish', methods=['GET', 'POST'])
 @login_required
-@csrf.exempt
 def document_polish():
     if request.method == 'POST':
         data = request.get_json()
@@ -1032,7 +1115,6 @@ def document_polish():
 
 @app.route('/smart_office/document_proofread', methods=['GET', 'POST'])
 @login_required
-@csrf.exempt
 def document_proofread():
     if request.method == 'POST':
         # 文件上传处理
@@ -1082,7 +1164,6 @@ def document_proofread():
 
 @app.route('/smart_office/suggestion', methods=['GET', 'POST'])
 @login_required
-@csrf.exempt
 def suggestion():
     if request.method == 'POST':
         file = request.files.get('file')
@@ -1135,7 +1216,6 @@ def template_library():
 
 @app.route('/smart_office/meeting_minutes', methods=['GET', 'POST'])
 @login_required
-@csrf.exempt
 def meeting_minutes():
     if request.method == 'POST':
         audio = request.files.get('audio')
@@ -1172,8 +1252,8 @@ def meeting_minutes():
                                 knowledge_context += f"\n【文件：{f.original_name}】\n{content[:max_length]}...\n"
                             else:
                                 knowledge_context += f"\n【文件：{f.original_name}】\n{content}\n"
-                    except:
-                        pass
+                    except Exception as e:
+                        logger.warning(f"读取知识库文件失败: {f.file_path}, {e}")
 
         prompt = f"请根据以下录音转写内容，使用{template}模板生成会议纪要：\n{text}"
         answer = generate_ai_response(model_config, prompt, knowledge_context)
@@ -1189,12 +1269,19 @@ def meeting_minutes():
 # 文档转换全局状态
 # ============================================================
 doc_convert_tasks = {}   # task_id -> {status, progress, message, result, error, started_at}
+_doc_convert_lock = threading.Lock()  # 保护 doc_convert_tasks 的线程安全锁
 # ============================================================
 # 文档转换 - 基于 transdoc9.py 的 LibreOffice 方案
 # ============================================================
 
 def _find_soffice():
     """查找 LibreOffice 可执行文件路径"""
+    # 优先从系统配置读取
+    from config_manager import config_manager
+    custom_path = os.environ.get('SOFFICE_PATH') or config_manager.get('document.libreoffice_path', '')
+    if custom_path and os.path.exists(custom_path):
+        return custom_path
+
     paths = [
         "C:\\Program Files\\LibreOffice\\program\\soffice.exe",
         "C:\\Program Files (x86)\\LibreOffice\\program\\soffice.exe",
@@ -1303,13 +1390,12 @@ def _do_convert(input_file, output_format, output_dir):
         # 9. 清理工作目录
         try:
             shutil.rmtree(work_dir, ignore_errors=True)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"清理临时目录失败: {work_dir}, {e}")
 
 
 @app.route('/smart_office/pdf_convert', methods=['GET', 'POST'])
 @login_required
-@csrf.exempt
 def pdf_convert():
     """
     文档全格式转换 - 基于 LibreOffice headless
@@ -1394,8 +1480,8 @@ def pdf_convert():
                     # 清理上传文件
                     try:
                         os.remove(input_path)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug(f"清理文件失败: {input_path}, {e}")
 
                     success_file = output_filename
                     download_url = '/' + final_path.replace('\\', '/')
@@ -1590,6 +1676,7 @@ def _search_knowledge_like(keyword, kb_type=None, file_type=None, kb_ids=None,
     pattern = f"%{keyword.strip()}%"
 
     query = KnowledgeFile.query.join(KnowledgeBase, KnowledgeBase.id == KnowledgeFile.knowledge_base_id)
+    query = query.options(db.contains_eager(KnowledgeFile.knowledge_base))
     query = query.filter(KnowledgeFile.status == 'approved')
 
     if kb_type and kb_type != 'all':
@@ -1755,8 +1842,8 @@ def search_knowledge_fts(keyword, kb_type=None, file_type=None, kb_ids=None,
                         clean_name = re.sub(r'\.[a-z]{2,4}$', '', clean_name, flags=re.IGNORECASE)
                         if clean_name and len(clean_name) > 2:
                             title = clean_name
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"搜索结果显示-清理文件名失败: file_id={row.file_id}, {e}")
             
             # 高亮搜索词
             for term in terms:
@@ -1794,7 +1881,6 @@ def search_knowledge_fts(keyword, kb_type=None, file_type=None, kb_ids=None,
 # ===== P0: 知识库搜索 API =====
 @app.route('/knowledge/api/search', methods=['POST'])
 @login_required
-@csrf.exempt
 def knowledge_api_search():
     """全文搜索 API"""
     data = request.get_json(silent=True) or {}
@@ -1932,7 +2018,6 @@ def knowledge_preview(file_id):
 # ===== P1: 收藏功能 =====
 @app.route('/knowledge/favorite/<int:file_id>', methods=['POST'])
 @login_required
-@csrf.exempt
 def toggle_favorite(file_id):
     """收藏 / 取消收藏"""
     kf = KnowledgeFile.query.get_or_404(file_id)
@@ -1952,7 +2037,6 @@ def toggle_favorite(file_id):
 
 @app.route('/knowledge/favorite/by_fav_id/<int:fav_id>', methods=['POST'])
 @login_required
-@csrf.exempt
 def remove_favorite_by_id(fav_id):
     """根据收藏ID删除收藏记录"""
     fav = KnowledgeFavorite.query.get_or_404(fav_id)
@@ -1994,7 +2078,6 @@ def knowledge_recent():
 # ===== P1: AI 自动生成摘要和标签 =====
 @app.route('/knowledge/api/auto_tags', methods=['POST'])
 @login_required
-@csrf.exempt
 def auto_generate_tags():
     """AI 自动为文件生成摘要和标签"""
     data = request.get_json() or {}
@@ -2227,7 +2310,6 @@ def edit_personal_kb(kb_id):
 # 删除个人知识库
 @app.route('/knowledge/personal/delete/<int:kb_id>', methods=['POST'])
 @login_required
-@csrf.exempt
 def delete_personal_kb(kb_id):
     """删除个人知识库"""
     kb = KnowledgeBase.query.filter_by(id=kb_id, owner_id=current_user.id, type='personal').first()
@@ -2251,7 +2333,6 @@ def delete_personal_kb(kb_id):
 # 个人知识库分享/取消分享
 @app.route('/knowledge/personal/share/<int:kb_id>', methods=['POST'])
 @login_required
-@csrf.exempt
 def share_personal_kb(kb_id):
     """个人知识库转为共享知识库"""
     kb = KnowledgeBase.query.filter_by(id=kb_id, owner_id=current_user.id, type='personal').first()
@@ -2271,7 +2352,6 @@ def share_personal_kb(kb_id):
 # 取消分享共享知识库（转为个人知识库）
 @app.route('/knowledge/shared/unshare/<int:kb_id>', methods=['POST'])
 @login_required
-@csrf.exempt
 def unshare_kb(kb_id):
     """共享知识库转为个人知识库"""
     # 检查权限：只有创建者或管理员可以取消分享
@@ -2333,7 +2413,6 @@ def personal_upload():
 
 @app.route('/knowledge/api/batch_upload', methods=['POST'])
 @login_required
-@csrf.exempt
 def knowledge_batch_upload():
     """
     智能批量上传 API
@@ -2416,7 +2495,6 @@ def knowledge_batch_upload():
 
 @app.route('/knowledge/api/analyze', methods=['POST'])
 @login_required
-@csrf.exempt
 def knowledge_analyze_file():
     """
     分析文件内容，返回智能元数据（不上传）
@@ -2460,7 +2538,6 @@ def knowledge_analyze_file():
 
 @app.route('/knowledge/api/smart_search', methods=['POST'])
 @login_required
-@csrf.exempt
 def knowledge_smart_search():
     """
     智能检索 API
@@ -2557,7 +2634,6 @@ def shared_knowledge_base():
 
 @app.route('/knowledge/shared/delete/<int:kb_id>', methods=['POST'])
 @login_required
-@csrf.exempt
 def delete_shared_kb(kb_id):
     """删除共享知识库（管理员或创建者）"""
     kb = KnowledgeBase.query.get_or_404(kb_id)
@@ -2743,25 +2819,19 @@ def policy_upload(kb_id):
 @app.route('/download/<path:filepath>')
 @login_required
 def download_file(filepath):
-    # 安全：验证文件路径，防止路径遍历攻击
-    from werkzeug.utils import secure_filename
-    secure_name = secure_filename(filepath)
-    if '..' in secure_name or secure_name.startswith('/'):
-        flash('非法的文件路径')
-        return redirect(url_for('index'))
-    
-    full_path = os.path.join(app.config['UPLOAD_FOLDER'], secure_name)
-    if not os.path.exists(full_path) or not os.path.isfile(full_path):
+    # 安全：使用 safe_join 防止路径遍历攻击
+    from werkzeug.utils import safe_join
+    safe_path = safe_join(app.config['UPLOAD_FOLDER'], filepath)
+    if not safe_path or not os.path.isfile(safe_path):
         flash('文件不存在')
         return redirect(url_for('index'))
     
-    return send_from_directory(app.config['UPLOAD_FOLDER'], secure_name, as_attachment=True)
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filepath, as_attachment=True)
 
 
 
 @app.route('/qa/knowledge_search', methods=['GET', 'POST'])
 @login_required
-@csrf.exempt
 def knowledge_search():
     if request.method == 'POST':
         selected_kbs = [int(k) for k in request.form.getlist('knowledge_bases') if str(k).isdigit()]
@@ -2796,7 +2866,6 @@ def knowledge_search():
 
 @app.route('/qa/policy_search', methods=['GET', 'POST'])
 @login_required
-@csrf.exempt
 def policy_search():
     if request.method == 'POST':
         question = request.form.get('question')
@@ -3356,8 +3425,9 @@ def _log_op(module, action, target='', detail=''):
         )
         db.session.add(log)
         db.session.commit()
-    except Exception:
-        pass
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"使用统计记录失败: module={module}, action={action}, {e}")
 
 def _track_usage(module, action):
     """记录功能使用统计"""
@@ -3370,11 +3440,12 @@ def _track_usage(module, action):
             stat = SystemUsageStat(stat_date=today, module=module, action=action, count=1, user_count=1)
             db.session.add(stat)
         db.session.commit()
-    except Exception:
+    except Exception as e:
         try:
             db.session.rollback()
         except Exception:
             pass
+        logger.warning(f"使用统计聚合失败: module={module}, action={action}, {e}")
 
 
 @app.route('/admin/roles')
@@ -4302,7 +4373,6 @@ def admin_org_tree():
 # ---------- API：获取部门下的岗位（动态联动） ----------
 @app.route('/admin/api/positions_by_dept')
 @login_required
-@csrf.exempt
 def api_positions_by_dept():
     dept_id = request.args.get('dept_id', type=int)
     if not dept_id:
@@ -4313,7 +4383,6 @@ def api_positions_by_dept():
 # ---------- API：获取部门下的用户（公文收发联动） ----------
 @app.route('/admin/api/users_by_dept')
 @login_required
-@csrf.exempt
 def api_users_by_dept():
     dept_id = request.args.get('dept_id', type=int)
     if not dept_id:
@@ -4335,8 +4404,8 @@ def page_not_found(e):
 def internal_server_error(e):
     try:
         db.session.rollback()
-    except Exception:
-        pass
+    except Exception as rollback_err:
+        logger.error(f"500错误处理中回滚失败: {rollback_err}")
     return render_template('500.html'), 500
 
 # ==================== AI 模型配置管理 ====================
@@ -4416,7 +4485,6 @@ def ai_config_delete(config_id):
 # ==================== 增强的AI对话 ====================
 @app.route('/qa/ai_chat', methods=['GET', 'POST'])
 @login_required
-@csrf.exempt
 def ai_chat():
     # 获取所有已激活的模型配置
     models = AIModelConfig.query.filter_by(is_active=True).all()
@@ -4557,7 +4625,6 @@ def ai_chat():
 
 @app.route('/chat/session/delete/<int:session_id>', methods=['POST'])
 @login_required
-@csrf.exempt
 def delete_session(session_id):
     session = ChatSession.query.get_or_404(session_id)
     if session.user_id == current_user.id:
@@ -4661,7 +4728,6 @@ def briefing_settings():
 
 @app.route('/briefing/api/generate', methods=['POST'])
 @login_required
-@csrf.exempt
 def briefing_generate():
     """生成简报"""
     try:
@@ -4776,7 +4842,6 @@ def get_briefing_sources():
 
 @app.route('/briefing/api/sources', methods=['POST'])
 @login_required
-@csrf.exempt
 def add_briefing_source():
     try:
         data = request.json
@@ -4796,7 +4861,6 @@ def add_briefing_source():
 
 @app.route('/briefing/api/sources/<int:id>', methods=['GET', 'PUT', 'DELETE'])
 @login_required
-@csrf.exempt
 def handle_briefing_source(id):
     source = BriefingSource.query.get_or_404(id)
     
@@ -4823,7 +4887,6 @@ def handle_briefing_source(id):
 
 @app.route('/briefing/api/sources/toggle/<int:id>', methods=['POST'])
 @login_required
-@csrf.exempt
 def toggle_briefing_source(id):
     source = BriefingSource.query.get_or_404(id)
     source.is_active = not source.is_active
@@ -4842,7 +4905,6 @@ def get_briefing_keywords():
 
 @app.route('/briefing/api/keywords', methods=['POST'])
 @login_required
-@csrf.exempt
 def add_briefing_keyword():
     try:
         data = request.json
@@ -4866,7 +4928,6 @@ def add_briefing_keyword():
 
 @app.route('/briefing/api/keywords/<int:id>', methods=['GET', 'PUT', 'DELETE'])
 @login_required
-@csrf.exempt
 def handle_briefing_keyword(id):
     keyword = BriefingKeyword.query.get_or_404(id)
     
@@ -4896,7 +4957,6 @@ def handle_briefing_keyword(id):
 
 @app.route('/briefing/api/schedule', methods=['POST'])
 @login_required
-@csrf.exempt
 def create_briefing_schedule():
     """创建简报定时任务"""
     try:
@@ -4918,7 +4978,6 @@ def create_briefing_schedule():
 
 @app.route('/briefing/api/task/<int:id>', methods=['DELETE'])
 @login_required
-@csrf.exempt
 def delete_briefing_schedule(id):
     """删除简报定时任务"""
     task = BriefingScheduledTask.query.get_or_404(id)
@@ -4991,7 +5050,6 @@ def get_all_briefings():
 
 @app.route('/briefing/api/briefing/<task_id>', methods=['DELETE'])
 @login_required
-@csrf.exempt
 def delete_briefing(task_id):
     """删除简报"""
     briefing = Briefing.query.filter_by(task_id=task_id).first()
@@ -5107,8 +5165,8 @@ def briefing_task_worker():
                                             'source_name': item['source_name'],
                                             'keyword': matched_kw
                                         })
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logger.warning(f"简报文章提取失败: source={source_name}, {e}")
 
                     # 阶段3: 保存结果
                     briefing_task_status[task_id] = {'progress': 95, 'message': '正在生成文档...'}
@@ -7392,7 +7450,6 @@ def doc_attachment(filename):
 # ============================================================
 @app.route('/crawler')
 @login_required
-@csrf.exempt
 def crawler_index():
     """爬虫管理首页"""
     from models import CrawlerTask, CrawlerPage
@@ -7407,7 +7464,6 @@ def crawler_index():
 
 @app.route('/crawler/task/new', methods=['GET', 'POST'])
 @login_required
-@csrf.exempt
 def crawler_task_new():
     """新建爬虫任务"""
     from models import CrawlerTask
@@ -7451,7 +7507,6 @@ def crawler_task_new():
 
 @app.route('/crawler/task/edit/<int:tid>', methods=['GET', 'POST'])
 @login_required
-@csrf.exempt
 def crawler_task_edit(tid):
     """编辑爬虫任务"""
     from models import CrawlerTask
@@ -7493,7 +7548,6 @@ def crawler_task_edit(tid):
 
 @app.route('/crawler/task/<int:tid>/action', methods=['POST'])
 @login_required
-@csrf.exempt
 def crawler_task_action(tid):
     """控制爬虫任务：start/pause/resume/stop"""
     from models import CrawlerTask
@@ -7553,7 +7607,6 @@ def crawler_task_action(tid):
 
 @app.route('/crawler/pages/<int:tid>')
 @login_required
-@csrf.exempt
 def crawler_pages(tid):
     """查看任务爬取的页面"""
     from models import CrawlerTask, CrawlerPage
@@ -7581,7 +7634,6 @@ def crawler_page_detail(pid):
 
 @app.route('/crawler/search', methods=['GET', 'POST'])
 @login_required
-@csrf.exempt
 def crawler_search():
     """关键词搜索"""
     from models import CrawlerTask, CrawlerPage
@@ -7613,7 +7665,6 @@ def crawler_search():
 
 @app.route('/crawler/advanced_search', methods=['GET', 'POST'])
 @login_required
-@csrf.exempt
 def crawler_advanced_search():
     """高级检索"""
     from models import CrawlerTask, CrawlerPage
@@ -7658,7 +7709,6 @@ def crawler_advanced_search():
 
 @app.route('/crawler/api/progress/<int:tid>')
 @login_required
-@csrf.exempt
 def crawler_progress(tid):
     """实时进度 SSE"""
     from models import CrawlerTask, CrawlerPage
@@ -7697,7 +7747,6 @@ def crawler_progress(tid):
 # ============================================================
 @app.route('/monitor')
 @login_required
-@csrf.exempt
 def monitor_index():
     """栏目监测首页"""
     from models import UrlLibrary, MonitorResult
@@ -7717,7 +7766,6 @@ def monitor_index():
 
 @app.route('/monitor/library/new', methods=['GET', 'POST'])
 @login_required
-@csrf.exempt
 def monitor_library_new():
     """新建网址库"""
     from models import UrlLibrary, UrlItem
@@ -7741,7 +7789,6 @@ def monitor_library_new():
 
 @app.route('/monitor/library/edit/<int:lib_id>', methods=['GET', 'POST'])
 @login_required
-@csrf.exempt
 def monitor_library_edit(lib_id):
     """编辑网址库"""
     from models import UrlLibrary, UrlItem
@@ -7800,8 +7847,8 @@ def monitor_library_edit(lib_id):
                         if deadline_days_val and deadline_days_val != 'nan':
                             try:
                                 days = int(float(deadline_days_val))
-                            except:
-                                pass
+                            except (ValueError, TypeError) as e:
+                                logger.debug(f"解析期限天数失败: {deadline_days_val}, {e}")
                         
                         # 如果期限天数没有，从期限文字解析
                         if days is None and deadline_str and deadline_str != 'nan':
@@ -7913,7 +7960,6 @@ def monitor_library_edit(lib_id):
 
 @app.route('/monitor/library/delete/<int:lib_id>', methods=['POST'])
 @login_required
-@csrf.exempt
 def monitor_library_delete(lib_id):
     """删除网址库"""
     from models import UrlLibrary, UrlItem, MonitorResult, MonitorLog
@@ -7928,7 +7974,6 @@ def monitor_library_delete(lib_id):
 
 @app.route('/monitor/run/<int:lib_id>', methods=['POST'])
 @login_required
-@csrf.exempt
 def monitor_run(lib_id):
     """执行监测"""
     from models import UrlLibrary
@@ -7964,7 +8009,6 @@ def monitor_run(lib_id):
 
 @app.route('/monitor/results/<int:lib_id>')
 @login_required
-@csrf.exempt
 def monitor_results(lib_id):
     """查看监测结果"""
     from models import UrlLibrary, MonitorResult
@@ -7981,7 +8025,6 @@ def monitor_results(lib_id):
 
 @app.route('/monitor/logs/<int:lib_id>')
 @login_required
-@csrf.exempt
 def monitor_logs(lib_id):
     """查看监测日志"""
     from models import UrlLibrary, MonitorLog
@@ -7992,7 +8035,6 @@ def monitor_logs(lib_id):
 
 @app.route('/monitor/export/<int:lib_id>')
 @login_required
-@csrf.exempt
 def monitor_export(lib_id):
     """导出监测结果"""
     from models import MonitorResult
@@ -8041,7 +8083,6 @@ def monitor_schedule_index():
 
 @app.route('/monitor/schedule/new', methods=['GET', 'POST'])
 @login_required
-@csrf.exempt
 def monitor_schedule_new():
     """新建定时任务"""
     from models import MonitorScheduledTask, UrlLibrary
@@ -8107,7 +8148,6 @@ def monitor_schedule_new():
 
 @app.route('/monitor/schedule/edit/<int:task_id>', methods=['GET', 'POST'])
 @login_required
-@csrf.exempt
 def monitor_schedule_edit(task_id):
     """编辑定时任务"""
     from models import MonitorScheduledTask, UrlLibrary
@@ -8159,7 +8199,6 @@ def monitor_schedule_edit(task_id):
 
 @app.route('/monitor/schedule/delete/<int:task_id>', methods=['POST'])
 @login_required
-@csrf.exempt
 def monitor_schedule_delete(task_id):
     """删除定时任务"""
     from models import MonitorScheduledTask
@@ -8172,8 +8211,8 @@ def monitor_schedule_delete(task_id):
         job_id = f'monitor_task_{task.id}'
         if scheduler.get_job(job_id):
             scheduler.remove_job(job_id)
-    except:
-        pass
+    except Exception as e:
+        logger.warning(f"移除调度任务失败: task_id={task.id}, {e}")
     
     db.session.delete(task)
     db.session.commit()
@@ -8184,7 +8223,6 @@ def monitor_schedule_delete(task_id):
 
 @app.route('/monitor/schedule/toggle/<int:task_id>', methods=['POST'])
 @login_required
-@csrf.exempt
 def monitor_schedule_toggle(task_id):
     """启用/禁用定时任务"""
     from models import MonitorScheduledTask
@@ -8217,7 +8255,6 @@ def monitor_schedule_toggle(task_id):
 
 @app.route('/monitor/schedule/logs')
 @login_required
-@csrf.exempt
 def monitor_schedule_logs():
     """查看调度日志"""
     from models import MonitorSystemLog
@@ -8320,7 +8357,6 @@ def system_config():
 
 @app.route('/admin/system_config/save', methods=['POST'])
 @login_required
-@csrf.exempt
 def system_config_save():
     """保存系统配置"""
     if current_user.role != 'admin':
@@ -8343,7 +8379,6 @@ def system_config_save():
 
 @app.route('/admin/system_config/test', methods=['POST'])
 @login_required
-@csrf.exempt
 def system_config_test():
     """测试配置"""
     if current_user.role != 'admin':

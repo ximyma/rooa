@@ -195,7 +195,8 @@ class AIModelConfig(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)          # 配置名称，如"GPT-4"
     provider = db.Column(db.String(50), nullable=False)       # openai, deepseek, siliconflow, local
-    api_key = db.Column(db.String(500))
+    # API Key 加密存储：数据库列名保持 'api_key'，读写时透明加解密
+    _api_key_raw = db.Column('api_key', db.String(500))
     api_base = db.Column(db.String(500))                      # API地址，本地模型需指定
     model_name = db.Column(db.String(100))                    # 模型名称，如gpt-4
     temperature = db.Column(db.Float, default=0.7)            # 温度
@@ -204,6 +205,18 @@ class AIModelConfig(db.Model):
     delay = db.Column(db.Integer, default=0)                  # 延时（毫秒）
     is_active = db.Column(db.Boolean, default=True)           # 是否启用
     created_at = db.Column(db.DateTime, default=datetime.now)
+    
+    @property
+    def api_key(self):
+        """读取 API Key（自动解密）"""
+        from api_key_crypto import decrypt_api_key
+        return decrypt_api_key(self._api_key_raw) if self._api_key_raw else ''
+    
+    @api_key.setter
+    def api_key(self, value):
+        """设置 API Key（自动加密）"""
+        from api_key_crypto import encrypt_api_key
+        self._api_key_raw = encrypt_api_key(value) if value else ''
     
     __table_args__ = (
         db.Index('idx_aimc_is_active', 'is_active'),
@@ -448,7 +461,7 @@ class BriefingSystemLog(db.Model):
     
     @staticmethod
     def log(level, module, message, details=None):
-        """记录日志"""
+        """记录日志（使用 flush 而非 commit，由调用方控制事务边界）"""
         import json
         log_entry = BriefingSystemLog(
             level=level,
@@ -457,7 +470,10 @@ class BriefingSystemLog(db.Model):
             details=json.dumps(details, ensure_ascii=False) if details else None
         )
         db.session.add(log_entry)
-        db.session.commit()
+        try:
+            db.session.flush()
+        except Exception:
+            db.session.rollback()
 
     __table_args__ = (
         db.Index('idx_bsl_created_at', 'created_at'),
@@ -1052,7 +1068,7 @@ class MonitorSystemLog(db.Model):
 
     @staticmethod
     def log(level, module, message, details=None):
-        """记录日志"""
+        """记录日志（使用 flush 而非 commit，由调用方控制事务边界）"""
         import json
         log_entry = MonitorSystemLog(
             level=level,
@@ -1061,7 +1077,10 @@ class MonitorSystemLog(db.Model):
             details=json.dumps(details, ensure_ascii=False) if details else None
         )
         db.session.add(log_entry)
-        db.session.commit()
+        try:
+            db.session.flush()
+        except Exception:
+            db.session.rollback()
 
     __table_args__ = (
         db.Index('idx_msl_created_at', 'created_at'),

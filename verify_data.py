@@ -4,6 +4,7 @@
 数据完整性验证脚本
 检查数据库中所有必要数据是否完整
 """
+import os
 import sys
 from pathlib import Path
 
@@ -16,7 +17,7 @@ from flask import Flask
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///oa.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = 'temp-secret-key-for-verify'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or 'verify-data-key-not-for-production'
 
 # 先导入 models.py 中的 db，然后初始化
 from models import db

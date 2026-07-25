@@ -6,6 +6,8 @@
 """
 import os
 import sys
+import secrets
+import string
 from pathlib import Path
 
 # 添加当前目录到路径
@@ -38,9 +40,12 @@ def init_admin_user():
     with app.app_context():
         admin = User.query.filter_by(username='admin').first()
         if not admin:
+            initial_password = os.environ.get('ADMIN_INITIAL_PASSWORD') or ''.join(
+                secrets.choice(string.ascii_letters + string.digits) for _ in range(16)
+            )
             admin = User(
                 username='admin',
-                password=generate_password_hash('admin123'),
+                password=generate_password_hash(initial_password),
                 name='系统管理员',
                 department='办公室',
                 role='admin',
@@ -53,7 +58,8 @@ def init_admin_user():
             db.session.commit()
             print(f"✓ 管理员用户创建成功")
             print(f"  用户名: admin")
-            print(f"  密码: admin123")
+            print(f"  初始密码: {initial_password}")
+            print(f"  请登录后立即修改密码！")
         else:
             print("✓ 管理员用户已存在")
     print()
@@ -852,11 +858,8 @@ def main():
         print("✓ 数据库初始化完成!")
         print("=" * 60)
         print()
-        print("快速登录信息:")
-        print("  用户名: admin")
-        print("  密码: admin123")
-        print()
-        print("请及时修改默认密码!")
+        print("管理员登录信息请查看上方输出")
+        print("（密码为随机生成，请妥善保存！）")
         print()
         
     except Exception as e:

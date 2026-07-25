@@ -4,6 +4,8 @@
 
 import os
 import sys
+import secrets
+import string
 from pathlib import Path
 from datetime import datetime, date
 import random
@@ -25,7 +27,7 @@ else:
 DB_PATH = APP_PATH / 'oa.db'
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{DB_PATH.as_posix()}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = 'temp-secret-key-for-init'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
 
 # 先导入 models.py 中的 db，然后初始化
 from models import db
@@ -64,9 +66,12 @@ def init_admin_user():
     with app.app_context():
         admin = User.query.filter_by(username='admin').first()
         if not admin:
+            initial_password = os.environ.get('ADMIN_INITIAL_PASSWORD') or ''.join(
+                secrets.choice(string.ascii_letters + string.digits) for _ in range(16)
+            )
             admin = User(
                 username='admin',
-                password=generate_password_hash('admin123'),
+                password=generate_password_hash(initial_password),
                 name='系统管理员',
                 department='办公室',
                 role='admin',
@@ -79,7 +84,8 @@ def init_admin_user():
             db.session.commit()
             print("OK: 管理员用户创建成功")
             print("  用户名: admin")
-            print("  密码: admin123")
+            print(f"  初始密码: {initial_password}")
+            print("  请登录后立即修改密码！")
         else:
             print("OK: 管理员用户已存在")
     return True
@@ -792,11 +798,8 @@ def main():
         # 完成总结
         print_header("数据库初始化完成!")
         print("\n")
-        print("快速登录信息:")
-        print("  用户名: admin")
-        print("  密码: admin123")
-        print("\n")
-        print("请及时修改默认密码!")
+        print("管理员登录信息请查看上方输出")
+        print("（密码为随机生成，请妥善保存！）")
         print("\n")
         
         return True

@@ -38,18 +38,23 @@ def call_ai_model(config, messages):
     if config.delay > 0:
         time.sleep(config.delay / 1000.0)
 
-    if config.provider == 'openai':
-        return call_openai(config, messages)
-    elif config.provider == 'deepseek':
-        return call_deepseek(config, messages)
-    elif config.provider == 'siliconflow':
-        return call_siliconflow(config, messages)
+    provider_map = {
+        'openai': 'OpenAI',
+        'deepseek': 'DeepSeek',
+        'siliconflow': '硅基流动',
+    }
+    provider_name = provider_map.get(config.provider, config.provider)
+
+    if config.provider in ('openai', 'deepseek', 'siliconflow'):
+        return _call_openai_compatible(config, messages, provider_name)
     elif config.provider == 'local':
         return call_local(config, messages)
     else:
-        return "不支持的模型提供商"
+        return f"不支持的模型提供商: {config.provider}"
 
-def call_openai(config, messages):
+
+def _call_openai_compatible(config, messages, provider_name='AI'):
+    """统一的 OpenAI 兼容 API 调用"""
     headers = {
         "Authorization": f"Bearer {config.api_key}",
         "Content-Type": "application/json"
@@ -62,60 +67,28 @@ def call_openai(config, messages):
     }
     try:
         url = _build_api_url(config.api_base, 'chat/completions')
-        response = requests.post(url, headers=headers, json=payload)
+        response = requests.post(url, headers=headers, json=payload, timeout=120)
         if response.status_code == 200:
             return response.json()['choices'][0]['message']['content']
         else:
-            return f"OpenAI API错误: {response.text}"
-    except Exception as e:
+            logger.error(f"{provider_name} API错误: {response.status_code} - {response.text[:300]}")
+            return f"{provider_name} API错误: {response.text[:200]}"
+    except requests.exceptions.Timeout:
+        logger.error(f"{provider_name} API请求超时")
+        return f"{provider_name} API请求超时，请稍后重试"
+    except requests.exceptions.RequestException as e:
+        logger.error(f"{provider_name} API请求失败: {str(e)}")
         return f"请求失败: {str(e)}"
 
-def call_deepseek(config, messages):
-    # DeepSeek兼容OpenAI接口
-    headers = {
-        "Authorization": f"Bearer {config.api_key}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "model": config.model_name,
-        "messages": messages,
-        "temperature": config.temperature,
-        "max_tokens": config.max_tokens
-    }
-    try:
-        url = _build_api_url(config.api_base, 'chat/completions')
-        response = requests.post(url, headers=headers, json=payload)
-        if response.status_code == 200:
-            return response.json()['choices'][0]['message']['content']
-        else:
-            return f"DeepSeek API错误: {response.text}"
-    except Exception as e:
-        return f"请求失败: {str(e)}"
+# 保留旧函数名作为别名，确保兼容性
+call_openai = lambda config, messages: _call_openai_compatible(config, messages, 'OpenAI')
+call_deepseek = lambda config, messages: _call_openai_compatible(config, messages, 'DeepSeek')
+call_siliconflow = lambda config, messages: _call_openai_compatible(config, messages, '硅基流动')
 
-def call_siliconflow(config, messages):
-    # 硅基流动也兼容OpenAI接口
-    headers = {
-        "Authorization": f"Bearer {config.api_key}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "model": config.model_name,
-        "messages": messages,
-        "temperature": config.temperature,
-        "max_tokens": config.max_tokens
-    }
-    try:
-        url = _build_api_url(config.api_base, 'chat/completions')
-        response = requests.post(url, headers=headers, json=payload)
-        if response.status_code == 200:
-            return response.json()['choices'][0]['message']['content']
-        else:
-            return f"硅基流动API错误: {response.text}"
-    except Exception as e:
-        return f"请求失败: {str(e)}"
 
 def _build_api_url(api_base, path):
-    """拼接 API URL，避免重复 /v1 路径"""
+    """拼接 API URL，正确处理 /v1 路径"""
+    from urllib.parse import urljoin
     base = api_base.rstrip('/')
     # 如果 base 已经以 /v1 结尾，直接追加 path
     if base.endswith('/v1'):
@@ -190,6 +163,57 @@ def ai_suggestion(content, department_duty):
     summary = f"摘要：{content[:100]}..."
     opinion = f"拟办意见：请{department_duty}根据上述情况，尽快办理。"
     return summary, opinion
+
+
+# ===== 文件内容验证（魔数检测） =====
+# 常见文件类型的魔数（文件头字节签名）
+_FILE_SIGNATURES = {
+    'pdf': [b'%PDF'],
+    'docx': [b'PK\x03\x04'],  # ZIP-based (docx/xlsx/pptx)
+    'doc': [b'\xd0\xcf\x11\xe0'],  # OLE2
+    'xls': [b'\xd0\xcf\x11\xe0'],
+    'xlsx': [b'PK\x03\x04'],
+    'txt': None,  # 纯文本无固定魔数
+    'md': None,
+    'png': [b'\x89PNG\r\n\x1a\n'],
+    'jpg': [b'\xff\xd8\xff'],
+    'jpeg': [b'\xff\xd8\xff'],
+    'gif': [b'GIF89a', b'GIF87a'],
+    'bmp': [b'BM'],
+    'zip': [b'PK\x03\x04'],
+    'rar': [b'Rar!\x1a\x07'],
+    '7z': [b"7z\xbc\xaf'\x1c"],
+}
+
+def validate_file_content(filepath, claimed_extension=None):
+    """
+    通过文件头魔数验证文件内容与其声称的扩展名是否一致。
+    返回: (is_valid: bool, detected_type: str)
+    """
+    if claimed_extension is None:
+        claimed_extension = filepath.rsplit('.', 1)[-1].lower() if '.' in filepath else ''
+    
+    if claimed_extension not in _FILE_SIGNATURES:
+        return True, claimed_extension  # 未知类型，不阻止
+    
+    expected_sigs = _FILE_SIGNATURES[claimed_extension]
+    if expected_sigs is None:
+        return True, claimed_extension  # 纯文本无魔数
+    
+    try:
+        with open(filepath, 'rb') as f:
+            header = f.read(16)
+        
+        for sig in expected_sigs:
+            if header.startswith(sig):
+                return True, claimed_extension
+        
+        logger.warning(f"文件魔数不匹配: {filepath}, 声称扩展名={claimed_extension}, 文件头={header[:8].hex()}")
+        return False, claimed_extension
+    except Exception as e:
+        logger.warning(f"文件内容验证失败: {filepath}, {e}")
+        return True, claimed_extension  # 无法读取时不过度阻止
+
 
 def pdf_to_text(pdf_path):
     import PyPDF2
@@ -390,6 +414,24 @@ class BriefingWebScraper:
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
             'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
         })
+
+    def close(self):
+        """关闭会话，释放连接资源"""
+        if self.session:
+            self.session.close()
+            self.session = None
+
+    def __del__(self):
+        try:
+            self.close()
+        except Exception:
+            pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
     
     def fetch(self, url, encoding=None):
         """获取网页内容"""

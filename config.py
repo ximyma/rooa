@@ -5,8 +5,9 @@ from pathlib import Path
 
 
 class Config:
-    # 安全密钥 - 必须使用固定值，否则每次重启session失效，CSRF报错
-    SECRET_KEY = 'ooa-secret-key-2026-fixed-do-not-change'
+    # 安全密钥 - 从环境变量读取，不存在则自动随机生成
+    # 生产环境务必设置环境变量 SECRET_KEY 固定值，否则每次重启所有 session 失效
+    SECRET_KEY = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
     
     # 数据库配置 - 使用绝对路径，确保路径一致
     BASE_DIR = Path(__file__).resolve().parent
@@ -19,7 +20,6 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # 上传文件配置
-    UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
     UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
     MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', 1024 * 1024 * 1024))  # 默认 1GB
     

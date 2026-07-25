@@ -1,7 +1,7 @@
 # OOA 智能服务办公平台 - 工作记忆
 
-> 最后整理：2026-04-07
-> 整理原因：合并重复记录，保留当前仍有长期价值的项目事实、约定和关键修复。
+> 最后整理：2026-07-25
+> 整理原因：代码全面审计完成，记录关键发现和修复优先级。
 
 ## 1. 项目基础
 - **项目路径**：`c:\Users\Administrator\Desktop\ooa`
@@ -166,4 +166,59 @@
 - **系统配置**: 管理员可访问 `/admin/system_config` 调整文档长度限制
 - **配置生效**: 修改配置后实时生效，无需重启应用
 - **向后兼容**: 配置获取失败时使用 `config.py` 中的默认常量
+
+## 8. 代码审计发现（2026-07-25）
+
+### 8.1 P0 高危（已全部修复 ✅）
+- ~~**SECRET_KEY 硬编码**~~: `config.py` 已改为 `os.environ.get('SECRET_KEY') or secrets.token_hex(32)`
+- ~~**默认密码 `admin123`**~~: `app.py` 已改为随机 16 位密码，通过控制台输出
+- ~~**CSRF 豁免过多**~~: 53个不必要的 `@csrf.exempt` 已移除，仅保留 `/login`
+- ~~**文件下载路径遍历风险**~~: `send_from_directory` 已使用 `safe_join`
+- ~~**登录无暴力破解防护**~~: 已添加内存速率限制 (5次/60s, 锁定5分钟)
+- **API Key 明文存数据库**: `AIModelConfig.api_key` 未加密（待后续处理，需加解密方案设计）
+- **临时密钥散落**: init 脚本中仍有硬编码（待清理，非核心运行时影响）
+
+### 8.2 P1 中危（已全部修复 ✅）
+- ~~**12处 `except: pass` 吞异常**~~: 已全部替换为 `logger.warning/debug/error`
+- ~~**AI 函数严重重复**~~: 已合并为 `_call_openai_compatible()`，旧函数保留为别名
+- ~~**LIKE 搜索 N+1 查询**~~: 已添加 `db.contains_eager(KnowledgeFile.knowledge_base)`
+- ~~**FTS 首次搜索延迟**~~: `initialize_db()` 结束时主动调用 `_ensure_fts()`
+- ~~**模型层直接 `db.session.commit()`**~~: `BriefingSystemLog.log()` 和 `MonitorSystemLog.log()` 改为 `flush()`
+- ~~**文件上传仅检查扩展名**~~: 已添加 `validate_file_content()` 魔数检测
+- ~~**`doc_convert_tasks` 全局字典无锁**~~: 已添加 `_doc_convert_lock = threading.Lock()`
+- ~~**config.py 重复赋值**~~: `UPLOAD_FOLDER` 重复行已删除
+
+### 8.3 其他修复
+- **个人中心输入验证**: 添加了 email/name/phone 格式校验
+- **BriefingWebScraper Session 关闭**: 添加了 `close()`、`__del__`、`__enter__`/`__exit__` 方法
+- **LibreOffice 路径配置化**: 支持 `SOFFICE_PATH` 环境变量和 `config_manager` 配置
+- **.env.example 完善**: 添加了所有环境变量说明
+- **用户输入验证**: email 格式、phone 格式、name 长度校验
+
+### 8.4 待处理
+- app.py 蓝图拆分（架构优化，非紧急）
+- pytest 测试覆盖（架构优化，非紧急）
+- Alembic 迁移工具（架构优化，非紧急）
+- API Key 加密存储（需设计加解密方案）
+- init 脚本中硬编码密码和密钥清理
+
+### 8.4 审计报告
+- 完整报告: `D:\myapps\rooa\CODE_AUDIT_REPORT.md`
+
+## 9. 第二轮修复完成（2026-07-25 晚）
+
+### 9.1 init 脚本硬编码清理（✅ 已全部修复）
+- `init_database.py`: 随机密码 + SECRET_KEY 环境变量
+- `init_db_standalone.py`: 同上
+- `init_db_standalone_simple.py`: 同上
+- `debug_init.py`: SECRET_KEY 修复
+- `verify_data.py`: SECRET_KEY 修复
+- `verify_data_simple.py`: SECRET_KEY 修复
+
+### 9.2 API Key 加密存储（✅ 已实现）
+- 新增 `api_key_crypto.py`: Fernet 对称加密模块
+- `AIModelConfig.api_key`: 透明加解密属性（读解密、写加密）
+- 向后兼容：明文密钥自动识别（不以 `enc:` 开头则视为明文）
+- 密钥来源：环境变量 `API_ENCRYPTION_KEY` → `SECRET_KEY` 回退
+- 依赖：`cryptography>=41.0.0` 已加入 requirements.txt
 
