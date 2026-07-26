@@ -55,7 +55,9 @@ instance/
 # 上传文件
 uploads/*
 !uploads/.gitkeep
-#模型文件
+# 模型文件
 models/*
-#输出文档
+# 输出文档
 briefing_output/*
+# WorkBuddy 工作目录
+.workbuddy/
